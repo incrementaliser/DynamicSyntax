@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gui = ["flet>=0.24.0"]
+gui = ["flet>=0.24.0", "matplotlib>=3.8"]
 nlp = ["nltk>=3.9", "spacy>=3.8"]
 viz = ["plotly>=5", "pandas>=2"]
 
@@ -34,6 +34,7 @@ viz = ["plotly>=5", "pandas>=2"]
 dev = [
     "pytest>=8",
     "flet>=0.24.0",
+    "matplotlib>=3.8",
 ]
 
 [project.scripts]
