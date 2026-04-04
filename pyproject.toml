@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 gui = ["flet>=0.24.0"]
 nlp = ["nltk>=3.9", "spacy>=3.8"]
+viz = ["plotly>=5", "pandas>=2"]
 
 [project.scripts]
 dylan-gui = "dylan.gui.app:main"

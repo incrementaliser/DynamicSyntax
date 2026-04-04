@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from dylan.formula.formula import Formula
 
@@ -29,3 +29,7 @@ class TTRFormula(Formula):
     def evaluate(self) -> TTRFormula:
         """Resolve metavariables / lazy ops; default is identity (Java `TTRFormula.evaluate`)."""
         return self
+
+    def freshen_vars(self, tree: Any) -> TTRFormula:
+        """Alpha-rename to avoid capture using *tree*'s pools (Java ``TTRFormula.freshenVars``; stub: clone)."""
+        return self.clone()  # type: ignore[return-value]

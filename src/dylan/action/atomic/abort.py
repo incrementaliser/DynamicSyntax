@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from dylan.action.atomic.effect import Effect
-from dylan.dag.parser_tuple import ParserTuple
+from typing import Any
 from dylan.tree.tree import Tree
 
 
 class Abort(Effect):
     FUNCTOR = "abort"
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         return None
 
     def instantiate(self) -> Effect:

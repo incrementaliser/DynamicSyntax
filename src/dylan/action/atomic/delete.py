@@ -6,7 +6,7 @@ import logging
 import re
 
 from dylan.action.atomic.effect import Effect
-from dylan.dag.parser_tuple import ParserTuple
+from typing import Any
 from dylan.tree.label.labels import Label, label_factory_create
 from dylan.tree.tree import Tree
 
@@ -32,7 +32,7 @@ class Delete(Effect):
         lab = label_factory_create(m.group(1).strip())
         return cls(lab)
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         tree.delete_label(self.label)
         return tree
 

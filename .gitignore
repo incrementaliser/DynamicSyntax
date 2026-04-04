@@ -68,3 +68,6 @@ Thumbs.db
 
 # Uncomment if you do not commit VS Code workspace settings
 # .vscode/
+viz.py
+translation.csv
+translation_viz.html

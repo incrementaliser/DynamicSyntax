@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from dylan.formula.formula import Formula
+from dylan.formula.variable import Variable
 from dylan.formula.meta_ttr_label import MetaTTRLabel
 from dylan.formula.ttr_label import TTRLabel
 from dylan.type.dstype import DSType
@@ -97,6 +98,21 @@ class TTRField(Formula):
     def clone(self) -> Formula:
         mt = self.manifest_type.clone() if self.manifest_type is not None else None
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
+
+    def instantiate(self) -> Formula:
+        mt = self.manifest_type.instantiate() if self.manifest_type is not None else None
+        return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
+
+    def evaluate(self) -> Formula:
+        mt = self.manifest_type.evaluate() if self.manifest_type is not None else None
+        return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
+
+    def substitute(self, var: Variable, arg: Formula) -> Formula:
+        mt = self.manifest_type.substitute(var, arg) if self.manifest_type is not None else None
+        return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
+
+    def conjoin(self, other: Formula) -> Formula:
+        raise TypeError(f"Cannot conjoin TTRField with {type(other).__name__}")
 
     def __str__(self) -> str:
         if self.ds_type is not None:

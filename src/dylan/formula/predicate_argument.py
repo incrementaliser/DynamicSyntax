@@ -30,6 +30,29 @@ class PredicateArgumentFormula(Formula):
             tuple(a.clone() for a in self.arguments),
         )
 
+    def instantiate(self) -> Formula:
+        return PredicateArgumentFormula(
+            self.predicate,
+            tuple(a.instantiate() for a in self.arguments),
+        )
+
+    def evaluate(self) -> Formula:
+        return PredicateArgumentFormula(
+            self.predicate,
+            tuple(a.evaluate() for a in self.arguments),
+        )
+
+    def substitute(self, var: "Variable", arg: Formula) -> Formula:
+        from dylan.formula.variable import Variable
+
+        return PredicateArgumentFormula(
+            self.predicate,
+            tuple(x.substitute(var, arg) for x in self.arguments),
+        )
+
+    def conjoin(self, other: Formula) -> Formula:
+        raise TypeError(f"Cannot conjoin PredicateArgumentFormula with {type(other).__name__}")
+
     def __str__(self) -> str:
         inner = ",".join(str(a) for a in self.arguments)
         return f"{self.predicate.name}({inner})"

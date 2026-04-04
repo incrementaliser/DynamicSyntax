@@ -16,11 +16,12 @@ class Effect(ABC):
     """AST node for one side of an IF/THEN/ELSE."""
 
     @abstractmethod
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: ParserTuple | Context | None) -> Tree | None:
         raise NotImplementedError
 
     def exec(self, tree: Tree, context: Context[DAGTuple, Any] | None) -> Tree | None:
-        return self.exec_tuple_context(tree, None)
+        """Run using dialogue/parse *context* when labels need it (Java ``Effect.exec``)."""
+        return self.exec_tuple_context(tree, context)
 
     @abstractmethod
     def instantiate(self) -> Effect:

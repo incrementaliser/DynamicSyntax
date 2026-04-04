@@ -49,6 +49,13 @@ class Context(Generic[T, E]):
         """Return dialogue participant ids."""
         return set(self._participants)
 
+    def get_current_addressee(self) -> str | None:
+        """Addressee of the word currently being parsed (Java ``Context.getCurrentAddressee``)."""
+        stack = self._dag.word_stack_ref()
+        if not stack:
+            return None
+        return stack[-1].addressee
+
     def get_current_tuple(self) -> DAGTuple:
         """Return the tuple under the DAG cursor."""
         return self._dag.get_current_tuple()
@@ -60,6 +67,14 @@ class Context(Generic[T, E]):
     def open_floor(self) -> None:
         """Mark the floor as unassigned."""
         self.who_has_floor = None
+
+    def ground_to_root(self) -> None:
+        """Ground dialogue state to root (Java ``Context.groundToRoot``; DAG hook stub)."""
+        return
+
+    def get_speech_act_grammar(self) -> SpeechActInferenceGrammar:
+        """Return the loaded speech-act inference grammar (Java ``getSAGrammar``)."""
+        return self.sa_inf_grammar
 
     def set_who_has_floor(self, speaker: str) -> None:
         """Assign the conversational floor to `speaker`."""

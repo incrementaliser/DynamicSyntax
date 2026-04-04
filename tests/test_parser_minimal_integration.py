@@ -11,6 +11,7 @@ from dylan.nlp.types import Utterance, utterance_from_text
 from dylan.parser.interactive_context_parser import InteractiveContextParser
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "parser_minimal"
+GRAMMAR_2026 = Path(__file__).resolve().parents[1] / "resources" / "2026-english-ttr-test"
 
 
 def test_parse_single_word_test() -> None:
@@ -31,3 +32,22 @@ def test_parse_utterance_whitespace() -> None:
     utt = utterance_from_text("Dylan", "test")
     assert isinstance(utt, Utterance)
     assert p.parse_utterance(utt) is True
+
+
+def test_modal_label_two_operator_path_not_truncated() -> None:
+    """Regression: Python regex must not collapse ``<\\/1\\/0>`` to a single ``\\/0``."""
+    from dylan.tree.label.labels import ModalLabel, label_factory_create
+
+    lab = label_factory_create(r"</\1\/0>person(s3)")
+    assert isinstance(lab, ModalLabel)
+    assert len(lab.modality.ops) == 2
+
+
+def test_parse_mini_sentence_2026_grammar() -> None:
+    """End-to-end: ``a man knows you`` with bundled 2026 test lexicon."""
+    if not (GRAMMAR_2026 / "lexicon.txt").is_file():
+        pytest.skip("2026-english-ttr-test grammar not in resources")
+    p = InteractiveContextParser(GRAMMAR_2026)
+    p.init()
+    for w in ("a", "man", "knows", "you"):
+        assert p.parse_word(UtteredWord(w, "Dylan", "you")) is not None

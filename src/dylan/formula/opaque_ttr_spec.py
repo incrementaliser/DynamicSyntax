@@ -1,9 +1,9 @@
-"""REC metavariable for record types (Java `MetaTTRRecordType` stub)."""
+"""Unparsed TTR text accepted by ``ttrput`` until full TTR lambda/infix parsing exists."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any
 
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_formula import TTRFormula
@@ -11,21 +11,19 @@ from dylan.formula.variable import Variable
 
 
 @dataclass
-class MetaTTRRecordType(TTRFormula):
-    """Placeholder REC metavariable."""
+class OpaqueTTRSpec(TTRFormula):
+    """Holds raw ``ttrput(...)`` text so lexicon lines still load (partial Java ``TTRFormula``)."""
 
-    name: str
+    source: str
 
-    _pool: ClassVar[dict[str, MetaTTRRecordType]] = {}
-
-    @classmethod
-    def get(cls, name: str) -> MetaTTRRecordType:
-        if name not in cls._pool:
-            cls._pool[name] = MetaTTRRecordType(name)
-        return cls._pool[name]
+    def __post_init__(self) -> None:
+        super().__init__()
 
     def clone(self) -> TTRFormula:
-        return self
+        return OpaqueTTRSpec(self.source)
+
+    def freshen_vars(self, tree: Any) -> TTRFormula:
+        return self.clone()
 
     def instantiate(self) -> Formula:
         return self
@@ -37,7 +35,7 @@ class MetaTTRRecordType(TTRFormula):
         return self
 
     def conjoin(self, other: Formula) -> Formula:
-        raise TypeError("Cannot conjoin REC metavariable")
+        raise TypeError("Cannot conjoin opaque TTR spec")
 
     def __str__(self) -> str:
-        return self.name
+        return self.source

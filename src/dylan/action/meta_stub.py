@@ -1,10 +1,11 @@
-"""Minimal meta-type placeholder until full meta machinery is ported."""
+"""Meta-type placeholder and pool reset hook (Java ``MetaElement`` / ``MetaType``)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar
 
+from dylan.action.meta.element import MetaElement, reset_meta_element_pool
 from dylan.type.dstype import DSType
 
 
@@ -26,14 +27,10 @@ class MetaType(DSType):
         return self.name
 
 
-class MetaElement:
-    """Static reset hook used by IfThenElse (Java `MetaElement`)."""
-
-    @staticmethod
-    def reset_bound_metas() -> None:
-        """Clear metavar bindings between action applications."""
-        return
-
-
 def reset_bound_metas() -> None:
-    MetaElement.reset_bound_metas()
+    """Clear metavariable bindings between action applications (Java ``MetaElement.resetBoundMetas``)."""
+    reset_meta_element_pool()
+
+
+# Back-compat alias
+MetaElementStub = MetaElement

@@ -6,7 +6,7 @@ import logging
 import re
 
 from dylan.action.atomic.effect import Effect
-from dylan.dag.parser_tuple import ParserTuple
+from typing import Any
 from dylan.tree.modality import Modality
 from dylan.tree.tree import Tree
 
@@ -34,7 +34,7 @@ class Go(Effect):
         except ValueError:
             return None
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         addr = tree.pointer.go_modality(self.modality)
         if addr is None or addr not in tree:
             logger.debug("go: cannot reach node via %s from %s", self.modality, tree.pointer)

@@ -6,7 +6,7 @@ import logging
 import re
 
 from dylan.action.atomic.effect import Effect
-from dylan.dag.parser_tuple import ParserTuple
+from typing import Any
 from dylan.tree.label.labels import Label, label_factory_create
 from dylan.tree.tree import Tree
 
@@ -32,7 +32,7 @@ class Put(Effect):
         lab = label_factory_create(m.group(1).strip())
         return cls(lab)
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         node = tree.pointed_node
         if node.contains(self.label):
             logger.debug("put: label %s already present at %s", self.label, node.address)
@@ -41,7 +41,7 @@ class Put(Effect):
         return tree
 
     def instantiate(self) -> Effect:
-        return Put(self.label)
+        return Put(self.label.instantiate())
 
     def __str__(self) -> str:
         return f"put({self.label})"

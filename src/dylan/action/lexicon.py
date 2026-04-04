@@ -101,7 +101,9 @@ class Lexicon(dict[str, list[LexicalAction]]):
         root = Path(resource_dir)
         macro_path = root / self.MACRO_FILE_NAME
         if macro_path.is_file():
-            EffectFactory.init_macro_templates(macro_path.read_text(encoding="utf-8").splitlines())
+            EffectFactory.init_macro_templates(
+                strip_block_comments(macro_path.read_text(encoding="utf-8").splitlines()),
+            )
         else:
             EffectFactory.clear_macro_templates()
         action_path = root / self.ACTION_FILE_NAME

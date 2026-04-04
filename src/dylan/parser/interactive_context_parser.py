@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from dylan.action.action import Action
+from dylan.action.lexical_action import LexicalAction
 from dylan.action.grammar import Grammar
 from dylan.action.lexicon import Lexicon
 from dylan.action.speech_act_inference_grammar import SpeechActInferenceGrammar
@@ -18,12 +19,33 @@ from dylan.dag.word_level_context_dag import WordLevelContextDAG
 from dylan.formula.formula import Formula
 from dylan.nlp.types import WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
 from dylan.parser.dag_parser import DAGParser
+from dylan.tree.label.labels import Requirement, TypeLabel
+from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _repoint_for_verb_lexical(tree: Tree, la: LexicalAction) -> None:
+    """Move pointer to ``01`` when applying finite/inf verb templates (``v_*``).
+
+    Noun work often leaves the pointer inside an NP; English ``v_tran_fin`` IF clauses
+    are stated relative to the predicate functor node ``01``.
+    """
+    at = la.get_lexical_action_type() or ""
+    if not at.startswith("v_"):
+        return
+    pred = NodeAddress("01")
+    if pred not in tree:
+        return
+    for lab in tree[pred].labels:
+        if isinstance(lab, Requirement) and isinstance(lab.inner, TypeLabel):
+            if "e>t" in str(lab.inner.type).replace(" ", ""):
+                tree.pointer = pred
+                return
 
 _MAX_LEXICAL_ADJUSTMENT_PAIRS = 50_000
 
@@ -136,8 +158,6 @@ class InteractiveContextParser(DAGParser):
         return True
 
     def _apply_all_permutations(self, goal: Formula | None) -> None:
-        from dylan.action.lexical_action import LexicalAction
-
         dag = self.get_state()
         if not dag.word_stack:
             return
@@ -155,7 +175,9 @@ class InteractiveContextParser(DAGParser):
                 left_adjust.append(la)
                 continue
             logger.debug("applying %s without left adjustment", la)
-            res = la.exec(current_tree.clone(), self.context)
+            ct = current_tree.clone()
+            _repoint_for_verb_lexical(ct, la)
+            res = la.exec(ct, self.context)
             if res is None:
                 continue
             tup = dag.get_new_tuple(res)
@@ -199,7 +221,9 @@ class InteractiveContextParser(DAGParser):
 
         for pair_acts, pair_tree in global_pairs:
             for la in left_adjust:
-                res = la.exec(pair_tree.clone(), self.context)
+                pt = pair_tree.clone()
+                _repoint_for_verb_lexical(pt, la)
+                res = la.exec(pt, self.context)
                 if res is None:
                     continue
                 f = res.get_maximal_semantics(self.context)

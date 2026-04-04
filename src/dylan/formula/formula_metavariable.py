@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from dylan.formula.formula import Formula
+from dylan.formula.variable import Variable
 
 
 @dataclass
@@ -27,6 +28,18 @@ class FormulaMetavariable(Formula):
 
     def clone(self) -> Formula:
         return self
+
+    def instantiate(self) -> Formula:
+        return self
+
+    def evaluate(self) -> Formula:
+        return self
+
+    def substitute(self, var: Variable, arg: Formula) -> Formula:
+        return self
+
+    def conjoin(self, other: Formula) -> Formula:
+        raise TypeError("Cannot conjoin formula metavariable")
 
     def __str__(self) -> str:
         return self.name

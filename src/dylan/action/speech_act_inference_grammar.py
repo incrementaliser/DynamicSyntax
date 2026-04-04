@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +15,13 @@ class SpeechActInferenceGrammar:
     FILE_NAME = "speech-act-inference-grammar.txt"
 
     def __init__(self, resource_dir: str | Path) -> None:
+        self._rules: list[Any] = []
         path = Path(resource_dir) / self.FILE_NAME
         if path.is_file():
             logger.info("Speech-act inference grammar present at %s (rules not loaded in v0)", path)
         else:
             logger.info("No speech act inference file %s; using empty SA grammar.", path)
+
+    def __iter__(self) -> Any:
+        """Iterate computational actions (Java ``Iterable`` over SA rules)."""
+        return iter(self._rules)

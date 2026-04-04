@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import re
 
+from typing import Any
+
 from dylan.action.atomic.effect import Effect
-from dylan.dag.parser_tuple import ParserTuple
 from dylan.tree.basic_operator import BasicOperator
+from dylan.tree.label.labels import BottomLabel
 from dylan.tree.tree import Tree
 
 logger = logging.getLogger(__name__)
@@ -34,7 +36,10 @@ class Make(Effect):
         except ValueError:
             return None
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
+        if any(isinstance(lab, BottomLabel) for lab in tree.pointed_node.labels) and not self.op.is_link():
+            logger.debug("make: BottomLabel on node and op is not link — fail")
+            return None
         addr = tree.pointer.go_op(self.op)
         if addr is None:
             return None

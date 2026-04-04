@@ -42,6 +42,19 @@ class NodeAddress:
     def down_star(self) -> NodeAddress:
         return self.down(PATH_UNFIXED)
 
+    def down_local_unfixed(self) -> NodeAddress:
+        """Append local-unfixed step (Java ``NodeAddress.downLocalUnfixed``)."""
+        return self.down(PATH_LOCAL_UNFIXED)
+
+    def down_char(self, ch: str) -> NodeAddress:
+        """Append a single path character ``0``, ``1``, ``L``, ``*``, or ``U`` (Java ``down(String)``)."""
+        return self.down(ch)
+
+    def is_locally_fixed(self) -> bool:
+        """False when the address ends in Kleene star or local-unfixed (Java ``isLocallyFixed``)."""
+        a = self.address
+        return not (a.endswith(PATH_UNFIXED) or a.endswith(PATH_LOCAL_UNFIXED))
+
     def up(self, path: str | None = None) -> NodeAddress | None:
         """Go up (Java ``NodeAddress.up``).
 
@@ -53,9 +66,24 @@ class NodeAddress:
             if len(self.address) < 2:
                 return None
             return NodeAddress(self.address[:-1])
-        if self.address.endswith(path) and len(self.address) > len(path):
-            return NodeAddress(self.address[: -len(path)])
-        return None
+        if not self.address.endswith(path):
+            return None
+        i = self.address.rfind(path)
+        if i < 0:
+            return None
+        return NodeAddress(self.address[:i])
+
+    def modality_path_matches(self, other: NodeAddress, ops: list["BasicOperator"]) -> bool:
+        """Whether *other* is reachable from ``self`` following *ops* (fixed operators only; Java ``NodeAddress.to``)."""
+        if not ops:
+            return self.address == other.address
+        op, *rest = ops
+        if not op.is_fixed():
+            return False
+        nxt = self.go_op(op)
+        if nxt is None:
+            return False
+        return nxt.modality_path_matches(other, rest)
 
     def go_op(self, op: "BasicOperator") -> NodeAddress | None:
         """Navigate one ``BasicOperator`` step (Java ``NodeAddress.go(BasicOperator)``)."""

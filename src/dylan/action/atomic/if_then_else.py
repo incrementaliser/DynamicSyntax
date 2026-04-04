@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from dylan.action.atomic.effect import Effect
 from dylan.action.atomic.effect_factory import EffectFactory
 from dylan.action.meta_stub import reset_bound_metas
-from dylan.dag.parser_tuple import ParserTuple
 from dylan.tree.label.labels import Label, label_factory_create
 from dylan.tree.tree import Tree
 
@@ -158,7 +157,7 @@ class IfThenElse(Effect):
     def setup_backtrackers(self, exceptions: list[Any] | None = None) -> None:
         self.backtracker = Backtracker()
 
-    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+    def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         """Execute this IF/THEN/ELSE on *tree*.
 
         Matches Java ``IfThenElse.execTupleContext``: when the chosen branch
@@ -186,7 +185,7 @@ class IfThenElse(Effect):
         return result
 
     def exec(self, tree: Tree, context: Any) -> Tree | None:
-        return self.exec_tuple_context(tree, None)
+        return self.exec_tuple_context(tree, context)
 
     def instantiate(self) -> Effect:
         return IfThenElse(

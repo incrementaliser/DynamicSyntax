@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from dylan.formula.formula import Formula
+
 _VARIABLE_PATTERN = re.compile(
     r"^([a-z][a-z0-9]*|R[0-9]+|reftime|head|pred[0-9]*)$",
     re.IGNORECASE,
@@ -12,13 +14,29 @@ _VARIABLE_PATTERN = re.compile(
 
 
 @dataclass
-class Variable:
-    """DS/TTR variable (e.g. ``x``, ``e1``)."""
+class Variable(Formula):
+    """DS/TTR variable (e.g. ``x``, ``e1``) as a :class:`Formula` (Java ``Variable`` extends ``Formula``)."""
 
     name: str
 
     def __post_init__(self) -> None:
+        super().__init__()
         self.name = self.name.strip()
+
+    def clone(self) -> Formula:
+        return Variable(self.name)
+
+    def instantiate(self) -> Formula:
+        return Variable(self.name)
+
+    def evaluate(self) -> Formula:
+        return self
+
+    def conjoin(self, other: Formula) -> Formula:
+        raise TypeError(f"Cannot conjoin Variable with {type(other).__name__}")
+
+    def substitute(self, var: Variable, arg: Formula) -> Formula:
+        return arg if self == var else self
 
     def __str__(self) -> str:
         return self.name

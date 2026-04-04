@@ -11,7 +11,7 @@ from dylan.action.lexicon import (
 
 def test_referenced_template_names() -> None:
     """Second column of lexicon lines becomes template names."""
-    lines = ["word1  tpl_a  x", None, "  tpl_b  y  z"]
+    lines = ["word1  tpl_a  x", None, "word2  tpl_b  y  z"]
     assert _referenced_template_names_from_lexicon(lines) == {"tpl_a", "tpl_b"}
 
 
