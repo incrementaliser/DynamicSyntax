@@ -558,9 +558,17 @@ def main() -> None:
             on_click=do_new_sentence,
             tooltip="Reset DAG to axiom (Java newSentence)",
         )
+        show_logs_toggle = ft.Checkbox(
+            label="Logs",
+            value=True,
+            label_style=ft.TextStyle(color=BODY_TEXT_COLOR, size=11),
+            tooltip="Show or hide Info and Logs (right panel)",
+            visual_density=ft.VisualDensity.COMPACT,
+        )
         grammar_toolbar = ft.Row(
             [
                 load_grammar_btn,
+                show_logs_toggle,
                 ft.Container(expand=True),
                 repair_cb,
                 reset_before,
@@ -609,15 +617,26 @@ def main() -> None:
             border_radius=8,
             expand=35,
         )
+        left_wrap = ft.Container(
+            content=left_column,
+            expand=65,
+            padding=ft.Padding.only(right=8),
+            bgcolor=PANEL_BACKGROUND,
+        )
+
+        def on_show_logs_change(e: ft.ControlEvent) -> None:
+            """Show or hide the Info/Logs column; when off, the parse UI uses the full width."""
+            show = bool(e.control.value)
+            logs_panel.visible = show
+            left_wrap.expand = 65 if show else True
+            page.update()
+
+        show_logs_toggle.on_change = on_show_logs_change
+
         page.add(
             ft.Row(
                 [
-                    ft.Container(
-                        content=left_column,
-                        expand=65,
-                        padding=ft.Padding.only(right=8),
-                        bgcolor=PANEL_BACKGROUND,
-                    ),
+                    left_wrap,
                     logs_panel,
                 ],
                 expand=True,
