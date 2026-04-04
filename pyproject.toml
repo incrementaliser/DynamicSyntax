@@ -3,7 +3,7 @@ requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "synamicsyntax"
+name = "dynamicsyntax"
 version = "0.1.0"
 description = "Python port of DyLan Dynamic Syntax + TTR (parser core)"
 readme = "README.md"

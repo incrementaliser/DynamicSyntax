@@ -1,11 +1,11 @@
-# synamicsyntax
+# dynamicsyntax
 
 Python 3.13 port of the **DyLan** Dynamic Syntax parser core (Java `qmul.ds`). Installable import package: **`dylan`**.
 
 ## Install (development)
 
 ```bash
-cd synamicsyntax
+cd dynamicsyntax
 uv sync
 uv run pytest
 ```

@@ -1,4 +1,4 @@
-"""Flet GUI (optional extra ``pip install synamicsyntax[gui]``; entry point ``dylan-gui``)."""
+"""Flet GUI (optional extra ``pip install dynamicsyntax[gui]``; entry point ``dylan-gui``)."""
 
 from __future__ import annotations
 
