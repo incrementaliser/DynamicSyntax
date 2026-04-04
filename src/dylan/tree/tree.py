@@ -436,9 +436,11 @@ class Tree(dict[NodeAddress, Node]):
         self.pointed_node.remove_label(label)
 
     def is_complete(self) -> bool:
-        """True when no node still carries an outstanding :class:`Requirement` (Java ``Tree.isComplete`` sketch)."""
+        """True when pointer is at root and no node carries a :class:`Requirement` (Java ``Tree.isComplete``)."""
         from dylan.tree.label.labels import Requirement as _Req
 
+        if not self.pointer.is_root():
+            return False
         for node in self.values():
             for lab in node.labels:
                 if isinstance(lab, _Req):

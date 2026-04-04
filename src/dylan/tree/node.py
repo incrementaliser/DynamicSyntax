@@ -24,8 +24,12 @@ class Node:
         return iter(self.labels)
 
     def add_label(self, label: Label) -> bool:
-        """Add *label* if not already present; return whether it was added."""
-        if label in self.labels:
+        """Add *label*; replace same-class :class:`TypeLabel` / :class:`FormulaLabel` (Java ``Node.addLabel``)."""
+        if isinstance(label, (TypeLabel, FormulaLabel)):
+            existing = next((l for l in self.labels if type(l) is type(label)), None)
+            if existing is not None:
+                self.labels.remove(existing)
+        elif label in self.labels:
             return False
         self.labels.append(label)
         return True

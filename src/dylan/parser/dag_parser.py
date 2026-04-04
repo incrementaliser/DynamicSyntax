@@ -107,6 +107,30 @@ class DAGParser:
         )
         return (actions, res)
 
+    def complete_once(self, t: Tree) -> tuple[list[Action], Tree]:
+        """Apply star grammar to fixpoint, then try one completion-grammar action (Java ``DAGParser.completeOnce``)."""
+        init_actions, init_tree = self.adjust_with_non_optional_grammar(([], t.clone()))
+        if init_actions:
+            return (init_actions, init_tree)
+        for ca in sorted(self.completion_grammar.values(), key=lambda x: x.name):
+            completed = ca.exec(init_tree.clone(), self.context)
+            if completed is not None:
+                return (init_actions + [ca.instantiate()], completed)
+        return (init_actions, init_tree)
+
+    def complete_tree(self, res: Tree) -> tuple[list[Action], Tree]:
+        """Run ``complete_once`` until quiescence or :meth:`Tree.is_complete` (Java ``DAGParser.complete(Tree)``)."""
+        cur_actions: list[Action] = []
+        cur_tree = res.clone()
+        acc: list[Action] = []
+        while True:
+            acc.extend(cur_actions)
+            if cur_tree.is_complete():
+                return (acc, cur_tree)
+            cur_actions, cur_tree = self.complete_once(cur_tree)
+            if not cur_actions:
+                return (acc, cur_tree)
+
     def get_final_semantics(self) -> TTRRecordType:
         """Semantics at the current tuple after `evaluate` (Java `getFinalSemantics`)."""
         dag = self.get_state()

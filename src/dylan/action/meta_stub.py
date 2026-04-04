@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from dylan.action.meta.element import MetaElement, reset_meta_element_pool
+from dylan.action.meta.element import (
+    MetaElement,
+    reset_all_meta_bindings,
+    reset_bound_metas as _reset_bound_metas,
+)
 from dylan.type.dstype import DSType
 
 
@@ -58,8 +62,8 @@ class MetaType(DSType):
 
 
 def reset_bound_metas() -> None:
-    """Clear metavariable bindings between action applications (Java ``MetaElement.resetBoundMetas``)."""
-    reset_meta_element_pool()
+    """Clear existential bound-meta bindings between action applications (Java ``MetaElement.resetBoundMetas``)."""
+    _reset_bound_metas()
 
 
 MetaElementStub = MetaElement

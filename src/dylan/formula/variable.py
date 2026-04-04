@@ -7,9 +7,11 @@ from dataclasses import dataclass
 
 from dylan.formula.formula import Formula
 
+# Java ``Formula.VARIABLE_PATTERN``: one root letter (excluding i,o as single-char roots), optional digits;
+# plus ``reftime``, ``head``, ``pred*`` (Java ``[a-zR&&[^i^o]][0-9]*|reftime|head|pred[0-9]*``).
+# Case-sensitive like Java: uppercase ``X`` is a rule metavar, not a ``Variable``.
 _VARIABLE_PATTERN = re.compile(
-    r"^([a-z][a-z0-9]*|R[0-9]+|reftime|head|pred[0-9]*)$",
-    re.IGNORECASE,
+    r"^(?:[a-hj-np-z][0-9]*|R[0-9]*|reftime|head|pred[0-9]*)$",
 )
 
 
@@ -52,6 +54,10 @@ class Variable(Formula):
         return hash(self.name)
 
     def __eq__(self, other: object) -> bool:
+        from dylan.action.meta.meta_formula import MetaFormula
+
+        if isinstance(other, MetaFormula):
+            return other == self
         return isinstance(other, Variable) and self.name == other.name
 
     @staticmethod

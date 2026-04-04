@@ -53,6 +53,9 @@ REC_METAVARIABLE_PATTERN = re.compile(r"^REC\d*$", re.IGNORECASE)
 FORMULA_METAVARIABLE_PATTERN = re.compile(r"^U[1-9]*$")
 _FRESHPUT_META_FORMULA = re.compile(r"^[S-U]$")
 _REC_BINDER_PATTERN = re.compile(r"^R\d*$", re.IGNORECASE)
+# Java ``LabelFactory.METAVARIABLE_PATTERN``: rule metavariables ``V``–``Z`` and ``META``.
+_LEXICAL_FORMULA_METAVARIABLE = re.compile(r"^(?:[V-Z][0-9]*|META)$")
+_ATOMIC_FORMULA_PATTERN = re.compile(r"^[a-z]+[a-z_0-9]*$")
 
 
 class Formula(ABC):
@@ -112,6 +115,10 @@ class Formula(ABC):
                 return inner_f
         if not in_ex_conj and Variable.is_variable_string(s):
             return Variable(s)
+        if _LEXICAL_FORMULA_METAVARIABLE.match(s):
+            from dylan.action.meta.meta_formula import MetaFormula
+
+            return MetaFormula.get(s)
         if _FRESHPUT_META_FORMULA.match(s):
             from dylan.action.meta.meta_formula import MetaFormula
 
@@ -179,5 +186,9 @@ class Formula(ABC):
         rt = TTRRecordType.parse(s)
         if rt is not None:
             return rt
+        if _ATOMIC_FORMULA_PATTERN.fullmatch(s) and not Variable.is_variable_string(s):
+            from dylan.formula.atomic_formula import AtomicFormula
+
+            return AtomicFormula(s)
         logger.debug("Formula.create could not parse: %s", string)
         return None

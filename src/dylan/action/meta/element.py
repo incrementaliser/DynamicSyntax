@@ -69,6 +69,19 @@ class MetaElement(Generic[X]):
         return f"{self.name}={self.value!s}" if self.value is not None else self.name
 
 
+def reset_bound_metas() -> None:
+    """Reset only existential bound-meta cells (Java ``MetaElement.resetBoundMetas``)."""
+    for m in _POOL.values():
+        if m.name == "META":
+            m.reset()
+
+
+def reset_all_meta_bindings() -> None:
+    """Clear values on every pooled meta (keys unchanged); use in tests / between utterances when needed."""
+    for m in _POOL.values():
+        m.reset()
+
+
 def reset_meta_element_pool() -> None:
     """Clear every metavariable and drop pool entries (Java ``MetaElement.resetPool``)."""
     for m in _POOL.values():

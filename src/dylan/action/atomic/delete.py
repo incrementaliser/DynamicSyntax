@@ -37,7 +37,8 @@ class Delete(Effect):
         return tree
 
     def instantiate(self) -> Effect:
-        return Delete(self.label)
+        """Fresh effect with label metavariables resolved (Java ``Delete.instantiate``)."""
+        return Delete(self.label.instantiate())
 
     def __str__(self) -> str:
         return f"delete({self.label})"

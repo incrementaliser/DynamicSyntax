@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from dylan.action.atomic.effect import Effect
 from dylan.action.atomic.effect_factory import EffectFactory
+from dylan.action.meta.element import reset_all_meta_bindings
 from dylan.action.meta_stub import reset_bound_metas
 from dylan.tree.label.labels import Label, label_factory_create
 from dylan.tree.tree import Tree
@@ -165,9 +166,11 @@ class IfThenElse(Effect):
         original tree.  Java initialises ``result = null`` and only overwrites
         it when an effect executes; an empty branch therefore yields ``null``.
         """
-        reset_bound_metas()
         if self.embedding_level == 0:
+            reset_all_meta_bindings()
             self.setup_backtrackers([])
+        else:
+            reset_bound_metas()
         self.backtracker.set_index(0)
         success = True
         for lab in self.if_labels:

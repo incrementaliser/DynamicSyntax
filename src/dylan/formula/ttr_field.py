@@ -108,8 +108,16 @@ class TTRField(Formula):
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
 
     def substitute(self, var: Variable, arg: Formula) -> Formula:
+        """Rename the field label when *var* matches it, and substitute through the manifest (Java ``TTRField.substitute``)."""
+        new_label: TTRLabel | MetaTTRLabel = self.label
+        if isinstance(self.label, TTRLabel) and var.name == self.label.label:
+            if not isinstance(arg, Variable):
+                raise TypeError(f"TTR label substitution expects Variable, got {type(arg).__name__}")
+            from dylan.formula.ttr_label import ttr_label_from_variable
+
+            new_label = ttr_label_from_variable(arg)
         mt = self.manifest_type.substitute(var, arg) if self.manifest_type is not None else None
-        return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
+        return TTRField(new_label, self.ds_type, mt)  # type: ignore[arg-type]
 
     def conjoin(self, other: Formula) -> Formula:
         raise TypeError(f"Cannot conjoin TTRField with {type(other).__name__}")

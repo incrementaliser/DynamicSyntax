@@ -34,8 +34,8 @@ class TTRLambdaAbstract(TTRFormula):
         return TTRLambdaAbstract(self.variable, self.body.evaluate())
 
     def freshen_vars(self, tree: Any) -> TTRFormula:
-        """Re-freshen inner TTR body (Java ``TTRLambdaAbstract.freshenVars``)."""
-        return TTRLambdaAbstract(self.variable, self.body.freshen_vars(tree))
+        """Freshen only the core body, keeping lambda binders fixed (Java ``TTRLambdaAbstract.freshenVars``)."""
+        return self.replace_core(self.get_core().freshen_vars(tree))
 
     def beta_reduce(self, argument: Formula) -> TTRFormula:
         """Apply *argument* and evaluate (Java ``TTRLambdaAbstract.betaReduce``)."""

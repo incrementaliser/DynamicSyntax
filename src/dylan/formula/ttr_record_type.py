@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_field import TTRField
@@ -180,19 +180,19 @@ class TTRRecordType(TTRFormula):
         return n
 
     def freshen_vars(self, tree: object) -> TTRFormula:
-        """Alpha-rename using :class:`~dylan.tree.tree.Tree` pools (Java ``TTRRecordType.freshenVars(Tree)``)."""
+        """Alpha-rename via ``substitute`` on each field label (Java ``TTRRecordType.freshenVars(Tree)``)."""
         from dylan.tree.tree import Tree
 
         if not isinstance(tree, Tree):
             return self.clone()
         t: Tree = tree
-        result = TTRRecordType()
+        fresh: TTRRecordType = self.clone()
         for f in self._fields:
             if f.label == HEAD or f.label == REF_TIME:
-                result.add_field(f.clone())  # type: ignore[arg-type]
+                continue
+            if not isinstance(f.label, TTRLabel):
                 continue
             ds = f.ds_type
-            new_lab: TTRLabel
             if ds is None:
                 nv = t.get_fresh_record_type_variable()
                 new_lab = ttr_label_from_variable(nv)
@@ -223,11 +223,12 @@ class TTRRecordType(TTRFormula):
                 while self.has_label(new_lab):
                     nv = t.get_fresh_predicate_variable()
                     new_lab = ttr_label_from_variable(nv)
-            cf = f.clone()
-            result.add_field(replace(cf, label=new_lab))  # type: ignore[arg-type]
-        for f in result._fields:
-            f.parent_rec_type = result
-        return result
+            old_v = Variable(f.label.label)
+            sub = fresh.substitute(old_v, nv)
+            if not isinstance(sub, TTRRecordType):
+                raise RuntimeError("TTRRecordType.substitute must return TTRRecordType")
+            fresh = sub
+        return fresh
 
     def remove_head(self) -> TTRRecordType:
         """Return copy without the ``head`` field (Java `removeHead`)."""

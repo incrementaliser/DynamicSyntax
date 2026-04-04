@@ -12,6 +12,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
+from dylan.action.meta.element import MetaElement
+from dylan.formula.atomic_formula import AtomicFormula
 from dylan.formula.formula import Formula
 from dylan.formula.opaque_formula import OpaqueFormula
 from dylan.tree.basic_operator import OP_PATTERN
@@ -22,6 +24,7 @@ from dylan.type.dstype import DSType
 logger = logging.getLogger(__name__)
 
 _UNARY_PRED_RE = re.compile(r"(?i)^(Tense|Class|person|Accept)\((.+)\)\s*$")
+_METALABEL_PATTERN = re.compile(r"^(?:[V-Z][0-9]*|META)$")
 # Note: do not use a repeated *capturing* group for operators — in Python only the
 # last repetition is stored; Java's regex differs.  We slice by the closing bracket.
 
@@ -107,6 +110,10 @@ class Requirement(Label):
 
     def __str__(self) -> str:
         return f"{self.PREFIX}{self.inner}"
+
+    def instantiate(self) -> Label:
+        """Copy with inner label metavariables resolved (Java ``Requirement.instantiate``)."""
+        return Requirement(self.inner.instantiate())
 
 
 class UnaryPredicateLabel(Label):
@@ -326,37 +333,78 @@ class AddresseeLabel(Label):
 
     FUNCTOR = "Addressee"
 
-    def __init__(self, arg: str) -> None:
+    def __init__(self, formula: Formula) -> None:
         super().__init__()
-        self.arg = arg.strip()
+        self._formula = formula
 
     @classmethod
     def parse(cls, s: str) -> AddresseeLabel | None:
-        """Parse ``Addressee(...)`` or return ``None``."""
+        """Parse ``Addressee(...)`` with ``Formula.create(..., True)`` like Java ``LabelFactory``."""
         low = s.strip().lower()
         if not low.startswith(cls.FUNCTOR.lower() + "("):
             return None
         i = s.index("(")
         inner = s[i + 1 : s.rindex(")")].strip()
-        return cls(inner)
+        f = Formula.create(inner, True)
+        if f is None:
+            return None
+        return cls(f)
+
+    def instantiate(self) -> Label:
+        """Resolve metavariables inside the inner formula (Java ``AddresseeLabel.instantiate``)."""
+        ev = self._formula.instantiate().evaluate()
+        return AddresseeLabel(ev.clone())
 
     def __hash__(self) -> int:
-        return hash((self.FUNCTOR, self.arg))
+        return hash((self.FUNCTOR, self._formula))
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, AddresseeLabel) and self.arg == other.arg
+        return isinstance(other, AddresseeLabel) and self._formula == other._formula
 
     def check_with_tuple_as_context(self, tree: Any, context: Any) -> bool:
-        """True when the current utterance has an addressee matching this spec."""
+        """True when the rule metavariable unifies with the current addressee (Java ``check``)."""
         addressee = _dialogue_addressee(context)
         if addressee is None:
             return False
-        if len(self.arg) == 1 and self.arg.isupper():
-            return True
-        return self.arg == addressee
+        return self._formula == AtomicFormula(addressee)
 
     def __str__(self) -> str:
-        return f"{self.FUNCTOR}({self.arg})"
+        return f"{self.FUNCTOR}({self._formula})"
+
+
+class MetaLabel(Label):
+    """Label-position metavariable ``V``–``Z`` / ``META`` (Java ``MetaLabel`` / ``LabelFactory`` pattern)."""
+
+    def __init__(self, meta: MetaElement[Label]) -> None:
+        super().__init__()
+        self._meta = meta
+
+    @classmethod
+    def get(cls, name: str) -> MetaLabel:
+        """Return the shared :class:`MetaLabel` for *name* (pooled :class:`MetaElement`)."""
+        return cls(MetaElement.get(name, Label))
+
+    def instantiate(self) -> Label:
+        """Resolve to the bound label when set (Java ``MetaLabel.instantiate``)."""
+        v = self._meta.get_value()
+        if v is None:
+            return self
+        return v.instantiate()
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        if other is None:
+            return False
+        if isinstance(other, MetaLabel):
+            return self._meta == other._meta.get_value()
+        return self._meta == other
+
+    def __hash__(self) -> int:
+        return hash((MetaLabel, self._meta.name))
+
+    def __str__(self) -> str:
+        return self._meta.name
 
 
 class ModalLabel(Label):
@@ -581,6 +629,9 @@ def label_factory_create(
     modal = _try_parse_modal_label(s, in_existential=in_existential)
     if modal is not None:
         return modal
+
+    if _METALABEL_PATTERN.fullmatch(s):
+        return MetaLabel.get(s)
 
     return GenericLabel(s)
 

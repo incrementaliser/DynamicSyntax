@@ -41,6 +41,7 @@ class Put(Effect):
         return tree
 
     def instantiate(self) -> Effect:
+        """Fresh effect with label metavariables resolved (Java ``Put.instantiate``)."""
         return Put(self.label.instantiate())
 
     def __str__(self) -> str:
