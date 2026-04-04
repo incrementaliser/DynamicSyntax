@@ -6,6 +6,7 @@ from dylan.formula.opaque_formula import OpaqueFormula
 from dylan.gui.formatting import (
     format_dag_overview,
     format_ds_tree,
+    format_semantics_display,
     node_address_type_formula_strings,
 )
 from dylan.tree.label.labels import FormulaLabel, TypeLabel
@@ -31,6 +32,12 @@ def test_node_address_type_formula_strings_order() -> None:
     assert "Ty" in ty
     assert "Fo" in fo
     assert "sem" in fo
+
+
+def test_format_semantics_display_spaces_pipes() -> None:
+    """Pipe separators are normalized to `` ``...`` for the semantics tab."""
+    assert format_semantics_display("a|b|c") == "a | b | c"
+    assert format_semantics_display("a |b|  c") == "a | b | c"
 
 
 def test_format_dag_overview_root_only() -> None:

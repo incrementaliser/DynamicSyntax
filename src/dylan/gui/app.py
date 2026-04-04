@@ -12,7 +12,7 @@ from typing import Any
 import sys
 from pathlib import Path
 
-from dylan.gui.formatting import format_dag_overview, format_ds_tree
+from dylan.gui.formatting import format_dag_overview, format_ds_tree, format_semantics_display
 from dylan.gui.tree_viz import format_ds_tree_ascii, render_ds_tree_png
 from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
 from dylan.tree.tree import Tree
@@ -113,6 +113,7 @@ def main() -> None:
 
         parser_holder: list[InteractiveContextParser | None] = [None]
         grammar_path_holder: list[str | None] = [None]
+        last_tree_holder: list[Tree | None] = [None]
 
         # --- GUI theme (single source for the four main panels + tabs) ----------------
         PANEL_BACKGROUND = "#263238"
@@ -389,6 +390,13 @@ def main() -> None:
             tooltip="NOTE: repair path only partially ported; may fail on repairs.",
             label_style=toolbar_label_style,
         )
+        show_logs_toggle = ft.Checkbox(
+            label="Logs",
+            value=True,
+            label_style=ft.TextStyle(color=BODY_TEXT_COLOR, size=11),
+            tooltip="Show or hide Info and Logs (right panel)",
+            visual_density=ft.VisualDensity.COMPACT,
+        )
 
         # --- helpers ----------------------------------------------------------
 
@@ -481,10 +489,28 @@ def main() -> None:
                 dylan_log.removeHandler(cap)
                 dylan_log.setLevel(saved_level)
 
+        def _parse_tree_render_px(*, logs_column_visible: bool) -> tuple[int, int]:
+            """Approximate pixels available for the parse-tree PNG inside the Output tab."""
+            w = float(page.window.width or page.width or 1400)
+            h = float(page.window.height or page.height or 900)
+            left_ratio = 0.65 if logs_column_visible else 1.0
+            chrome_x = 80.0
+            left_w = max(400.0, w * left_ratio - chrome_x)
+            chrome_y = 268.0
+            tree_h = max(320.0, h - chrome_y)
+            return int(left_w), int(tree_h)
+
         def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
             """Fill flat text, PNG graph, or ASCII fallback from a DS ``Tree`` instance."""
+            last_tree_holder[0] = ds_tree
             tree_view.value = format_ds_tree(ds_tree)
-            png = render_ds_tree_png(ds_tree, pointer=ds_tree.pointer)
+            tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
+            png = render_ds_tree_png(
+                ds_tree,
+                pointer=ds_tree.pointer,
+                target_width_px=tw,
+                target_height_px=th,
+            )
             if png:
                 tree_viz_image.src = png
                 tree_viz_image.visible = True
@@ -501,7 +527,7 @@ def main() -> None:
             _refresh_parse_tree_visual(par.get_best_tuple().get_tree())
             dag_view.value = format_dag_overview(dag)
             try:
-                sem_view.value = str(par.get_final_semantics())
+                sem_view.value = format_semantics_display(str(par.get_final_semantics()))
             except (TypeError, ValueError) as ex:
                 sem_view.value = f"(could not read semantics: {ex})"
             append_log(f"=== Parse / state ===\n{msg}")
@@ -604,7 +630,7 @@ def main() -> None:
                     ft.TabBarView(
                         expand=True,
                         controls=[
-                            ft.Container(content=output_box, padding=6, expand=True),
+                            ft.Container(content=output_box, padding=4, expand=True),
                             ft.Container(content=address_order_box, padding=6, expand=True),
                             ft.Container(content=sem_view, padding=6, expand=True),
                             ft.Container(content=dag_view, padding=6, expand=True),
@@ -623,13 +649,6 @@ def main() -> None:
             content="New sentence",
             on_click=do_new_sentence,
             tooltip="Reset DAG to axiom (Java newSentence)",
-        )
-        show_logs_toggle = ft.Checkbox(
-            label="Logs",
-            value=True,
-            label_style=ft.TextStyle(color=BODY_TEXT_COLOR, size=11),
-            tooltip="Show or hide Info and Logs (right panel)",
-            visual_density=ft.VisualDensity.COMPACT,
         )
         grammar_toolbar = ft.Row(
             [
@@ -695,9 +714,26 @@ def main() -> None:
             show = bool(e.control.value)
             logs_panel.visible = show
             left_wrap.expand = 65 if show else True
+            if (
+                parser_holder[0] is not None
+                and last_tree_holder[0] is not None
+                and tree_viz_image.visible
+            ):
+                _refresh_parse_tree_visual(last_tree_holder[0])
             page.update()
 
         show_logs_toggle.on_change = on_show_logs_change
+
+        def on_window_resize(_: ft.ControlEvent | None = None) -> None:
+            """Re-render the parse-tree PNG when the window grows or shrinks."""
+            if parser_holder[0] is None or last_tree_holder[0] is None:
+                return
+            if not tree_viz_image.visible:
+                return
+            _refresh_parse_tree_visual(last_tree_holder[0])
+            page.update()
+
+        page.on_resize = on_window_resize
 
         page.add(
             ft.Row(

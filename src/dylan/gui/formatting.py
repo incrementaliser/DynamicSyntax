@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import deque
 
 from dylan.dag.dag_tuple import DAGTuple
@@ -11,6 +12,11 @@ from dylan.tree.label.labels import FormulaLabel, Requirement
 from dylan.tree.node import Node
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
+
+
+def format_semantics_display(semantics_text: str) -> str:
+    """Ensure every ``|`` in the semantics panel is surrounded by a single ASCII space."""
+    return re.sub(r"\s*\|\s*", " | ", semantics_text)
 
 
 def node_address_type_formula_strings(addr: NodeAddress, node: Node) -> tuple[str, str, str]:
