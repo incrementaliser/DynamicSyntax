@@ -38,6 +38,7 @@ class Grammar(dict[str, ComputationalAction]):
             return
         cleaned = strip_block_comments(path.read_text(encoding="utf-8").splitlines())
         self._init_actions(cleaned)
+        logger.info("Loaded %s computational actions", len(self))
 
     def _init_actions(self, cleaned_lines: list[str | None]) -> None:
         """Parse computational-action blocks (already block-comment-stripped)."""

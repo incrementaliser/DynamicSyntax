@@ -209,6 +209,7 @@ class Lexicon(dict[str, list[LexicalAction]]):
             except (ValueError, RuntimeError) as ex:
                 logger.warning("Could not instantiate lexical template %s for %s: %s", template, word, ex)
                 continue
+            logger.info('Created lexical action for "%s" with template "%s"', word, template)
             self.setdefault(word, []).append(action)
         logger.info("Read lexicon with %s words.", len(self))
 

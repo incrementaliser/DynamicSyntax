@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 PATH_0 = "0"
@@ -108,6 +109,15 @@ class NodeAddress:
 
     def __str__(self) -> str:
         return self.address
+
+    def subsumes(self, other: NodeAddress) -> bool:
+        """True if *self* matches *other* with Kleene ``*`` / local ``U`` patterns (Java ``NodeAddress.subsumes``)."""
+        if PATH_UNFIXED not in self.address and PATH_LOCAL_UNFIXED not in self.address:
+            return self.address == other.address
+        pat = re.escape(self.address)
+        pat = pat.replace(re.escape(PATH_UNFIXED), r"[01]*")
+        pat = pat.replace(re.escape(PATH_LOCAL_UNFIXED), r"(?:1*0|U)")
+        return bool(re.fullmatch(pat, other.address))
 
 
 # Late imports to avoid circular dependency

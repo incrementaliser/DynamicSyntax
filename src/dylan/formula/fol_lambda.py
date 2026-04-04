@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from dylan.formula.formula import Formula
 from dylan.formula.variable import Variable
@@ -27,11 +28,16 @@ class FOLLambdaAbstract(Formula):
     def evaluate(self) -> Formula:
         return FOLLambdaAbstract(self.variable, self.body.evaluate())
 
+    def freshen_vars(self, tree: Any) -> Formula:
+        """Re-freshen body (Java ``FOLLambdaAbstract`` / ``LambdaAbstract`` sketch)."""
+        nb = self.body.freshen_vars(tree) if hasattr(self.body, "freshen_vars") else self.body.clone()
+        return FOLLambdaAbstract(self.variable, nb)
+
     def beta_reduce(self, argument: Formula) -> Formula:
         """Apply *argument* to this lambda (Java ``LambdaAbstract.betaReduce``)."""
         if isinstance(argument, FOLLambdaAbstract):
             raise RuntimeError(f"Not allowing higher-order argument: {argument}")
-        return self.body.substitute(self.variable, argument)
+        return self.body.substitute(self.variable, argument).evaluate()
 
     def substitute(self, var: Variable, arg: Formula) -> Formula:
         if var == self.variable:

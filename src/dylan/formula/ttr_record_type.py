@@ -3,15 +3,41 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_field import TTRField
 from dylan.formula.ttr_formula import TTRFormula
-from dylan.formula.ttr_label import HEAD, TTRLabel
+from dylan.formula.ttr_label import HEAD, REF_TIME, TTRLabel, ttr_label_from_variable
 from dylan.formula.variable import Variable
+from dylan.type.dstype import DSType
 
 logger = logging.getLogger(__name__)
+
+
+def _wire_formula_owner(manifest: "Formula | None", owner: "TTRRecordType") -> None:
+    """Set parent_rec_type on manifest tree (Java TTRField.setParentRecType on types)."""
+    from dylan.formula.predicate_argument import PredicateArgumentFormula
+    from dylan.formula.ttr_infix_expression import TTRInfixExpression
+    from dylan.formula.ttr_lambda import TTRLambdaAbstract
+
+    if manifest is None:
+        return
+    if isinstance(manifest, TTRRecordType):
+        for sf in manifest._fields:
+            sf.parent_rec_type = manifest
+            _wire_formula_owner(sf.manifest_type, manifest)
+        return
+    manifest.parent_rec_type = owner
+    if isinstance(manifest, PredicateArgumentFormula):
+        for a in manifest.arguments:
+            _wire_formula_owner(a, owner)
+    elif isinstance(manifest, TTRInfixExpression):
+        _wire_formula_owner(manifest.arg1, owner)
+        _wire_formula_owner(manifest.arg2, owner)
+    elif isinstance(manifest, TTRLambdaAbstract):
+        _wire_formula_owner(manifest.body, owner)
+
 
 TTR_OPEN = "["
 TTR_CLOSE = "]"
@@ -79,6 +105,7 @@ class TTRRecordType(TTRFormula):
         self._fields.append(f)
         self._record[f.label] = f  # type: ignore[index]
         f.parent_rec_type = self
+        _wire_formula_owner(f.manifest_type, self)
 
     def is_empty(self) -> bool:
         return len(self._fields) == 0
@@ -98,6 +125,11 @@ class TTRRecordType(TTRFormula):
                 return f
         return None
 
+    def get_pointer_type(self, lab: object) -> Formula | None:
+        """Manifest type at label (Java TTRRecordType.getType)."""
+        f = self.get_field(lab)
+        return None if f is None else f.manifest_type
+
     def put_field_replace(self, f: TTRField) -> None:
         """Remove any field with the same label, then append *f* (Java ``putAtEnd`` / merge)."""
         self._fields = [x for x in self._fields if x.label != f.label]
@@ -106,6 +138,15 @@ class TTRRecordType(TTRFormula):
 
     def asymmetric_merge(self, r2: TTRFormula) -> TTRFormula:
         """Merge record *r2* into *self* (simplified Java ``TTRRecordType.asymmetricMerge``)."""
+        from dylan.formula.predicate_argument import Predicate
+        from dylan.formula.ttr_infix_expression import TTRInfixExpression
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+
+        if isinstance(r2, TTRLambdaAbstract):
+            la = r2
+            return la.replace_core(self.asymmetric_merge(la.get_core())).evaluate()  # type: ignore[union-attr]
+        if isinstance(r2, TTRInfixExpression):
+            return TTRInfixExpression(Predicate("++"), self, r2).evaluate()
         if not isinstance(r2, TTRRecordType):
             raise TypeError(f"asymmetric_merge expects TTRRecordType, got {type(r2).__name__}")
         merged = self.clone()
@@ -118,22 +159,7 @@ class TTRRecordType(TTRFormula):
                     inner = em.asymmetric_merge(nm)
                     new_f = TTRField(f.label, f.ds_type, inner)
             merged.put_field_replace(new_f)  # type: ignore[arg-type]
-        return merged
-
-    def conjoin(self, other: Formula) -> Formula:
-        """TTR record conjunction (Java ``TTRRecordType.conjoin``)."""
-        if other is None:
-            return self
-        if not isinstance(other, TTRFormula):
-            raise TypeError(f"conjoin expects TTRFormula, got {type(other).__name__}")
-        if not isinstance(other, TTRRecordType):
-            raise TypeError("Non-record TTR conjoin not implemented in this port")
-        o = other
-        if self.is_empty():
-            return o
-        if o.is_empty():
-            return self
-        return o.asymmetric_merge(self)
+        return merged.evaluate()
 
     def instantiate(self) -> Formula:
         n = TTRRecordType()
@@ -154,8 +180,54 @@ class TTRRecordType(TTRFormula):
         return n
 
     def freshen_vars(self, tree: object) -> TTRFormula:
-        """Alpha-rename (stub: structural copy; Java uses *tree* variable pools)."""
-        return self.clone()
+        """Alpha-rename using :class:`~dylan.tree.tree.Tree` pools (Java ``TTRRecordType.freshenVars(Tree)``)."""
+        from dylan.tree.tree import Tree
+
+        if not isinstance(tree, Tree):
+            return self.clone()
+        t: Tree = tree
+        result = TTRRecordType()
+        for f in self._fields:
+            if f.label == HEAD or f.label == REF_TIME:
+                result.add_field(f.clone())  # type: ignore[arg-type]
+                continue
+            ds = f.ds_type
+            new_lab: TTRLabel
+            if ds is None:
+                nv = t.get_fresh_record_type_variable()
+                new_lab = ttr_label_from_variable(nv)
+                while self.has_label(new_lab):
+                    nv = t.get_fresh_record_type_variable()
+                    new_lab = ttr_label_from_variable(nv)
+            elif ds == DSType.e:
+                nv = t.get_fresh_entity_variable()
+                new_lab = ttr_label_from_variable(nv)
+                while self.has_label(new_lab):
+                    nv = t.get_fresh_entity_variable()
+                    new_lab = ttr_label_from_variable(nv)
+            elif ds == DSType.es:
+                nv = t.get_fresh_event_variable()
+                new_lab = ttr_label_from_variable(nv)
+                while self.has_label(new_lab):
+                    nv = t.get_fresh_event_variable()
+                    new_lab = ttr_label_from_variable(nv)
+            elif ds == DSType.t:
+                nv = t.get_fresh_proposition_variable()
+                new_lab = ttr_label_from_variable(nv)
+                while self.has_label(new_lab):
+                    nv = t.get_fresh_proposition_variable()
+                    new_lab = ttr_label_from_variable(nv)
+            else:
+                nv = t.get_fresh_predicate_variable()
+                new_lab = ttr_label_from_variable(nv)
+                while self.has_label(new_lab):
+                    nv = t.get_fresh_predicate_variable()
+                    new_lab = ttr_label_from_variable(nv)
+            cf = f.clone()
+            result.add_field(replace(cf, label=new_lab))  # type: ignore[arg-type]
+        for f in result._fields:
+            f.parent_rec_type = result
+        return result
 
     def remove_head(self) -> TTRRecordType:
         """Return copy without the ``head`` field (Java `removeHead`)."""

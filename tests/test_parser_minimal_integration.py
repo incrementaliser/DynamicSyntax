@@ -51,3 +51,15 @@ def test_parse_mini_sentence_2026_grammar() -> None:
     p.init()
     for w in ("a", "man", "knows", "you"):
         assert p.parse_word(UtteredWord(w, "Dylan", "you")) is not None
+    tup = p.get_best_tuple()
+    assert tup is not None
+    sem = tup.get_semantics(p.context)
+    s = str(sem)
+    assert len(s) > 10
+    assert "subj(" in s and "obj(" in s and "man(" in s
+    assert "pres(" in s and "pres(head)" not in s.replace(" ", "")
+    assert any(
+        "Fo(" in str(lab)
+        for node in tup.tree.values()
+        for lab in node.labels
+    )

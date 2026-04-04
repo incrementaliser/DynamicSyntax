@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from dylan.action.atomic.effect import Effect
-from dylan.formula.fol_lambda import FOLLambdaAbstract
 from dylan.tree.label.labels import FormulaLabel, TypeLabel
 from dylan.tree.tree import Tree
 from dylan.type.dstype import ConstructedType
@@ -31,11 +30,12 @@ class BetaReduce(Effect):
         ct1 = t1
         if t0 is None or ct1.from_type != t0:
             raise RuntimeError(f"beta-reduce: unsuitable types {t0!s} vs {ct1!s}")
-        if f1 is None or not isinstance(f1, FOLLambdaAbstract):
+        beta = getattr(f1, "beta_reduce", None)
+        if f1 is None or not callable(beta):
             raise RuntimeError(f"beta-reduce: formula at down1 is not a lambda: {f1!r}")
         if f0 is None:
             raise RuntimeError("beta-reduce: missing formula at down0")
-        reduced = f1.beta_reduce(f0)
+        reduced = beta(f0)
         node.add_label(TypeLabel(ct1.to_type))
         node.add_label(FormulaLabel(reduced))
         return tree

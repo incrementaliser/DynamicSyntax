@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from dylan.formula.ttr_record_type import TTRRecordType
@@ -13,9 +13,46 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _strip_matching_outer_parens(s: str) -> str | None:
+    """If *s* is fully wrapped in one balanced ``(…)`` pair, return the inner string."""
+    s = s.strip()
+    if not (s.startswith("(") and s.endswith(")")):
+        return None
+    depth = 0
+    for i, ch in enumerate(s):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0 and i < len(s) - 1:
+                return None
+    if depth != 0:
+        return None
+    return s[1:-1].strip()
+
+
+def _split_top_level_commas(s: str) -> list[str]:
+    """Split on commas not inside parentheses (predicate arguments)."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for i, c in enumerate(s):
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "," and depth == 0:
+            parts.append(s[start:i].strip())
+            start = i + 1
+    parts.append(s[start:].strip())
+    return parts
+
+
 REC_METAVARIABLE_PATTERN = re.compile(r"^REC\d*$", re.IGNORECASE)
 FORMULA_METAVARIABLE_PATTERN = re.compile(r"^U[1-9]*$")
 _FRESHPUT_META_FORMULA = re.compile(r"^[S-U]$")
+_REC_BINDER_PATTERN = re.compile(r"^R\d*$", re.IGNORECASE)
 
 
 class Formula(ABC):
@@ -52,14 +89,28 @@ class Formula(ABC):
         """Replace occurrences of *var* with *arg* (Java ``Formula.substitute`` default: no change)."""
         return self
 
+    def subsumes(self, other: object) -> bool:
+        """Structural subsumption for node unification (Java ``Formula.subsumes`` sketch)."""
+        return isinstance(other, Formula) and self == other
+
+    def freshen_vars(self, tree: Any) -> Formula:
+        """Default: no renaming (Java ``Formula.freshenVars`` fallback)."""
+        return self.clone()
+
     @staticmethod
-    def create(string: str, in_ex_conj: bool = False) -> Formula | None:  # noqa: ARG004
+    def create(string: str, in_ex_conj: bool = False) -> Formula | None:
         """Parse formula specs from lexicon / TTR (partial implementation)."""
+        from dylan.formula.bound_formula_variable import BoundFormulaVariable
         from dylan.formula.ttr_record_type import TTRRecordType
         from dylan.formula.variable import Variable
 
         s = string.strip()
-        if Variable.is_variable_string(s):
+        inner_paren = _strip_matching_outer_parens(s)
+        if inner_paren is not None:
+            inner_f = Formula.create(inner_paren, in_ex_conj)
+            if inner_f is not None:
+                return inner_f
+        if not in_ex_conj and Variable.is_variable_string(s):
             return Variable(s)
         if _FRESHPUT_META_FORMULA.match(s):
             from dylan.action.meta.meta_formula import MetaFormula
@@ -73,30 +124,58 @@ class Formula(ABC):
             from dylan.formula.meta_ttr_record_type import MetaTTRRecordType
 
             return MetaTTRRecordType.get(s)
+        if in_ex_conj and BoundFormulaVariable.is_bound_name(s):
+            return BoundFormulaVariable(s)
+        if Variable.is_variable_string(s):
+            return Variable(s)
+        from dylan.formula.ttr_path import parse_ttr_path
+
+        ttrp = parse_ttr_path(s)
+        if ttrp is not None:
+            return ttrp
         if "^" in s:
             caret = s.find("^")
             var_s = s[:caret].strip()
             body_s = s[caret + 1 :].strip()
             if Variable.is_variable_string(var_s):
-                body = Formula.create(body_s)
-                if body is not None:
-                    from dylan.formula.fol_lambda import FOLLambdaAbstract
+                body = Formula.create(body_s, in_ex_conj)
+                if body is None:
+                    return None
+                v = Variable(var_s)
+                if _REC_BINDER_PATTERN.fullmatch(var_s):
+                    from dylan.formula.ttr_formula import TTRFormula
+                    from dylan.formula.ttr_lambda import TTRLambdaAbstract
 
-                    return FOLLambdaAbstract(Variable(var_s), body)
+                    if isinstance(body, TTRFormula):
+                        return TTRLambdaAbstract(v, body)
+                from dylan.formula.fol_lambda import FOLLambdaAbstract
+
+                return FOLLambdaAbstract(v, body)
         m = re.match(r"^([a-z][a-z][a-z_0-9]*)\((.+)\)$", s)
         if m:
             from dylan.formula.predicate_argument import Predicate, PredicateArgumentFormula
 
             pred = Predicate(m.group(1))
             args_raw = m.group(2)
-            parts = [p.strip() for p in args_raw.split(",")]
+            parts = _split_top_level_commas(args_raw)
             args: list[Formula] = []
             for p in parts:
-                f = Formula.create(p)
+                f = Formula.create(p, in_ex_conj)
                 if f is None:
                     return None
                 args.append(f)
             return PredicateArgumentFormula(pred, tuple(args))
+        if "++" in s:
+            from dylan.formula.predicate_argument import Predicate
+            from dylan.formula.ttr_infix_expression import TTRInfixExpression, split_top_level_merge
+
+            pair = split_top_level_merge(s)
+            if pair is not None:
+                left, right = pair
+                a = Formula.create(left, in_ex_conj)
+                b = Formula.create(right, in_ex_conj)
+                if a is not None and b is not None:
+                    return TTRInfixExpression(Predicate("++"), a, b)
         rt = TTRRecordType.parse(s)
         if rt is not None:
             return rt

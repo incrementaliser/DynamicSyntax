@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator
 
 from dylan.tree.label.labels import FormulaLabel, Label, Requirement, TypeLabel
+from dylan.formula.formula import Formula
 from dylan.tree.node_address import NodeAddress
 
 if TYPE_CHECKING:
-    from dylan.formula.formula import Formula
     from dylan.type.dstype import DSType
 
 
@@ -85,6 +85,35 @@ class Node:
             if isinstance(lab, Requirement) and isinstance(lab.inner, TypeLabel):
                 return lab.inner.type
         return None
+
+    def get_required_formula(self) -> Formula | None:
+        """Formula inside ``?Fo(…)`` requirement, if any (Java ``getRequiredFormula``)."""
+        for lab in self.labels:
+            if isinstance(lab, Requirement) and isinstance(lab.inner, FormulaLabel):
+                return lab.inner.get_formula()
+        return None
+
+    def remove_formula_label(self) -> None:
+        """Drop the first :class:`FormulaLabel` (Java ``removeFormulaLabel``)."""
+        fl = self.get_formula_label()
+        if fl is not None:
+            self.remove_label(fl)
+
+    def is_unifiable(self, other: Node) -> bool:
+        """Address-compatible merge target for an unfixed node (Java ``Node.isUnifiable``)."""
+        if not other.address.subsumes(self.address):
+            return False
+        t = self.get_type() or self.get_required_type()
+        if t is not None:
+            ot = other.get_type() or other.get_required_type()
+            if ot is not None and t != ot:
+                return False
+        f = self.get_formula() or self.get_required_formula()
+        if f is not None:
+            of = other.get_formula() or other.get_required_formula()
+            if of is not None and not f.subsumes(of):
+                return False
+        return True
 
     def __repr__(self) -> str:
         return f"Node({self.address!s},{self.labels!r})"

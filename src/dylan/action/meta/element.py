@@ -19,13 +19,22 @@ class MetaElement(Generic[X]):
     value: X | None = None
     backtrack: set[str] = field(default_factory=set)
     last: X | None = None
+    py_cls: type | None = None
 
     @staticmethod
     def get(name: str, py_cls: type) -> MetaElement[Any]:
-        """Return pooled meta-element keyed by class and name (Java ``MetaElement.get``)."""
-        key = f"{py_cls.__name__}:{name}"
+        """Return pooled meta-element keyed like Java ``cls.toString() + name``."""
+        key = f"{py_cls.__module__}.{py_cls.__qualname__}{name}"
         if key not in _POOL:
-            _POOL[key] = MetaElement(name=name, cls_key=key)
+            _POOL[key] = MetaElement(name=name, cls_key=key, py_cls=py_cls)
+        return _POOL[key]
+
+    @staticmethod
+    def get_bound_meta(py_cls: type) -> MetaElement[Any]:
+        """Shared bound slot for existential ``Ex.fo(x)`` (Java ``MetaElement.getBoundMeta``)."""
+        key = f"{py_cls.__module__}.{py_cls.__qualname__}:BOUND_META"
+        if key not in _POOL:
+            _POOL[key] = MetaElement(name="META", cls_key=key, py_cls=py_cls)
         return _POOL[key]
 
     def get_value(self) -> X | None:
@@ -46,6 +55,8 @@ class MetaElement(Generic[X]):
         if other is self:
             return True
         if other is None:
+            return False
+        if self.py_cls is not None and not isinstance(other, self.py_cls):
             return False
         if self.value is None:
             key = str(other)

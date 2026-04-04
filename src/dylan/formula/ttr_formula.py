@@ -18,6 +18,19 @@ class TTRFormula(Formula):
     def clone(self) -> TTRFormula:
         raise NotImplementedError
 
+    @abstractmethod
+    def asymmetric_merge(self, rt: TTRFormula) -> TTRFormula:
+        """Right-asymmetrical merge (Java ``TTRFormula.asymmetricMerge``)."""
+        raise NotImplementedError
+
+    def conjoin(self, other: Formula) -> TTRFormula:
+        """``other.asymmetric_merge(self)`` (Java ``TTRFormula.conjoin``)."""
+        if other is None:
+            return self
+        if isinstance(other, TTRFormula):
+            return other.asymmetric_merge(self)
+        raise TypeError(f"Can only conjoin TTRFormula with TTRFormula, got {type(other).__name__}")
+
     def remove_head(self) -> TTRFormula:
         """Strip head field when present; default is identity."""
         return self

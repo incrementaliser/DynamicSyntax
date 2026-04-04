@@ -13,6 +13,10 @@ class Predicate:
 
     name: str
 
+    def __str__(self) -> str:
+        """Surface form for infix / debug (not dataclass repr)."""
+        return self.name
+
 
 @dataclass
 class PredicateArgumentFormula(Formula):

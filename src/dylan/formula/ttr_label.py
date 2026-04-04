@@ -33,6 +33,7 @@ class TTRLabel:
 
 
 HEAD = TTRLabel("head")
+REF_TIME = TTRLabel("reftime")
 
 
 def ttr_label_from_variable(v: Variable) -> TTRLabel:

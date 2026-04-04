@@ -3,20 +3,41 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dylan.formula.variable import Variable
+
+if TYPE_CHECKING:
+    from dylan.formula.ttr_formula import TTRFormula
+    from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.tree.basic_operator import BasicOperator
-from dylan.tree.label.labels import Label, Requirement, TypeLabel
+from dylan.tree.label.labels import FeatureLabel, FormulaLabel, Label, Requirement, TypeLabel
 from dylan.tree.modality import Modality
 from dylan.tree.node import Node
-from dylan.tree.node_address import NodeAddress
+from dylan.tree.node_address import PATH_LOCAL_UNFIXED, PATH_UNFIXED, NodeAddress
+from dylan.tree.underspecified_type_map import get_static_type_map
+from dylan.type.dstype import DSType
 
 logger = logging.getLogger(__name__)
 
 ENTITY_VARIABLE_ROOT = "x"
 EVENT_VARIABLE_ROOT = "e"
 PROPOSITION_VARIABLE_ROOT = "p"
+RECORD_TYPE_VARIABLE_ROOT = "r"
+PREDICATE_VARIABLE_ROOT = "pred"
+
+QUESTION_REC: "TTRRecordType | None" = None
+
+
+def _question_record() -> "TTRRecordType":
+    from dylan.formula.ttr_record_type import TTRRecordType
+
+    global QUESTION_REC
+    if QUESTION_REC is None:
+        q = TTRRecordType.parse("[p==question(head):t]")
+        assert q is not None
+        QUESTION_REC = q
+    return QUESTION_REC
 
 
 class Tree(dict[NodeAddress, Node]):
@@ -30,6 +51,8 @@ class Tree(dict[NodeAddress, Node]):
             self._entity_pool: list[Variable] = []
             self._event_pool: list[Variable] = []
             self._proposition_pool: list[Variable] = []
+            self._record_type_pool: list[Variable] = []
+            self._predicate_pool: list[Variable] = []
             root = Node(self.root_addr)
             root.add_label(Requirement(TypeLabel.t))
             self[self.root_addr] = root
@@ -39,6 +62,8 @@ class Tree(dict[NodeAddress, Node]):
             self._entity_pool = list(other._entity_pool)
             self._event_pool = list(other._event_pool)
             self._proposition_pool = list(other._proposition_pool)
+            self._record_type_pool = list(other._record_type_pool)
+            self._predicate_pool = list(other._predicate_pool)
             for k, v in other.items():
                 self[k] = Node(v.address, list(v.labels))
 
@@ -55,22 +80,38 @@ class Tree(dict[NodeAddress, Node]):
         self.pointer = addr
 
     def get_fresh_entity_variable(self) -> Variable:
-        """Allocate ``x1``, ``x2``, … (Java ``getFreshEntityVariable``)."""
-        v = Variable(ENTITY_VARIABLE_ROOT + str(len(self._entity_pool) + 1))
+        """Allocate ``x0``, ``x1``, … (0-based; Java used 1-based)."""
+        v = Variable(ENTITY_VARIABLE_ROOT + str(len(self._entity_pool)))
         self._entity_pool.append(v)
         return v
 
     def get_fresh_event_variable(self) -> Variable:
-        """Allocate ``e1``, ``e2``, … (Java ``getFreshEventVariable``)."""
-        v = Variable(EVENT_VARIABLE_ROOT + str(len(self._event_pool) + 1))
+        """Allocate ``e0``, ``e1``, …."""
+        v = Variable(EVENT_VARIABLE_ROOT + str(len(self._event_pool)))
         self._event_pool.append(v)
         return v
 
     def get_fresh_proposition_variable(self) -> Variable:
-        """Allocate ``p1``, ``p2``, … (Java ``getFreshPropositionVariable``)."""
-        v = Variable(PROPOSITION_VARIABLE_ROOT + str(len(self._proposition_pool) + 1))
+        """Allocate ``p0``, ``p1``, …."""
+        v = Variable(PROPOSITION_VARIABLE_ROOT + str(len(self._proposition_pool)))
         self._proposition_pool.append(v)
         return v
+
+    def get_fresh_record_type_variable(self) -> Variable:
+        """Allocate record-type metavariables ``r0``, ``r1``, … (Java ``getFreshRecTypeVariable``)."""
+        v = Variable(RECORD_TYPE_VARIABLE_ROOT + str(len(self._record_type_pool)))
+        self._record_type_pool.append(v)
+        return v
+
+    def get_fresh_predicate_variable(self) -> Variable:
+        """Allocate ``pred0``, ``pred1``, … (Java ``getFreshPredicateVariable``)."""
+        v = Variable(PREDICATE_VARIABLE_ROOT + str(len(self._predicate_pool)))
+        self._predicate_pool.append(v)
+        return v
+
+    def get_root_node(self) -> Node:
+        """Return the tree root node (Java ``getRootNode``)."""
+        return self[self.root_addr]
 
     def node_at(self, addr: NodeAddress) -> Node | None:
         """Return the node at *addr* or ``None`` (Java ``get``)."""
@@ -105,6 +146,15 @@ class Tree(dict[NodeAddress, Node]):
                 out.append(n)
         return out
 
+    def get_unfixed_nodes(self) -> list[Node]:
+        """Nodes on star- or local-unfixed addresses (Java ``getUnfixedNodes``)."""
+        out: list[Node] = []
+        for n in self.values():
+            a = n.address.address
+            if a.endswith(PATH_UNFIXED) or a.endswith(PATH_LOCAL_UNFIXED):
+                out.append(n)
+        return out
+
     def _move_daughters(self, dtrs: list[Node], from_addr: NodeAddress, to_addr: NodeAddress) -> None:
         """Re-home subtrees under *to_addr* (Java ``moveDaughters``)."""
         from_s = from_addr.address
@@ -127,6 +177,230 @@ class Tree(dict[NodeAddress, Node]):
         self._move_daughters(self.get_daughters(other), other.address, self.pointer)
         self.pointed_node.merge_from(other)
         del self[other.address]
+
+    def merge_node(self, node: Node) -> None:
+        """Merge *node* into the pointed node (Java ``Tree.merge(Node)``)."""
+        self._move_daughters(self.get_daughters(node), node.address, self.pointer)
+        self.pointed_node.merge_from(node)
+        del self[node.address]
+
+    def merge_unfixed(self) -> list[Tree]:
+        """Return one or two trees after optional unfixed merge (Java ``mergeUnfixed``)."""
+        original = self.clone()
+        result = self.clone()
+        merged = False
+        is_late_unfixed = False
+        et_merge = False
+        for unfixed in result.get_unfixed_nodes():
+            merge_point_f_chosen: FormulaLabel | None = None
+            merge_point_chosen: Node | None = None
+            for merge_point in result.values():
+                if not merge_point.is_locally_fixed():
+                    continue
+                if len(result.get_daughters(merge_point, "01")) > 0:
+                    continue
+                if not unfixed.is_unifiable(merge_point):
+                    continue
+                result.set_pointer(merge_point.address)
+                mfl = result.pointed_node.get_formula_label()
+                if mfl is not None and unfixed.get_formula_label() is not None:
+                    merge_point_f_chosen = result.pointed_node.get_formula_label()
+                    merge_point_chosen = result.pointed_node
+                addr_s = unfixed.address.address
+                is_late_unfixed = addr_s.endswith(PATH_UNFIXED) and addr_s != "0" + PATH_UNFIXED
+                et_merge = merge_point.address.address == "01"
+                result.merge_node(unfixed)
+                merged = True
+                break
+            if merge_point_chosen is not None and merge_point_f_chosen is not None:
+                merge_point_chosen.remove_formula_label()
+        if merged and not is_late_unfixed and not et_merge:
+            return [original, result]
+        if merged and (is_late_unfixed or et_merge):
+            return [result]
+        return [original]
+
+    def _add_underspecified_formulae(self, context: Any) -> None:
+        """Attach underspecified ``Fo`` from static ``typeMap`` (Java ``addUnderspecifiedFormulae(Context)``)."""
+        type_map = get_static_type_map()
+        for n in self.values():
+            if len(self.get_daughters(n, "01")) > 0:
+                continue
+            ds_type = n.get_required_type() or n.get_type()
+            fo = n.get_formula()
+            if ds_type is None or fo is not None:
+                continue
+            if ds_type not in type_map:
+                if ds_type != DSType.t:
+                    logger.warning(
+                        "could not add underspecified formula; type not in typeMap: %s at %s",
+                        ds_type,
+                        n.address,
+                    )
+                continue
+            tmpl = type_map[ds_type]
+            fresh = tmpl.freshen_vars(self)
+            n.add_label(FormulaLabel(fresh))
+        logger.debug("After adding underspec formulae: %s", self)
+
+    def _add_underspecified_formulae_no_context(self) -> None:
+        """Java no-arg ``addUnderspecifiedFormulae`` — use static map plus ``e>t`` / ``?Ex.fo`` special case."""
+        from dylan.formula.formula import Formula
+        from dylan.tree.label.labels import label_factory_create
+
+        type_map = get_static_type_map()
+        form_req_label = label_factory_create("?Ex.fo(x)")
+        e_gt = DSType.parse("e>t")
+        for n in self.values():
+            if len(self.get_daughters(n, "01")) > 0:
+                continue
+            ds_type = n.get_required_type() or n.get_type()
+            fo = n.get_formula()
+            if ds_type is None or fo is not None:
+                continue
+            if ds_type not in type_map:
+                if ds_type != DSType.t:
+                    logger.warning(
+                        "could not add underspecified formula; type not in typeMap: %s at %s",
+                        ds_type,
+                        n.address,
+                    )
+                continue
+            if e_gt is not None and ds_type == e_gt and n.contains(form_req_label):
+                sp = Formula.create(
+                    "R1^(R1 ++ [e1:es|head==e1:es|p==subj(e1,R1.head):t])",
+                )
+                if sp is not None:
+                    n.add_label(FormulaLabel(sp.freshen_vars(self)))
+                    continue
+            tmpl = type_map[ds_type]
+            n.add_label(FormulaLabel(tmpl.freshen_vars(self)))
+
+    def _max_sem_at(self, root: Node, context: Any) -> "TTRFormula":
+        """Maximal TTR at *root* (Java ``getMaximalSemantics(Node, Context)``)."""
+        from dylan.formula.ttr_formula import TTRFormula
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+        from dylan.formula.ttr_record_type import TTRRecordType
+
+        d01 = self.get_daughters(root, "01")
+        if len(d01) == 1:
+            logger.error("node with only one fixed daughter: %s", root)
+            return TTRRecordType()
+
+        unfixed_n = self.node_at(root.address.down_star())
+        local_unfixed_n = self.node_at(root.address.down_local_unfixed())
+        unfixed_functor = False
+        unfixed_reduced: TTRFormula | None = None  # type: ignore[name-defined]
+        if unfixed_n is not None:
+            unfixed_reduced = self._max_sem_at(unfixed_n, context)
+            if isinstance(unfixed_reduced, TTRLambdaAbstract):
+                img = TTRRecordType.parse("[x:e|head==x:e]")
+                assert img is not None
+                unfixed_reduced = unfixed_reduced.beta_reduce(img)
+                unfixed_functor = True
+
+        local_unfixed_reduced: TTRFormula | None = None  # type: ignore[name-defined]
+        if local_unfixed_n is not None:
+            local_unfixed_reduced = self._max_sem_at(local_unfixed_n, context)
+            if isinstance(local_unfixed_reduced, TTRLambdaAbstract):
+                img2 = TTRRecordType.parse("[x:e|head==x:e]")
+                assert img2 is not None
+                local_unfixed_reduced = local_unfixed_reduced.beta_reduce(img2)
+                unfixed_functor = True
+
+        root_fo = root.get_formula()
+        if root_fo is None:
+            root_reduced = TTRRecordType()
+        elif isinstance(root_fo, TTRFormula):
+            root_reduced = root_fo
+        else:
+            root_reduced = TTRRecordType()
+
+        if len(self.get_daughters(root, "01")) == 2:
+            d0 = self.node_at(root.address.down0())
+            d1 = self.node_at(root.address.down1())
+            assert d0 is not None and d1 is not None
+            arg_max = self._max_sem_at(d0, context)
+            funct_max = self._max_sem_at(d1, context)
+            if not isinstance(funct_max, TTRLambdaAbstract):
+                raise TypeError(f"expected TTR lambda at functor, got {type(funct_max).__name__}")
+            logger.debug("beta-reducing functor %s arg %s", funct_max, arg_max)
+            root_reduced = funct_max.beta_reduce(arg_max)
+            logger.debug("beta result %s", root_reduced)
+            if unfixed_reduced is not None:
+                root_reduced = root_reduced.conjoin(unfixed_reduced.remove_head())
+            if local_unfixed_reduced is not None:
+                root_reduced = root_reduced.conjoin(local_unfixed_reduced.remove_head())
+        else:
+            if unfixed_reduced is not None and local_unfixed_reduced is not None:
+                root_reduced = root_reduced.conjoin(
+                    unfixed_reduced.remove_head().conjoin(local_unfixed_reduced.remove_head()),
+                )
+            elif unfixed_reduced is not None:
+                root_reduced = (
+                    unfixed_reduced
+                    if unfixed_functor
+                    else root_reduced.conjoin(unfixed_reduced)
+                )
+            elif local_unfixed_reduced is not None:
+                root_reduced = (
+                    local_unfixed_reduced
+                    if unfixed_functor
+                    else root_reduced.conjoin(local_unfixed_reduced)
+                )
+
+        if len(self.get_daughters(root, "L")) > 0:
+            link_n = self.node_at(root.address.down_link())
+            if link_n is not None:
+                max_sem_l = self._max_sem_at(link_n, context)
+                root_reduced = root_reduced.conjoin(max_sem_l)
+
+        q_lab = FeatureLabel("Q")
+        if root.contains(q_lab):
+            qr = _question_record().freshen_vars(self)
+            root_reduced = qr.conjoin(root_reduced)
+
+        return root_reduced
+
+    def get_maximal_semantics(self, context: Any = None) -> "TTRFormula":
+        """Compute maximal TTR semantics (Java ``getMaximalSemantics(Context)``)."""
+        from dylan.formula.disjunctive_type import DisjunctiveType
+        from dylan.formula.ttr_formula import TTRFormula
+
+        logger.debug("Merging unfixed if possible; before: %s", self)
+        work = self.clone()
+        merged_list = work.merge_unfixed()
+        logger.debug("after merge: %s", merged_list)
+        if len(merged_list) > 2:
+            raise NotImplementedError("more than two trees after mergeUnfixed")
+
+        first = merged_list[0]
+        if context is not None:
+            first._add_underspecified_formulae(context)
+        else:
+            first._add_underspecified_formulae_no_context()
+
+        if len(merged_list) == 1:
+            sem = first._max_sem_at(first.get_root_node(), context)
+            ev = sem.evaluate()
+            return ev if isinstance(ev, TTRFormula) else sem
+
+        second = merged_list[1]
+        if context is not None:
+            second._add_underspecified_formulae(context)
+        else:
+            second._add_underspecified_formulae_no_context()
+
+        a = first._max_sem_at(first.get_root_node(), context)
+        b = second._max_sem_at(second.get_root_node(), context)
+        ea, eb = a.evaluate(), b.evaluate()
+        return DisjunctiveType(
+            ea if isinstance(ea, TTRFormula) else a,
+            eb if isinstance(eb, TTRFormula) else b,
+        )
+
+    def get_maximal_semantics_with_context(self, context: Any) -> "TTRFormula":
+        return self.get_maximal_semantics(context)
 
     # ── tree-modifying operations (Java Tree.make / go / put / delete) ──
 
@@ -170,14 +444,3 @@ class Tree(dict[NodeAddress, Node]):
                 if isinstance(lab, _Req):
                     return False
         return True
-
-    # ── semantics stubs ──
-
-    def get_maximal_semantics(self, context: Any = None) -> "TTRRecordType":
-        """Maximal TTR semantics (stub: empty record if root has no formula)."""
-        from dylan.formula.ttr_record_type import TTRRecordType
-
-        return TTRRecordType()
-
-    def get_maximal_semantics_with_context(self, context: Any) -> "TTRRecordType":
-        return self.get_maximal_semantics(context)

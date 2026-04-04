@@ -264,10 +264,10 @@ class FormulaLabel(Label):
         return f"{self.FUNCTOR}({self._formula})"
 
 
-def _formula_for_fo_inner(inner: str) -> Formula:
+def _formula_for_fo_inner(inner: str, *, in_ex_conj: bool = False) -> Formula:
     """Parse *inner* or wrap as :class:`OpaqueFormula` (lexicon / IF ``Fo`` specs)."""
     s = inner.strip()
-    parsed = Formula.create(s)
+    parsed = Formula.create(s, in_ex_conj)
     if parsed is not None:
         return parsed
     return OpaqueFormula(s)
@@ -467,16 +467,19 @@ def _dialogue_addressee(context: Any) -> str | None:
     return None
 
 
-def _parse_modal_inner(rest: str) -> list[Label]:
+def _parse_modal_inner(rest: str, *, in_existential: bool = False) -> list[Label]:
     """Parse label group after a modality (possibly ``(a & b)``)."""
     rest = rest.strip()
     if rest.startswith("(") and rest.endswith(")") and "&" in rest:
         inner = rest[1:-1]
-        return [label_factory_create(x.strip()) for x in inner.split("&")]
-    return [label_factory_create(rest)]
+        return [
+            label_factory_create(x.strip(), in_existential=in_existential)
+            for x in inner.split("&")
+        ]
+    return [label_factory_create(rest, in_existential=in_existential)]
 
 
-def _try_parse_modal_label(s: str) -> ModalLabel | None:
+def _try_parse_modal_label(s: str, *, in_existential: bool = False) -> ModalLabel | None:
     """If *s* begins with a modality, return :class:`ModalLabel`; else ``None``."""
     s = s.strip()
     if s.startswith("<") and ">" in s:
@@ -489,7 +492,7 @@ def _try_parse_modal_label(s: str) -> ModalLabel | None:
             return None
         if not rest:
             return None
-        return ModalLabel(modality, _parse_modal_inner(rest))
+        return ModalLabel(modality, _parse_modal_inner(rest, in_existential=in_existential))
     if s.startswith("[") and "]" in s:
         r = s.index("]")
         mod_str = s[: r + 1]
@@ -500,7 +503,7 @@ def _try_parse_modal_label(s: str) -> ModalLabel | None:
             return None
         if not rest:
             return None
-        return ModalLabel(modality, _parse_modal_inner(rest))
+        return ModalLabel(modality, _parse_modal_inner(rest, in_existential=in_existential))
     ops = list(OP_PATTERN.finditer(s))
     if not ops or ops[0].start() != 0:
         return None
@@ -517,10 +520,15 @@ def _try_parse_modal_label(s: str) -> ModalLabel | None:
         modality = Modality.parse(mod_str)
     except ValueError:
         return None
-    return ModalLabel(modality, _parse_modal_inner(rest))
+    return ModalLabel(modality, _parse_modal_inner(rest, in_existential=in_existential))
 
 
-def label_factory_create(string: str, ite: Any = None) -> Label:  # noqa: ARG001
+def label_factory_create(
+    string: str,
+    ite: Any = None,
+    *,
+    in_existential: bool = False,
+) -> Label:  # noqa: ARG001
     """Parse label specs used in IF clauses (partial Java ``LabelFactory.create``)."""
     s = string.strip()
 
@@ -529,12 +537,12 @@ def label_factory_create(string: str, ite: Any = None) -> Label:  # noqa: ARG001
 
     if s.startswith(_NEG):
         inner_s = s[len(_NEG) :].strip()
-        inner = label_factory_create(inner_s, ite)
+        inner = label_factory_create(inner_s, ite, in_existential=in_existential)
         return NegatedLabel(inner)
 
     if s.startswith(Requirement.PREFIX):
         inner_s = s[len(Requirement.PREFIX) :].strip()
-        inner = label_factory_create(inner_s, ite)
+        inner = label_factory_create(inner_s, ite, in_existential=in_existential)
         return Requirement(inner)
 
     low = s.lower()
@@ -557,20 +565,20 @@ def label_factory_create(string: str, ite: Any = None) -> Label:  # noqa: ARG001
         tail = s[3:].strip()
         if tail == "x":
             return ExistentialLabelConjunction([ArbitraryLabel("x")])
-        return ExistentialLabelConjunction([label_factory_create(tail)])
+        return ExistentialLabelConjunction([label_factory_create(tail, ite, in_existential=True)])
 
     if low.startswith("fo("):
         inner = s[s.index("(") + 1 : s.rindex(")")]
-        return FormulaLabel(_formula_for_fo_inner(inner))
+        return FormulaLabel(_formula_for_fo_inner(inner, in_ex_conj=in_existential))
 
     if low.startswith(FormulaLabel.FUNCTOR.lower() + "("):
         inner = s[s.index("(") + 1 : s.rindex(")")]
-        return FormulaLabel(_formula_for_fo_inner(inner))
+        return FormulaLabel(_formula_for_fo_inner(inner, in_ex_conj=in_existential))
 
     if low.startswith(TypeLabel.FUNCTOR.lower() + "("):
         return _parse_ty(s)
 
-    modal = _try_parse_modal_label(s)
+    modal = _try_parse_modal_label(s, in_existential=in_existential)
     if modal is not None:
         return modal
 

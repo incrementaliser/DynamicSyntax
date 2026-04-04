@@ -30,6 +30,13 @@ class Variable(Formula):
         return Variable(self.name)
 
     def evaluate(self) -> Formula:
+        from dylan.formula.ttr_label import TTRLabel
+
+        parent = self.parent_rec_type
+        if parent is not None:
+            pointed = parent.get_pointer_type(TTRLabel(self.name))
+            if pointed is not None and isinstance(pointed, Variable):
+                return pointed
         return self
 
     def conjoin(self, other: Formula) -> Formula:
