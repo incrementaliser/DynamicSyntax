@@ -1,0 +1,6 @@
+a                             det_indef                     eps
+a                             det_indef_postcop				eps
+man                           count                         man                           s3                            male
+man                           count_post_indef_cop          man
+knows						  v_tran_fin					know						  pres							s3
+you							  you   						nons3							per

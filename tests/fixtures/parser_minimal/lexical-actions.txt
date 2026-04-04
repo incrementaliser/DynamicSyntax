@@ -1,0 +1,5 @@
+*noop(X)
+IF ?Ty(t)
+THEN do_nothing
+ELSE abort
+

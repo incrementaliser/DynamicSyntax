@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synamicsyntax"
+version = "0.1.0"
+description = "Python port of DyLan Dynamic Syntax + TTR (parser core)"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "BSD-3-Clause (see DyLan upstream LICENSE.txt)" }
+authors = [{ name = "DyLan Python port" }]
+keywords = ["dialogue", "dynamic-syntax", "ttr", "semantics", "parser"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dependencies = [
+    "networkx>=3.4",
+    "pydantic>=2.10",
+    "tqdm>=4.67",
+]
+
+[project.optional-dependencies]
+gui = ["flet>=0.24.0"]
+nlp = ["nltk>=3.9", "spacy>=3.8"]
+
+[project.scripts]
+dylan-gui = "dylan.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"

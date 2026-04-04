@@ -1,0 +1,135 @@
+"""Shared parser infrastructure (Java `DAGParser`)."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from dylan.action.action import Action
+from dylan.action.computational_action import ComputationalAction
+from dylan.action.grammar import Grammar
+from dylan.action.lexicon import Lexicon
+from dylan.action.speech_act_inference_grammar import SpeechActInferenceGrammar
+from dylan.context.context import Context
+from dylan.dag.dag_tuple import DAGTuple
+from dylan.dag.groundable_edge import GroundableEdge
+from dylan.dag.word_level_context_dag import WordLevelContextDAG
+from dylan.formula.formula import Formula
+from dylan.formula.ttr_record_type import TTRRecordType
+from dylan.tree.tree import Tree
+
+if TYPE_CHECKING:
+    from dylan.dag.uttered_word import UtteredWord
+
+logger = logging.getLogger(__name__)
+
+_MAX_NONOPTIONAL_ADJUST_PASSES = 10_000
+
+
+class DAGParser:
+    """Loads grammars and coordinates `Context` + DAG state (partial port)."""
+
+    def __init__(
+        self,
+        lexicon: Lexicon,
+        grammar: Grammar,
+        sa_grammar: SpeechActInferenceGrammar | None = None,
+    ) -> None:
+        self.lexicon = lexicon
+        self.nonoptional_grammar = Grammar()
+        self.optional_grammar = Grammar()
+        self.completion_grammar = Grammar()
+        self._separate_grammars(grammar)
+        self.sa_grammar = sa_grammar or SpeechActInferenceGrammar(Path("."))
+        self.context: Context[DAGTuple, GroundableEdge] | None = None
+        self.ready = True
+
+    def _separate_grammars(self, grammar: Grammar) -> None:
+        """Partition computational actions like Java `DAGParser.separateGrammars`."""
+        for a in grammar.values():
+            nm = a.name.lower()
+            if nm == "completion" or nm == "merge" or nm.startswith("anticipation"):
+                self.completion_grammar[a.name] = a
+            if a.is_always_good():
+                self.nonoptional_grammar[a.name] = a
+            else:
+                self.optional_grammar[a.name] = a
+
+    @classmethod
+    def from_resource_dir(cls, resource_dir: str | Path) -> DAGParser:
+        """Load lexicon + grammars from a directory (Java `DAGParser(String)`)."""
+        p = Path(resource_dir)
+        return cls(Lexicon(p), Grammar(p), SpeechActInferenceGrammar(p))
+
+    def get_state(self) -> WordLevelContextDAG:
+        if self.context is None:
+            raise RuntimeError("context not initialised")
+        return self.context.get_dag()
+
+    def get_context(self) -> Context[DAGTuple, GroundableEdge]:
+        if self.context is None:
+            raise RuntimeError("context not initialised")
+        return self.context
+
+    def apply_actions(self, t: Tree, actions: list[Action]) -> Tree | None:
+        """Sequentially apply `actions` to a clone of `t` (Java `applyActions`)."""
+        cur: Tree | None = t.clone()
+        for a in actions:
+            assert cur is not None
+            cur = a.exec(cur, self.context)
+            if cur is None:
+                return None
+        return cur
+
+    def adjust_with_non_optional_grammar(
+        self,
+        init_pair: tuple[list[Action], Tree],
+    ) -> tuple[list[Action], Tree]:
+        """Apply ``*`` computational actions until fixpoint (Java ``adjustWithNonOptionalGrammar``)."""
+        actions = list(init_pair[0])
+        res = init_pair[1]
+        for _ in range(_MAX_NONOPTIONAL_ADJUST_PASSES):
+            progressed = False
+            for ca in sorted(self.nonoptional_grammar.values(), key=lambda x: x.name):
+                clone = res.clone()
+                nxt = ca.exec(clone, self.context)
+                if nxt is not None:
+                    actions.append(ca.instantiate())
+                    res = nxt
+                    progressed = True
+                    break
+            if not progressed:
+                return (actions, res)
+        logger.error(
+            "adjust_with_non_optional_grammar exceeded %s passes — possible runaway rule loop",
+            _MAX_NONOPTIONAL_ADJUST_PASSES,
+        )
+        return (actions, res)
+
+    def get_final_semantics(self) -> TTRRecordType:
+        """Semantics at the current tuple after `evaluate` (Java `getFinalSemantics`)."""
+        dag = self.get_state()
+        sem = dag.get_current_tuple().get_semantics(self.context)
+        ev = sem.evaluate()
+        if not isinstance(ev, TTRRecordType):
+            raise TypeError("expected TTRRecordType from evaluate()")
+        return ev
+
+    def init(self) -> None:
+        if self.context is not None:
+            self.context.init()
+
+    def new_sentence(self) -> None:
+        """Reset DAG to axiom (Java `newSentence`)."""
+        self.get_state().init()
+
+    def parse(self, goal: Formula | None = None) -> bool:
+        """Delegate to `parse(goal)` on concrete parser (Java `DAGParser.parse()`)."""
+        return self.parse_goal(goal)
+
+    def parse_goal(self, goal: Formula | None) -> bool:
+        raise NotImplementedError
+
+    def parse_word(self, word: UtteredWord) -> WordLevelContextDAG | None:
+        raise NotImplementedError

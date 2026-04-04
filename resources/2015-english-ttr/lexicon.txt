@@ -1,0 +1,622 @@
+arrest                        v_tran_inf                    arrest                        inf                           per
+arrest                        v_tran_fin                    arrest                        pres                          nons3
+arrests                       v_tran_fin                    arrest                        pres                          s3
+arresting                     v_tran_ing                    arrest                        ing                           per
+arrested                      v_tran_fin                    arrest                        past                          per
+arrested                      v_tran_pas                    arrest                        inf                           per
+arrest                        v_subjcon_inf                 arrest                        inf                           per
+arrest                        v_subjcon_fin                 arrest                        pres                          nons3
+arrests                       v_subjcon_fin                 arrest                        pres                          s3
+arresting                     v_subjcon_ing                 arrest                        ing                           per
+arrested                      v_subjcon_fin                 arrest                        past                          per
+arrested                      v_subjcon_pas                 arrest                        inf                           per
+arrive                        v_intran_inf                  arrive                        inf                           per
+arrive                        v_intran_fin                  arrive                        pres                          nons3
+arrives                       v_intran_fin                  arrive                        pres                          s3
+arriving                      v_intran_ing                  arrive                        ing                           per
+arrived                       v_intran_fin                  arrive                        past                          per
+arrived                       v_intran_pas                  arrive                        inf                           per
+arrive                        v_pp_to_inf                   arrive                        inf                           per
+arrive                        v_pp_to_fin                   arrive                        pres                          nons3
+arrives                       v_pp_to_fin                   arrive                        pres                          s3
+arriving                      v_pp_to_ing                   arrive                        ing                           per
+arrived                       v_pp_to_fin                   arrive                        past                          per
+arrived                       v_pp_to_pas                   arrive                        inf                           per
+arrive                        v_pp_for_inf                  arrive                        inf                           per
+arrive                        v_pp_for_fin                  arrive                        pres                          nons3
+arrives                       v_pp_for_fin                  arrive                        pres                          s3
+arriving                      v_pp_for_ing                  arrive                        ing                           per
+arrived                       v_pp_for_fin                  arrive                        past                          per
+arrived                       v_pp_for_pas                  arrive                        inf                           per
+know						  v_tran_fin					know						  pres							per
+knows						  v_tran_fin					know						  pres							s3
+knew						  v_tran_fin					know						  past							per
+know						  v_tran_inf					know						  inf							per
+cook						  v_tran_fin					cook						  pres							per
+cooked						  v_tran_fin					cook						  past							per
+cooks						  v_tran_fin					cook						  pres							s3
+be                            v_be_inf                      be                            inf                           per
+be                            v_be_fin                      be                            pres                          nons3
+is                            v_aux_be                      pres                          s3
+being                         v_be_ing                      be                            ing                           per
+was                           v_aux_be                      past                          s3
+were                          v_aux_be                      past                          per
+been                          v_be_pas                      be                            inf                           per
+am                            v_aux_be                      pres                           per
+are                           v_aux_be                      pres                           per
+begin                         v_intran_inf                  begin                         inf                           per
+begin                         v_intran_fin                  begin                         pres                          nons3
+begins                        v_intran_fin                  begin                         pres                          s3
+beginning                     v_intran_ing                  begin                         ing                           per
+began                         v_intran_fin                  begin                         past                          per
+begun                         v_intran_pas                  begin                         inf                           per
+begin                         v_tran_inf                    begin                         inf                           per
+begin                         v_tran_fin                    begin                         pres                          nons3
+begins                        v_tran_fin                    begin                         pres                          s3
+beginning                     v_tran_ing                    begin                         ing                           per
+began                         v_tran_fin                    begin                         past                          per
+begun                         v_tran_pas                    begin                         inf                           per
+begin                         v_pp_to_inf                   begin                         inf                           per
+begin                         v_pp_to_fin                   begin                         pres                          nons3
+begins                        v_pp_to_fin                   begin                         pres                          s3
+beginning                     v_pp_to_ing                   begin                         ing                           per
+began                         v_pp_to_fin                   begin                         past                          per
+begun                         v_pp_to_pas                   begin                         inf                           per
+begin                         v_pp_for_inf                  begin                         inf                           per
+begin                         v_pp_for_fin                  begin                         pres                          nons3
+begins                        v_pp_for_fin                  begin                         pres                          s3
+beginning                     v_pp_for_ing                  begin                         ing                           per
+began                         v_pp_for_fin                  begin                         past                          per
+begun                         v_pp_for_pas                  begin                         inf                           per
+begin                         v_subjcon_inf                 begin                         inf                           per
+begin                         v_subjcon_fin                 begin                         pres                          nons3
+begins                        v_subjcon_fin                 begin                         pres                          s3
+beginning                     v_subjcon_ing                 begin                         ing                           per
+began                         v_subjcon_fin                 begin                         past                          per
+begun                         v_subjcon_pas                 begin                         inf                           per
+believe                       v_tran_inf                    believe                       inf                           per
+believe                       v_tran_fin                    believe                       pres                          nons3
+believes                      v_tran_fin                    believe                       pres                          s3
+believing                     v_tran_ing                    believe                       ing                           per
+believed                      v_tran_fin                    believe                       past                          per
+believed                      v_tran_pas                    believe                       inf                           per
+believe                       v_p_stran_inf                 believe                       inf                           per
+believe                       v_p_stran_fin                 believe                       pres                          nons3
+believes                      v_p_stran_fin                 believe                       pres                          s3
+believing                     v_p_stran_ing                 believe                       ing                           per
+believed                      v_p_stran_fin                 believe                       past                          per
+believed                      v_p_stran_pas                 believe                       inf                           per
+believe                       v_pp_to_inf                   believe                       inf                           per
+believe                       v_pp_to_fin                   believe                       pres                          nons3
+believes                      v_pp_to_fin                   believe                       pres                          s3
+believing                     v_pp_to_ing                   believe                       ing                           per
+believed                      v_pp_to_fin                   believe                       past                          per
+believed                      v_pp_to_pas                   believe                       inf                           per
+believe                       v_pp_for_inf                  believe                       inf                           per
+believe                       v_pp_for_fin                  believe                       pres                          nons3
+believes                      v_pp_for_fin                  believe                       pres                          s3
+believing                     v_pp_for_ing                  believe                       ing                           per
+believed                      v_pp_for_fin                  believe                       past                          per
+believed                      v_pp_for_pas                  believe                       inf                           per
+//book                          v_tran_inf                    book                          inf                           per
+//book                          v_tran_fin                    book                          pres                          nons3
+//books                         v_tran_fin                    book                          pres                          s3
+//booking                       v_tran_ing                    book                          ing                           per
+//booked                        v_tran_fin                    book                          past                          per
+//booked                        v_tran_pas                    book                          inf                           per
+can                           v_tran_inf                    can                           inf                           per
+can                           v_tran_fin                    can                           pres                          nons3
+can                           v_tran_fin                    can                           pres                          s3
+could                         v_tran_fin                    can                           past                          per
+can                           v_aux_inf                     can                           inf                           per
+can                           v_aux_fin                     can                           pres                          nons3
+can                           v_aux_fin                     can                           pres                          s3
+could                         v_aux_fin                     can                           past                          per
+dislike                       v_tran_inf                    dislike                       inf                           per
+dislike                       v_tran_fin                    dislike                       pres                          nons3
+dislikes                      v_tran_fin                    dislike                       pres                          s3
+disliking                     v_tran_ing                    dislike                       ing                           per
+disliked                      v_tran_fin                    dislike                       past                          per
+disliked                      v_tran_pas                    dislike                       inf                           per
+meet                  	     v_tran_inf                    meet                       inf                           per
+meet                 	      v_tran_fin                    meet                       pres                          nons3
+meets               	       v_tran_fin                    meet                       pres                          s3
+meeting             	       v_tran_ing                    dislike                       ing                           per
+met                   		  v_tran_fin                    dislike                       past                          per
+buy		                      v_tran_inf                    buy                       inf                           per
+buy		                      v_tran_fin                    buy                       pres                          nons3
+buys  	                      v_tran_fin                    buy                       pres                          s3
+buying	                      v_tran_ing                    buy                       ing                           per
+bought                        v_tran_fin                    buy                       past                          per
+leased						  v_tran_fin                    lease                       past                          per
+//do                            v_aux_inf                     do                            inf                           per
+do                            v_aux_inf                     do                            pres                          nons3
+//does                          v_aux_fin                     do                            pres                          s3
+does                          v_aux_inf                     do                            pres                          s3
+//doing                         v_aux_ing                     do                            ing                           per
+did                           v_aux_inf                     did                           past                          per
+done                          v_aux_pas                     do                            inf                           per
+fly                           v_intran_inf                  fly                           inf                           per
+fly                           v_intran_fin                  fly                           pres                          nons3
+flies                         v_intran_fin                  fly                           pres                          s3
+flying                        v_intran_ing                  fly                           ing                           per
+flew                          v_intran_fin                  fly                           past                          per
+flew                          v_intran_pas                  fly                           inf                           per
+fly                           v_tran_inf                    fly                           inf                           per
+fly                           v_tran_fin                    fly                           pres                          nons3
+flies                         v_tran_fin                    fly                           pres                          s3
+flying                        v_tran_ing                    fly                           ing                           per
+flew                          v_tran_fin                    fly                           past                          per
+flew                          v_tran_pas                    fly                           inf                           per
+go                            v_intran_inf                  go                            inf                           per
+go                            v_intran_fin                  go                            pres                          nons3
+goes                          v_intran_fin                  go                            pres                          s3
+going                         v_intran_ing                  go                            ing                           per
+went                          v_intran_fin                  go                            past                          per
+gone                          v_intran_pas                  go                            inf                           per
+go                            v_tran_inf                    go                            inf                           per
+go                            v_tran_fin                    go                            pres                          nons3
+goes                          v_tran_fin                    go                            pres                          s3
+going                         v_tran_ing                    go                            ing                           per
+went                          v_tran_fin                    go                            past                          per
+gone                          v_tran_pas                    go                            inf                           per
+go                            v_pp_to_inf                   go                            inf                           per
+go                            v_pp_to_fin                   go                            pres                          nons3
+goes                          v_pp_to_fin                   go                            pres                          s3
+going                         v_pp_to_ing                   go                            ing                           per
+went                          v_pp_to_fin                   go                            past                          per
+gone                          v_pp_to_pas                   go                            inf                           per
+go                            v_pp_for_inf                  go                            inf                           per
+go                            v_pp_for_fin                  go                            pres                          nons3
+goes                          v_pp_for_fin                  go                            pres                          s3
+going                         v_pp_for_ing                  go                            ing                           per
+went                          v_pp_for_fin                  go                            past                          per
+gone                          v_pp_for_pas                  go                            inf                           per
+give                          v_ditran_inf                  give                          inf                           per
+give                          v_ditran_fin                  give                          pres                          nons3
+gives                         v_ditran_fin                  give                          pres                          s3
+giving                        v_ditran_ing                  give                          ing                           per
+gave                          v_ditran_fin                  give                          past                          per
+given                         v_ditran_pas                  give                          inf                           per
+hate                          v_tran_inf                    hate                          inf                           per
+hate                          v_tran_fin                    hate                          pres                          nons3
+hates                         v_tran_fin                    hate                          pres                          s3
+hating                        v_tran_ing                    hate                          ing                           per
+hated                         v_tran_fin                    hate                          past                          per
+hated                         v_tran_pas                    hate                          inf                           per
+hate                          v_subjcon_inf                 hate                          inf                           per
+hate                          v_subjcon_fin                 hate                          pres                          nons3
+hates                         v_subjcon_fin                 hate                          pres                          s3
+hating                        v_subjcon_ing                 hate                          ing                           per
+hated                         v_subjcon_fin                 hate                          past                          per
+hated                         v_subjcon_pas                 hate                          inf                           per
+leave                         v_intran_inf                  leave                         inf                           per
+leave                         v_intran_fin                  leave                         pres                          nons3
+leaves                        v_intran_fin                  leave                         pres                          s3
+leaving                       v_intran_ing                  leave                         ing                           per
+left                          v_intran_fin                  leave                         past                          per
+left                          v_intran_pas                  leave                         inf                           per
+leave                         v_tran_inf                    leave                         inf                           per
+leave                         v_tran_fin                    leave                         pres                          nons3
+leaves                        v_tran_fin                    leave                         pres                          s3
+leaving                       v_tran_ing                    leave                         ing                           per
+left                          v_tran_fin                    leave                         past                          per
+left                          v_tran_pas                    leave                         inf                           per
+leave                         v_ditran_inf                  leave                         inf                           per
+leave                         v_ditran_fin                  leave                         pres                          nons3
+leaves                        v_ditran_fin                  leave                         pres                          s3
+leaving                       v_ditran_ing                  leave                         ing                           per
+left                          v_ditran_fin                  leave                         past                          per
+left                          v_ditran_pas                  leave                         inf                           per
+leave                         v_pp_to_inf                   leave                         inf                           per
+leave                         v_pp_to_fin                   leave                         pres                          nons3
+leaves                        v_pp_to_fin                   leave                         pres                          s3
+leaving                       v_pp_to_ing                   leave                         ing                           per
+left                          v_pp_to_fin                   leave                         past                          per
+left                          v_pp_to_pas                   leave                         inf                           per
+leave                         v_pp_for_inf                  leave                         inf                           per
+leave                         v_pp_for_fin                  leave                         pres                          nons3
+leaves                        v_pp_for_fin                  leave                         pres                          s3
+leaving                       v_pp_for_ing                  leave                         ing                           per
+left                          v_pp_for_fin                  leave                         past                          per
+left                          v_pp_for_pas                  leave                         inf                           per
+like                          v_tran_inf                    like                          inf                           per
+like                          v_tran_fin                    like                          pres                          nons3
+likes                         v_tran_fin                    like                          pres                          s3
+liking                        v_tran_ing                    like                          ing                           per
+liked                         v_tran_fin                    like                          past                          per
+liked                         v_tran_pas                    like                          inf                           per
+like                          v_subjcon_inf                 like                          inf                           per
+like                          v_subjcon_fin                 like                          pres                          nons3
+likes                         v_subjcon_fin                 like                          pres                          s3
+liking                        v_subjcon_ing                 like                          ing                           per
+liked                         v_subjcon_fin                 like                          past                          per
+liked                         v_subjcon_pas                 like                          inf                           per
+may                           v_aux_inf                     may                           inf                           per
+may                           v_aux_fin                     may                           pres                          nons3
+may                           v_aux_fin                     may                           pres                          s3
+read                          v_tran_inf                    read                          inf                           per
+read                          v_tran_fin                    read                          pres                          nons3
+reads                         v_tran_fin                    read                          pres                          s3
+reading                       v_tran_ing                    read                          ing                           per
+read                          v_tran_fin                    read                          past                          per
+read                          v_tran_pas                    read                          inf                           per
+read                          v_subjcon_inf                 read                          inf                           per
+read                          v_subjcon_fin                 read                          pres                          nons3
+reads                         v_subjcon_fin                 read                          pres                          s3
+reading                       v_subjcon_ing                 read                          ing                           per
+read                          v_subjcon_fin                 read                          past                          per
+read                          v_subjcon_pas                 read                          inf                           per
+sneeze                        v_intran_inf                  sneeze                        inf                           per
+sneeze                        v_intran_fin                  sneeze                        pres                          nons3
+sneezes                       v_intran_fin                  sneeze                        pres                          s3
+sneezing                      v_intran_ing                  sneeze                        ing                           per
+sneezed                       v_intran_fin                  sneeze                        past                          per
+sneezed                       v_intran_pas                  sneeze                        inf                           per
+snore                         v_intran_inf                  snore                         inf                           per
+snore                         v_intran_fin                  snore                         pres                          nons3
+snores                        v_intran_fin                  snore                         pres                          s3
+snoring                       v_intran_ing                  snore                         ing                           per
+snored                        v_intran_fin                  snore                         past                          per
+snored                        v_intran_pas                  snore                         inf                           per
+start                         v_intran_inf                  start                         inf                           per
+start                         v_intran_fin                  start                         pres                          nons3
+starts                        v_intran_fin                  start                         pres                          s3
+starting                      v_intran_ing                  start                         ing                           per
+started                       v_intran_fin                  start                         past                          per
+started                       v_intran_pas                  start                         inf                           per
+start                         v_tran_inf                    start                         inf                           per
+start                         v_tran_fin                    start                         pres                          nons3
+starts                        v_tran_fin                    start                         pres                          s3
+starting                      v_tran_ing                    start                         ing                           per
+started                       v_tran_fin                    start                         past                          per
+started                       v_tran_pas                    start                         inf                           per
+start                         v_pp_to_inf                   start                         inf                           per
+start                         v_pp_to_fin                   start                         pres                          nons3
+starts                        v_pp_to_fin                   start                         pres                          s3
+starting                      v_pp_to_ing                   start                         ing                           per
+started                       v_pp_to_fin                   start                         past                          per
+started                       v_pp_to_pas                   start                         inf                           per
+start                         v_pp_for_inf                  start                         inf                           per
+start                         v_pp_for_fin                  start                         pres                          nons3
+starts                        v_pp_for_fin                  start                         pres                          s3
+starting                      v_pp_for_ing                  start                         ing                           per
+started                       v_pp_for_fin                  start                         past                          per
+started                       v_pp_for_pas                  start                         inf                           per
+start                         v_subjcon_inf                 start                         inf                           per
+start                         v_subjcon_fin                 start                         pres                          nons3
+starts                        v_subjcon_fin                 start                         pres                          s3
+starting                      v_subjcon_ing                 start                         ing                           per
+started                       v_subjcon_fin                 start                         past                          per
+started                       v_subjcon_pas                 start                         inf                           per
+stay                          v_intran_inf                  stay                          inf                           per
+stay                          v_intran_fin                  stay                          pres                          nons3
+stays                         v_intran_fin                  stay                          pres                          s3
+staying                       v_intran_ing                  stay                          ing                           per
+stayed                        v_intran_fin                  stay                          past                          per
+stayed                        v_intran_pas                  stay                          inf                           per
+stay                          v_tran_inf                    stay                          inf                           per
+stay                          v_tran_fin                    stay                          pres                          nons3
+stays                         v_tran_fin                    stay                          pres                          s3
+staying                       v_tran_ing                    stay                          ing                           per
+stayed                        v_tran_fin                    stay                          past                          per
+stayed                        v_tran_pas                    stay                          inf                           per
+think                         v_intran_inf                  think                         inf                           per
+think                         v_intran_fin                  think                         pres                          nons3
+thinks                        v_intran_fin                  think                         pres                          s3
+thinking                      v_intran_ing                  think                         ing                           per
+thought                       v_intran_fin                  think                         past                          per
+thought                       v_intran_pas                  think                         inf                           per
+think                         v_tran_inf                    think                         inf                           per
+think                         v_tran_fin                    think                         pres                          nons3
+thinks                        v_tran_fin                    think                         pres                          s3
+thinking                      v_tran_ing                    think                         ing                           per
+thought                       v_tran_fin                    think                         past                          per
+thought                       v_tran_pas                    think                         inf                           per
+think                         v_p_stran_inf                 think                         inf                           per
+think                         v_p_stran_fin                 think                         pres                          nons3
+thinks                        v_p_stran_fin                 think                         pres                          s3
+thinking                      v_p_stran_ing                 think                         ing                           per
+thought                       v_p_stran_fin                 think                         past                          per
+thought                       v_p_stran_pas                 think                         inf                           per
+think                         v_pp_to_inf                   think                         inf                           per
+think                         v_pp_to_fin                   think                         pres                          nons3
+thinks                        v_pp_to_fin                   think                         pres                          s3
+thinking                      v_pp_to_ing                   think                         ing                           per
+thought                       v_pp_to_fin                   think                         past                          per
+thought                       v_pp_to_pas                   think                         inf                           per
+think                         v_pp_for_inf                  think                         inf                           per
+think                         v_pp_for_fin                  think                         pres                          nons3
+thinks                        v_pp_for_fin                  think                         pres                          s3
+thinking                      v_pp_for_ing                  think                         ing                           per
+thought                       v_pp_for_fin                  think                         past                          per
+thought                       v_pp_for_pas                  think                         inf                           per
+travel                        v_intran_inf                  travel                        inf                           per
+travel                        v_intran_fin                  travel                        pres                          nons3
+travels                       v_intran_fin                  travel                        pres                          s3
+travelling                    v_intran_ing                  travel                        ing                           per
+travelled                     v_intran_fin                  travel                        past                          per
+travelled                     v_intran_pas                  travel                        inf                           per
+travel                        v_pp_to_inf                   travel                        inf                           per
+travel                        v_pp_to_fin                   travel                        pres                          nons3
+travels                       v_pp_to_fin                   travel                        pres                          s3
+travelling                    v_pp_to_ing                   travel                        ing                           per
+travelled                     v_pp_to_fin                   travel                        past                          per
+travelled                     v_pp_to_pas                   travel                        inf                           per
+travel                        v_pp_for_inf                  travel                        inf                           per
+travel                        v_pp_for_fin                  travel                        pres                          nons3
+travels                       v_pp_for_fin                  travel                        pres                          s3
+travelling                    v_pp_for_ing                  travel                        ing                           per
+travelled                     v_pp_for_fin                  travel                        past                          per
+travelled                     v_pp_for_pas                  travel                        inf                           per
+//want                          v_intran_inf                  want                          inf                           per
+//want                          v_intran_fin                  want                          pres                          nons3
+//wants                         v_intran_fin                  want                          pres                          s3
+//wanting                       v_intran_ing                  want                          ing                           per
+//wanted                        v_intran_fin                  want                          past                          per
+//wanted                        v_intran_pas                  want                          inf                           per
+want                          v_tran_inf                    want                          inf                           per
+want                          v_tran_fin                    want                          pres                          nons3
+wants                         v_tran_fin                    want                          pres                          s3
+//wanting                       v_tran_ing                    want                          ing                           per
+//wanted                        v_tran_fin                    want                          past                          per
+//wanted                        v_tran_pas                    want                          inf                           per
+//want                          v_pp_to_inf                   want                          inf                           per
+//want                          v_pp_to_fin                   want                          pres                          nons3
+//wants                         v_pp_to_fin                   want                          pres                          s3
+//wanting                       v_pp_to_ing                   want                          ing                           per
+//wanted                        v_pp_to_fin                   want                          past                          per
+//wanted                        v_pp_to_pas                   want                          inf                           per
+//want                          v_pp_for_inf                  want                          inf                           per
+//want                          v_pp_for_fin                  want                          pres                          nons3
+//wants                         v_pp_for_fin                  want                          pres                          s3
+//wanting                       v_pp_for_ing                  want                          ing                           per
+//wanted                        v_pp_for_fin                  want                          past                          per
+//wanted                        v_pp_for_pas                  want                          inf                           per
+//want                          v_subjcon_inf                 want                          inf                           per
+want                            v_subjcon_fin                 want                          pres                          nons3
+wants                           v_subjcon_fin                 want                          pres                          s3
+want                            v_subjcon_inf                 want                          inf                          nons3
+//wanting                       v_subjcon_ing                 want                          ing                           per
+looking						    v_subjcon_ing				  look							ing 						  per
+lookingfor					    v_tran_ing				      look							ing							  per
+//wanted                        v_subjcon_fin                 want                          past                          per
+//wanted                        v_subjcon_pas                 want                          inf                           per
+//will                          v_intran_inf                  will                          inf                           per
+//will                          v_intran_fin                  will                          pres                          nons3
+//will                          v_intran_fin                  will                          pres                          s3
+//will                          v_tran_inf                    will                          inf                           per
+//will                          v_tran_fin                    will                          pres                          nons3
+//will                          v_tran_fin                    will                          pres                          s3
+//will                          v_ditran_inf                  will                          inf                           per
+//will                          v_ditran_fin                  will                          pres                          nons3
+//will                          v_ditran_fin                  will                          pres                          s3
+//will                          v_p_stran_inf                 will                          inf                           per
+//will                          v_p_stran_fin                 will                          pres                          nons3
+//will                          v_p_stran_fin                 will                          pres                          s3
+will                          v_aux_inf                     will                          inf                          	per
+wonder                        v_intran_inf                  wonder                        inf                           per
+wonder                        v_intran_fin                  wonder                        pres                          nons3
+wonders                       v_intran_fin                  wonder                        pres                          s3
+wondering                     v_intran_ing                  wonder                        ing                           per
+wondered                      v_intran_fin                  wonder                        past                          per
+wondered                      v_intran_pas                  wonder                        inf                           per
+wonder                        v_q_stran_inf                 wonder                        inf                           per
+wonder                        v_q_stran_fin                 wonder                        pres                          nons3
+wonders                       v_q_stran_fin                 wonder                        pres                          s3
+wondering                     v_q_stran_ing                 wonder                        ing                           per
+wondered                      v_q_stran_fin                 wonder                        past                          per
+wondered                      v_q_stran_pas                 wonder                        inf                           per
+wonder                        v_pp_to_inf                   wonder                        inf                           per
+wonder                        v_pp_to_fin                   wonder                        pres                          nons3
+wonders                       v_pp_to_fin                   wonder                        pres                          s3
+wondering                     v_pp_to_ing                   wonder                        ing                           per
+wondered                      v_pp_to_fin                   wonder                        past                          per
+wondered                      v_pp_to_pas                   wonder                        inf                           per
+wonder                        v_pp_for_inf                  wonder                        inf                           per
+wonder                        v_pp_for_fin                  wonder                        pres                          nons3
+wonders                       v_pp_for_fin                  wonder                        pres                          s3
+wondering                     v_pp_for_ing                  wonder                        ing                           per
+wondered                      v_pp_for_fin                  wonder                        past                          per
+wondered                      v_pp_for_pas                  wonder                        inf                           per
+//would                         v_tran_inf                    would                         inf                           per
+//would                         v_tran_fin                    would                         pres                          nons3
+//would                         v_tran_fin                    would                         pres                          s3
+//would                         v_tran_fin                    would                         past                          per
+//would                         v_aux_inf                     would                         inf                           per
+would                         v_aux_inf                     would                         pres                          nons3
+//would                         v_aux_fin                     would                         pres                          s3
+//would                         v_aux_fin                     would                         past                          per
+bill                          proper                        bill                          s3                            male
+john                          proper                        john                          s3                            male
+ruth						  proper						ruth						  s3							male
+arash						  proper						arash						  s3							male
+stergios					  proper						stergios					  s3							male
+mary                          proper                        mary                          s3                            female
+jill                          proper                        jill                          s3                            female
+europe                        proper                        europe                        s3                            loc
+samsung						  proper						samsung						  s3							obj
+apple						  proper						apple						  s3							obj
+london                        proper                        london                        s3                            dest
+paris                         proper                        paris                         s3                            dest
+//aeroplane                     mass                          aeroplane                     s3                            trans
+//aeroplanes                    mass                          aeroplane                     plur                          trans
+//my							 my								s1							  
+your						 your							s2							 
+cousin                    count                         cousin                     s3                            trans
+phone					  count							phone					   s3							obj
+product					  count							product					   s3							obj
+guy						  count							guy						   s3							male
+girl					  count							girl					   s3							female
+group				      count							group					   s3							trans							
+aeroplane                     count                         aeroplane                     s3                            trans
+aeroplanes                    count                         aeroplane                     plur                          trans
+airplane                      mass                          airplane                      s3                            trans
+airplanes                     mass                          airplane                      plur                          trans
+airplane                      count                         airplane                      s3                            trans
+airplanes                     count                         airplane                      plur                          trans
+//boat                          mass                          boat                          s3                            trans
+//boats                         mass                          boat                          plur                          trans
+boat                          count                         boat                          s3                            obj
+yaght						  count							yaght						  s3							obj
+boats                         count                         boat                          plur                          obj
+car                           count                          car                           s3                           obj
+//cars                          mass                          car                           plur                        obj
+//cars                          count                         car                           plur                          trans
+plane                         mass                          plane                         s3                            trans
+planes                        mass                          plane                         plur                          trans
+plane                         count                         plane                         s3                            trans
+planes                        count                         plane                         plur                          trans
+train                         mass                          train                         s3                            trans
+trains                        mass                          train                         plur                          trans
+train                         count                         train                         s3                            trans
+trains                        count                         train                         plur                          trans
+book                          count                         book                          s3                            obj
+books                         count                         book                          plur                          obj
+hotel                         count                         hotel                         s3                            obj
+hotels                        count                         hotel                         plur                          obj
+room                          count                         room                          s3                            obj
+rooms                         count                         room                          plur                          obj
+table                         count                         table                         s3                            obj
+tables                        count                         table                         plur                          obj
+ticket                        count                         ticket                        s3                            obj
+tickets                       count                         ticket                        plur                          obj
+trip                          count                         trip                          s3                            obj
+trips                         count                         trip                          plur                          obj
+brand						  count							brand						  s3							obj
+brands						  count							brands						  plur							obj
+boy                           count                         boy                           s3                            male
+boys                          count                         boy                           plur                          male
+girl                          count                         girl                          s3                            female
+girls                         count                         girl                          plur                          female
+man                           count                         man                           s3                            male
+man                           count_post_indef_cop          man                           s3                            male
+men                           count                         man                           plur                          male
+woman                         count                         woman                         s3                            female
+women                         count                         woman                         plur                          female
+student                       count                         student                       s3                            per
+students                      count                         student                       plur                          per
+policeman                     count                         policeman                     s3                            male
+policemen                     count                         policeman                     plur                          male
+right                         count                         right                         s3                            obj
+rights                        count                         right                         plur                          obj
+sugar                         mass                          sugar                         s3                            obj
+sugars                        mass                          sugar                         plur                          obj
+sugar                         count                         sugar                         s3                            obj
+sugars                        count                         sugar                         plur                          obj
+travel                        mass                          travel                        s3                            obj
+travels                       mass                          travel                        plur                          obj
+travel                        count                         travel                        s3                            obj
+travels                       count                         travel                        plur                          obj
+january                       proper                        january                       s3                            month
+february                      proper                        february                      s3                            month
+bank                          count                         bank_1                        s3                            obj
+banks                         count                         bank_1                        plur                          obj
+bank                          count                         bank_2                        s3                            loc
+banks                         count                         bank_2                        plur                          loc
+financial-institution         count                         bank_1                        s3                            obj
+financial-institution         count                         bank_1                        plur                          obj
+riverside                     count                         bank_2                        s3                            loc
+riversides                    count                         bank_2                        plur                          loc
+carrot						  mass							carrot						  s3							obj
+lamb						  mass							lamb						  s3							obj
+beef						  mass							beef						  s3							obj
+blue                          adj_be	                    blue
+blue                          adj	                       	blue
+bluer                         adj                           blue
+bluest                        adj                           blue
+red                           adj                           red
+red                           adj_be	                    red
+redder                        adj                           red
+reddest                       adj                           red
+green                         adj                           green
+green                         adj_be                        green
+greener                       adj                           green
+greenest                      adj                           green
+big	                          adj							big
+big							  adj_be						big
+massive						  adj							massive
+massive						  adj_be						massive
+fat							  adj							fat
+nice						  adj							nice
+nice						  adj_be						nice
+thin						  adj							thin
+with						  prep_es						with
+with						  prep_e						with
+to 							  prep_es						to
+to							  to_subjcon					to							  													  	
+//from						  prep_es						from						  
+from						  prep_e						from
+on							  prep_e						on							  			
+by							  prep_es						by							  	
+by							  prep_e						by
+slowly						  manner_adv					slow
+quickly						  manner_adv					quick
+madly						  manner_adv					mad
+wildly						  manner_adv					wild
+tenderly 					  manner_adv					tender
+today					      manner_adv					today
+tonight					      manner_adv					tonight
+tomorrow					  manner_adv					tomorrow
+really						  manner_adv					real
+actually					  manner_adv					actual
+finally						  manner_adv					final
+Monday						  proper						monday						  s3							temp
+April					      proper						april						  s3                            temp
+London                        proper                   	    london                        s3                            loc
+Paris                         proper                        paris                         s3                            loc
+Tuesday						  proper						tuesday						  s3                           
+casserole					  proper						caserole					  s3
+stew						  proper						stew						  s3
+i                             i				                nons3							per
+you							  you   						nons3							per
+he                            pron_nom                      s3                            male
+it                            pron_nom                      s3                            obj
+it                            pron_acc                      s3                            obj
+her                           pron_acc                      s3                            female
+herself						  pron_ref						s3							  female
+him                           pron_acc                      s3                            male
+himself						  pron_ref						s3							  male
+me                            pron_acc                      s1                            spkr
+she                           pron_nom                      s3                            female
+what                          pron_whq                      s3							  obj
+where						  pron_whq						s3							  loc
+what                          pron_whq_cop                  s3							  obj
+what						  pron_whq_det					s3							  obj
+which                         pron_whrel                    obj
+which						  pron_whq_det					s3							  obj
+that                          pron_whrel                    obj
+who                           pron_whq                      s3							  per
+who                           pron_whrel                    per
+them                          pron_acc                      plur                          per
+they                          pron_nom                      plur                          per
+how                           pron_whmod                    trans
+when                          pron_whmod                    tim
+where                         pron_whmod                    loc
+his                           pron_det                      male
+her                           pron_det                      female
+a                             det_indef                     eps
+an                            det_indef                     eps
+a                             det_indef_postcop				eps
+an                            det_indef_postcop				eps
+the                           det_quant                     iota
+the                           det_def_postcop               iota
+the                           the			                iota
+this						  det_demonst					here						  s3
+that						  det_demonst					there					      s3
+this						  demonst  						this						  s3
+that						  demonst						that						  s3
+every                         det_quant                     tau
+some                          det_indef                     eps
+.							  assert						A
+?							  question						Q
+uhu							  accept						uhu
+ok							  accept						ok
+yes							  accept						yes
+yes							  yes							yes
+okay						  accept						okay
+yeah						  accept						yeah
+wow							  accept						wow
+right						  accept						right
+no							  reject						not
+//not							  not							not

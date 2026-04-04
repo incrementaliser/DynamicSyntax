@@ -1,0 +1,1 @@
+"""Atomic effects (put, go, …)."""

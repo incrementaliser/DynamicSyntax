@@ -1,0 +1,4 @@
+// minimal computational grammar for Python port smoke test
+*trp
+abort
+
