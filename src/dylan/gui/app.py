@@ -128,7 +128,7 @@ def main() -> None:
 
         _outline = ft.InputBorder.OUTLINE
         _primary_btn_shape = ft.RoundedRectangleBorder(radius=6)
-        _primary_btn_padding = ft.padding.symmetric(horizontal=16, vertical=12)
+        _primary_btn_padding = ft.Padding.symmetric(horizontal=16, vertical=12)
         page.bgcolor = PANEL_BACKGROUND
 
         def _dark_outlined_textfield(**kwargs: Any) -> ft.TextField:
@@ -171,7 +171,7 @@ def main() -> None:
             """Outlined box with *title* on the top border; use *fill_vertical* only inside bounded flex areas (tabs/logs)."""
             bc = border_color if border_color is not None else BOX_BORDER_COLOR
             tc = title_color if title_color is not None else MUTED_TEXT_COLOR
-            pad = content_padding if content_padding is not None else ft.padding.all(10)
+            pad = content_padding if content_padding is not None else ft.Padding.all(10)
             caption_text = ft.Text(
                 title,
                 size=CAPTION_FONT_SIZE,
@@ -182,9 +182,9 @@ def main() -> None:
             # unless *fill_vertical* (tabs / logs) where the parent supplies a bounded flex area.
             if fill_vertical:
                 bordered = ft.Container(
-                    margin=ft.margin.only(top=8),
+                    margin=ft.Margin.only(top=8),
                     expand=True,
-                    border=ft.border.all(1, bc),
+                    border=ft.Border.all(width=1, color=bc),
                     border_radius=4,
                     bgcolor=fill_color,
                     padding=pad,
@@ -199,15 +199,15 @@ def main() -> None:
                             left=12,
                             top=0,
                             bgcolor=caption_bg,
-                            padding=ft.padding.symmetric(horizontal=4),
+                            padding=ft.Padding.symmetric(horizontal=4),
                             content=caption_text,
                         ),
                     ],
                 )
             else:
                 bordered = ft.Container(
-                    margin=ft.margin.only(top=8),
-                    border=ft.border.all(1, bc),
+                    margin=ft.Margin.only(top=8),
+                    border=ft.Border.all(width=1, color=bc),
                     border_radius=4,
                     bgcolor=fill_color,
                     padding=pad,
@@ -221,7 +221,7 @@ def main() -> None:
                             left=12,
                             top=0,
                             bgcolor=caption_bg,
-                            padding=ft.padding.symmetric(horizontal=4),
+                            padding=ft.Padding.symmetric(horizontal=4),
                             content=caption_text,
                         ),
                     ],
@@ -548,12 +548,12 @@ def main() -> None:
             ),
         )
 
-        init_btn = ft.ElevatedButton(
+        init_btn = ft.Button(
             content="Init",
             on_click=do_init,
             tooltip="context.init()",
         )
-        new_sentence_btn = ft.ElevatedButton(
+        new_sentence_btn = ft.Button(
             content="New sentence",
             on_click=do_new_sentence,
             tooltip="Reset DAG to axiom (Java newSentence)",
@@ -578,7 +578,7 @@ def main() -> None:
                 ],
                 spacing=8,
             ),
-            padding=ft.padding.only(top=8),
+            padding=ft.Padding.only(top=8),
         )
         left_column = ft.Column(
             [
@@ -615,7 +615,7 @@ def main() -> None:
                     ft.Container(
                         content=left_column,
                         expand=65,
-                        padding=ft.padding.only(right=8),
+                        padding=ft.Padding.only(right=8),
                         bgcolor=PANEL_BACKGROUND,
                     ),
                     logs_panel,
@@ -632,7 +632,7 @@ def main() -> None:
 
         page.run_task(_center_window)
 
-    ft.app(target=build)
+    ft.run(main=build)
 
 
 if __name__ == "__main__":
