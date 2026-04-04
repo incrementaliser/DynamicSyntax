@@ -7,8 +7,28 @@ from collections import deque
 from dylan.dag.dag_tuple import DAGTuple
 from dylan.dag.groundable_edge import GroundableEdge
 from dylan.dag.word_level_context_dag import WordLevelContextDAG
+from dylan.tree.label.labels import FormulaLabel, Requirement
+from dylan.tree.node import Node
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
+
+
+def node_address_type_formula_strings(addr: NodeAddress, node: Node) -> tuple[str, str, str]:
+    """Return ``(address, type_labels, formula_labels)`` for GUI display (formula = ``Fo`` / ``?Fo`` only)."""
+    formulas: list[str] = []
+    types: list[str] = []
+    for lab in node.labels:
+        if isinstance(lab, FormulaLabel):
+            formulas.append(str(lab))
+        elif isinstance(lab, Requirement) and isinstance(lab.inner, FormulaLabel):
+            formulas.append(str(lab))
+        else:
+            types.append(str(lab))
+    return (
+        str(addr.address),
+        " | ".join(types) if types else "—",
+        " | ".join(formulas) if formulas else "—",
+    )
 
 
 def _address_sort_key(addr: NodeAddress) -> tuple[int, str]:
@@ -24,10 +44,9 @@ def format_ds_tree(tree: Tree) -> str:
         node = tree[addr]
         depth = max(0, len(addr.address) - 1)
         indent = "  " * min(depth, 24)
-        parts = [str(lab) for lab in node.labels]
-        lab_line = " | ".join(parts) if parts else "(no labels)"
+        _a, t_str, f_str = node_address_type_formula_strings(addr, node)
         mark = " *" if addr == tree.pointer else ""
-        lines.append(f"{indent}[{addr}]{mark} {lab_line}")
+        lines.append(f"{indent}[{_a}]{mark}  {t_str}  |  {f_str}")
     return "\n".join(lines) if lines else "(empty tree)"
 
 

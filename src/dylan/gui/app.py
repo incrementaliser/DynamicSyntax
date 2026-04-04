@@ -1,21 +1,29 @@
 """Flet desktop GUI for loading grammars and parsing (Java ``ParserGUI`` / ``ParserPanel`` subset).
 
 Targets Flet >= 0.80 (async ``FilePicker`` methods, ``Tabs`` uses
-``content`` + ``length``, ``Button.content`` keyword).
+``content`` + ``length``, four main tabs: parse graph, address list, semantics, DAG).
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 import sys
 from pathlib import Path
 
 from dylan.gui.formatting import format_dag_overview, format_ds_tree
+from dylan.gui.tree_viz import format_ds_tree_ascii, render_ds_tree_png
 from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
+from dylan.tree.tree import Tree
 from dylan.parser.interactive_context_parser import InteractiveContextParser
 
 logger = logging.getLogger(__name__)
+
+# Valid 1×1 PNG so ``ft.Image`` never gets empty ``src`` (avoids Flutter decode / URL errors on startup).
+_PLACEHOLDER_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6XKpQAAAABJRU5ErkJggg=="
+)
 
 _INFO_HELP_TEXT = (
     "Click Load grammar to pick a folder; the grammar loads as soon as you confirm.\n\n"
@@ -91,6 +99,13 @@ def main() -> None:
         _ensure_dylan_stderr_logging()
 
         page.title = "DyLan - The Dynamic Syntax Parser"
+
+        def on_page_error(e: ft.ControlEvent) -> None:
+            """Log Flet client errors (red banner text is often mirrored here)."""
+            logger.warning("Flet page error: %s", getattr(e, "data", e))
+
+        page.on_error = on_page_error
+
         page.window.width = 1400
         page.window.height = 900
         page.window.min_width = 1000
@@ -305,8 +320,38 @@ def main() -> None:
             expand=True,
             text_style=mono_text_style,
         )
+        tree_viz_image = ft.Image(
+            src=_PLACEHOLDER_PNG_BYTES,
+            fit=ft.BoxFit.FILL,
+            gapless_playback=True,
+            expand=True,
+            visible=True,
+        )
+        tree_viz_fallback = ft.Text(
+            "",
+            selectable=True,
+            visible=False,
+            expand=True,
+            style=mono_text_style,
+        )
+        parse_tree_graph_column = ft.Column(
+            [
+                ft.Container(content=tree_viz_image, expand=True),
+                ft.Container(content=tree_viz_fallback, expand=True),
+            ],
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+        )
         output_box = _border_caption_box(
             "Output",
+            parse_tree_graph_column,
+            caption_bg=BOX_BACKGROUND_COLOR,
+            fill_color=BOX_BACKGROUND_COLOR,
+            expand=True,
+            fill_vertical=True,
+        )
+        address_order_box = _border_caption_box(
+            "Address order",
             tree_view,
             caption_bg=BOX_BACKGROUND_COLOR,
             fill_color=BOX_BACKGROUND_COLOR,
@@ -436,10 +481,24 @@ def main() -> None:
                 dylan_log.removeHandler(cap)
                 dylan_log.setLevel(saved_level)
 
+        def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
+            """Fill flat text, PNG graph, or ASCII fallback from a DS ``Tree`` instance."""
+            tree_view.value = format_ds_tree(ds_tree)
+            png = render_ds_tree_png(ds_tree, pointer=ds_tree.pointer)
+            if png:
+                tree_viz_image.src = png
+                tree_viz_image.visible = True
+                tree_viz_fallback.visible = False
+            else:
+                tree_viz_image.src = _PLACEHOLDER_PNG_BYTES
+                tree_viz_image.visible = False
+                tree_viz_fallback.visible = True
+                tree_viz_fallback.value = format_ds_tree_ascii(ds_tree)
+
         def _refresh_views(par: InteractiveContextParser, msg: str) -> None:
             """Populate the tree / semantics / DAG text fields from current state."""
             dag = par.get_state()
-            tree_view.value = format_ds_tree(par.get_best_tuple().get_tree())
+            _refresh_parse_tree_visual(par.get_best_tuple().get_tree())
             dag_view.value = format_dag_overview(dag)
             try:
                 sem_view.value = str(par.get_final_semantics())
@@ -523,15 +582,21 @@ def main() -> None:
         # --- layout -----------------------------------------------------------
 
         tabs_widget = ft.Tabs(
-            length=3,
+            length=4,
             selected_index=0,
             expand=True,
             content=ft.Column(
                 expand=True,
                 controls=[
                     ft.TabBar(
+                        scrollable=False,
+                        tab_alignment=ft.TabAlignment.FILL,
                         tabs=[
                             ft.Tab(label="Parse tree", icon=ft.Icons.ACCOUNT_TREE),
+                            ft.Tab(
+                                label="Address order",
+                                icon=ft.Icons.FORMAT_LIST_BULLETED,
+                            ),
                             ft.Tab(label="Semantics", icon=ft.Icons.DATA_OBJECT),
                             ft.Tab(label="DAG", icon=ft.Icons.HUB),
                         ],
@@ -540,6 +605,7 @@ def main() -> None:
                         expand=True,
                         controls=[
                             ft.Container(content=output_box, padding=6, expand=True),
+                            ft.Container(content=address_order_box, padding=6, expand=True),
                             ft.Container(content=sem_view, padding=6, expand=True),
                             ft.Container(content=dag_view, padding=6, expand=True),
                         ],
