@@ -1,26 +1,31 @@
 # dynamicsyntax
 
-Python 3.13 port of the **DyLan** Dynamic Syntax parser core (Java `qmul.ds`). Installable import package: **`dylan`**.
+`dynamicsyntax` is the python implementation of the **[DyLan](https://github.com/Dynamics-of-Language)** the Dynamic Syntax parser. It has been (vibe) translated from Java to Python by @incrementaliser using Cursor, and is still under development.
 
-## Install (development)
+## Installation
+
+You can run the following commands to install the package:
 
 ```bash
-cd dynamicsyntax
 uv sync
-uv run pytest
+uv pip install dynamicsyntax
 ```
 
-Optional NLP tokenizers:
+or the older way:
 
 ```bash
-uv sync --extra nlp
+pip install dynamicsyntax
 ```
 
-## Scope
+## Example
 
-- Working **parser** path: grammar/lexicon resource loading, `InteractiveContextParser`, `parseUtterance`.
-- **Not** ported: probabilistic generators, `Feature`, learner GUI stack.
+```python
+import dynamicsyntax as ds
 
-## License
+semantics = ds.parse("a man arrives", "ttr")
+print(semantics)
+```
 
-DyLan upstream license applies to ported logic; see `LICENSE` if copied from the Java project.
+The above loads the 2015-english-ttr grammar and parses the utterance "a man arrives".
+
+Contributions (via PRs) are very welcome!
