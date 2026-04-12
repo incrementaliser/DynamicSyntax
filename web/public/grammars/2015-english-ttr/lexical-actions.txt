@@ -1,0 +1,900 @@
+// Lexical actions for English
+// as per Dynamics of Conversational Dialogue project, 2009
+
+// Rule metavariables: uppercase rule spec arguments
+// Formula metavariables: A,B,C
+// Bottom requirement: !
+
+
+proper(NAME,PERSON,CLASS)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(person(PERSON))
+        put(ty(e))
+        delete(?ty(e))
+        ttrput([x==NAME:e|p==CLASS(x):t|head==x:e])
+ELSE    abort
+
+
+
+det_indef(QUANT)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(person(s3))
+		put(class(obj))
+		make(\/1)
+        go(\/1)
+        ttrput(R^(R ++ [head==R.head:e]))
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+        make(\/0)
+        go(\/0)
+        put(ty(e))
+        ttrput([x:e|head==x:e])
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(?ty(e>cn))
+ELSE    abort
+
+//* this is now deprecated. No more epsilon terms.
+det_quant(QUANT)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(person(s3))
+		put(class(obj))
+		make(\/1)
+        go(\/1)
+        ttrput(R^[r:R | x1==(QUANT, r.head, r):e | head==x1:e])
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+        make(\/0)
+        go(\/0)
+        put(ty(e))
+        ttrput([x:e|head==x:e])
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(?ty(e>cn))
+ELSE    abort
+
+*//
+
+det_indef_postcop(QUANT)
+IF		?ty(e>t)
+		+BE
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN	make(\/1)
+		go(\/1)
+		put(ty(cn>(e>t)))
+		ttrput(R1^R2^(R2 ++ (R1 ++ [head==R2.head:e])))
+		go(/\)
+		make(\/0)
+		go(\/0)
+		put(?ty(cn))
+ELSE	abort
+
+det_def_postcop(QUANT)
+IF		?ty(e>t)
+		+BE
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN	make(\/1)
+		go(\/1)
+		put(ty(e>(e>t)))
+		ttrput(R1^R2^(R1 ++ (R2 ++ [p2==eq(R1.head,R2.head):t|head==p2:t])))
+		put(!)
+		go(/\)
+		make(\/0)
+		go(\/0)
+		put(?ty(e))
+		make(\/1)
+		go(\/1)
+		ttrput(R^[r:R | x1==(QUANT, r.head, r):e | head==x1:e])
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE	abort
+
+demonst(PRED,CLASS)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(class(CLASS))
+        put(ty(e))
+        delete(?ty(e))
+        ttrput([x==PRED:e|head==x:e])
+ELSE    abort
+
+det_demonst(PRED,CLASS)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(person(s3))	
+		make(\/1)
+        go(\/1)
+        ttrput(R^[r:(R ++ [p==PRED(R.head):t]) | x1==(iota, r.head, r):e | head==x1:e])
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE    abort
+
+my(PERSON)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        Speaker(X)
+THEN	make(\/1)
+        go(\/1)
+        ttrput(R^[r:(R ++ [p==of(R.head,X):t]) | x1==(iota, r.head, r):e | head==x1:e])
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE	abort
+
+your(PERSON)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        Addressee(X)
+THEN	make(\/1)
+        go(\/1)
+        ttrput(R^[r:(R ++ [p==of(R.head,X):t]) | x1==(iota, r.head, r):e | head==x1:e])
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE	abort
+
+mass(NAME,PERSON,CLASS)
+IF      ?ty(e)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    put(ty(e))
+		delete(?ty(e))
+        ttrput([x==NAME:e|head==x:e])
+        put(person(PERSON))
+        put(class(CLASS))
+        put(!)
+ELSE    abort
+
+noun_mod(PRED,PREP,CLASS)
+IF      ?ty(e>cn)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        ¬<\/L>Ex.x
+THEN	put(?+eval)
+		make(\/L)
+        go(\/L)
+        ttrput([head:e|x==PRED:e|p3==PREP(head,x):t|p4==CLASS(x):t])
+        put(ty(e>cn))
+        go(/\L)
+ELSE	IF		?ty(e)
+				¬<\/1>Ex.x
+        		¬<\/0>Ex.x
+        THEN	make(\/1)
+        		go(\/1)
+  		        ttrput(R^(R ++ [head==R.head:e]))
+ 		        put(ty(cn>e))
+    	        put(!)
+    		    go(/\1)
+  		        make(\/0)
+  		        go(\/0)
+		        put(?ty(cn))
+   		        make(\/0)
+  		        go(\/0)
+  		        put(?ty(e))
+  		        go(/\0)
+        		make(\/1)
+        		go(\/1)
+       		    ttrput(R^(R ++ [x==PRED:e|p3==PREP(head,x):t|p4==CLASS(x):t]))
+       		    put(ty(e>cn))
+      	 ELSE	abort	
+
+
+
+
+
+
+count(PRED,PERSON,CLASS)
+IF      ?ty(e>cn)
+THEN    ttrput(R^(R ++ [p==PRED(R.head):t]))
+        put(ty(e>cn))
+        delete(?ty(e>cn))      
+        put(!)
+ELSE    abort
+
+//*
+adj(PRED)
+IF      ?ty(cn)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN    make(\/1)
+        go(\/1)
+        ttrput(R^(R ++ [p3==PRED(R.head):t]))
+        put(ty(cn>cn))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE    abort
+
+*//
+
+adj(PRED)
+IF      (?ty(e>cn) || ty(e>cn))
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        ¬<\/L>Ex.x
+THEN    put(?+eval)
+		make(\/L)
+        go(\/L)
+        ttrput([head:e|p3==PRED(head):t])
+        put(ty(e>cn))
+ELSE    IF		?ty(e)
+				¬<\/1>Ex.x
+        		¬<\/0>Ex.x
+        THEN	make(\/1)
+        		go(\/1)
+  		        ttrput(R^(R ++ [head==R.head:e]))
+ 		        put(ty(cn>e))
+    	        put(!)
+    		    go(/\1)
+  		        make(\/0)
+  		        go(\/0)
+		        put(?ty(cn))
+   		        make(\/0)
+  		        go(\/0)
+  		        put(?ty(e))
+  		        go(/\0)
+        		make(\/1)
+        		go(\/1)
+       		    ttrput(R^(R ++ [p==PRED(R.head):t]))
+       		    put(ty(e>cn))
+      	 ELSE	abort
+       		    
+        		
+		
+
+
+adj_be(PRED)
+IF		?ty(e>t)
+		+BE
+		?Ex.fo(x)
+THEN	ttrput(R^(R ++ [p==PRED(R.head):t]))
+		put(ty(e>t))
+		delete(?ty(e>t))
+ELSE	abort
+
+i(PERSON,CLASS)
+IF		?ty(e)
+		Speaker(X)
+THEN	ttrput([x==X:e|head==x:e])
+		put(ty(e))
+		delete(?ty(e))
+		put(person(PERSON))
+ELSE	abort
+
+
+you(PERSON,CLASS)
+IF		?ty(e)
+		Addressee(X)
+THEN	ttrput([x==X:e|head==x:e])
+		put(ty(e))
+		delete(?ty(e))
+		put(person(PERSON))
+ELSE	abort
+
+
+pron_whq(CLASS)
+IF		<Y>+Q
+THEN	abort
+ELSE	IF		?ty(t)
+				¬<\/1>Ex.x
+				¬<\/0>Ex.x
+				¬<\/*>Ex.x
+				¬</\L>Ex.x
+		THEN	make(\/*)
+				go(\/*)
+				put(?Ex.tn(x))
+				put(ty(e))
+				ttrput([x:e|head==x:e])
+				put(+Q)
+				put(class(CLASS))
+		ELSE	IF		?ty(e)
+						Ex.tn(x)
+						¬<\/1>Ex.x
+						¬<\/0>Ex.x
+						¬<\/*>Ex.x
+						¬</\L>Ex.x
+				THEN	delete(?ty(e))
+						put(ty(e))
+						ttrput([x:e|head==x:e])
+						put(+Q)
+						put(class(CLASS))
+				ELSE	abort
+
+
+pron_whq_det(CLASS)
+IF		<Y>+Q
+THEN	abort
+ELSE	IF		?ty(t)
+				¬<\/1>Ex.x
+				¬<\/0>Ex.x
+				¬<\/*>Ex.x
+				¬</\L>Ex.x
+		THEN	make(\/*)
+				go(\/*)
+				put(?Ex.tn(x))
+				put(?ty(e))
+				make(\/1)
+				go(\/1)
+				ttrput(R^(R ++ [head==R.head:e]))
+				put(!)
+				put(ty(cn>e))
+				go(/\1)
+				make(\/0)
+				go(\/0)
+				put(?ty(cn))
+				make(\/0)
+				go(\/0)
+				put(+Q)
+				ttrput([x:e|head==x:e])
+				put(ty(e))
+				go(/\0)
+				make(\/1)
+				go(\/1)
+				put(?ty(e>cn))
+		ELSE	IF		?ty(e)
+						Ex.tn(x)
+						¬<\/1>Ex.x
+						¬<\/0>Ex.x
+						¬<\/*>Ex.x
+						¬</\L>Ex.x
+				THEN	make(\/1)
+						go(\/1)
+						ttrput(R^(R ++ [head==R.head:e]))
+						put(!)
+						put(ty(cn>e))
+						go(/\1)
+						make(\/0)
+						go(\/0)
+						put(?ty(cn))
+						make(\/0)
+						go(\/0)
+						put(+Q)
+						ttrput([x:e|head==x:e])
+						put(ty(e))
+						go(/\0)
+						make(\/1)
+						go(\/1)
+						put(?ty(e>cn))	
+				ELSE	abort
+
+
+
+
+
+
+//*
+pron_nom(PERSON,CLASS)
+IF      ?ty(e)
+        </\0>?ty(t)
+        </\C>(ty(e)& fo(Y)& Y << [L:e|P==PERSON(L):t])
+THEN    put(ty(e))
+        put(Fo([L:e|P==PERSON(L):t]))
+        put(!)
+ELSE    abort
+
+*//
+
+pron_acc(PERSON,CLASS)
+IF      ?ty(e)
+        </\0>?ty(e>X)
+        </\C>(ty(e)& fo(Y)& Class(CLASS)& ¬+Q)
+THEN    put(ty(e))
+        put(Fo(Y))
+        put(!)
+ELSE    abort
+
+//*
+pron_ref(PERSON,CLASS)
+IF		?ty(e)
+		¬</\0>?ty(es>t)
+		</\0/\*\/0>(ty(e)& fo(X)& class(CLASS)& person(PERSON))
+THEN	put(fo(X))
+		put(ty(e))
+		put(person(PERSON))
+		put(class(CLASS))
+		put(!)
+ELSE	abort
+
+
+*//
+
+
+//relative-pronoun with lexicalised link adjunction
+pron_whrel(CLASS)
+IF		ty(e)
+        fo(X)
+        ¬<\/L>Ex.x
+THEN	make(\/L)
+        go(\/L)
+        put(?ty(t))
+        make(\/*)
+        go(\/*)
+        put(ty(e))
+        put(fo(X))
+        put(?Ex.tn(x))
+       	go(/\*)
+       	make(\/1)
+       	go(\/1)
+       	put(?ty(e>t))
+       	go(/\1)
+       	make(\/0)
+       	go(\/0)
+       	put(?ty(e))
+ELSE	abort
+
+
+
+
+v_intran_inf(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.fo(x))
+		v_intran_content(PRED)
+ELSE	abort
+
+v_intran_ing(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+        +BE
+THEN	delete(?Ex.fo(x))
+		v_intran_content(PRED)
+ELSE	abort
+
+
+v_intran_fin(PRED,TENSE,PERSON)
+IF		?ty(e>t)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+		</\1\/0>person(PERSON)	
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(ty(t))
+		event_restrictor(TENSE)
+		go(/\L)
+		put(ty(e>t))
+		delete(?ty(e>t))		
+		put(?Ex.fo(x))
+ELSE	abort
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.fo(x))
+		v_intran_content(PRED)
+ELSE	abort  
+
+v_subjcon_inf(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+        </\1\/0>fo(X)
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))
+		make(\/1)
+		go(\/1)
+		put(ty(t>(e>t)))
+		ttrput(R1^R2^(R1 ++ (R2 ++ [e1==PRED:es|head==e1:es|p2==subj(e1, R2.head):t|p3==obj(e1, R1.head):t])))
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(t))
+        make(\/0)
+        go(\/0)
+        put(fo(X))
+        put(ty(e))
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(?ty(e>t))//this will overgenerate. you'll be able to parse finite verb at this point
+ELSE	abort
+
+v_subjcon_ing(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+        +BE
+        </\1\/0>fo(X)
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))
+		make(\/1)
+		go(\/1)
+		put(ty(t>(e>t)))
+		ttrput(R1^R2^(R1 ++ (R2 ++ [e1==PRED:es|head==e1:es|p2==subj(e1, R2.head):t|p3==obj(e1, R1.head):t])))
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(t))
+        make(\/0)
+        go(\/0)
+        put(fo(X))
+        put(ty(e))
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(?ty(e>t))//this will overgenerate. you'll be able to parse finite verb at this point
+ELSE	abort
+
+v_subjcon_fin(PRED,TENSE,PERSON)
+IF		?ty(e>t)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        </\1\/0>person(PERSON)
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(ty(t))
+		event_restrictor(TENSE)
+		go(/\L)
+		put(ty(e>t))
+		delete(?ty(e>t))		
+		put(?Ex.fo(x))
+ELSE	abort
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+        </\1\/0>fo(X)
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))
+		make(\/1)
+		go(\/1)
+		put(ty(t>(e>t)))
+		ttrput(R1^R2^(R1 ++ (R2 ++ [e1==PRED:es|head==e1:es|p2==subj(e1, R2.head):t|p3==obj(e1, R1.head):t])))
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(t))
+        make(\/0)
+        go(\/0)
+        put(fo(X))
+        put(ty(e))
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(?ty(e>t))//this will overgenerate. you'll be able to parse finite verb at this point
+ELSE	abort
+
+
+to_subjcon(PRED)
+IF	    ?ty(e>t)
+		</\1/\0>?ty(e>t)
+THEN	put(?Ex.fo(x))
+		put(ty(e>t))
+		delete(?ty(e>t))
+ELSE	abort
+
+v_tran_inf(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))		
+		v_tran_content(PRED)
+ELSE    abort
+
+v_tran_ing(PRED,TENSE,PERSON)
+IF		ty(e>t)
+        ?Ex.fo(x)
+        +BE
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))
+	    v_tran_content(PRED)
+ELSE    abort
+
+v_tran_fin(PRED,TENSE,PERSON)
+IF		?ty(e>t)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+		</\1\/0>person(PERSON)
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(ty(t))
+		event_restrictor(TENSE)
+		go(/\L)
+		put(ty(e>t))	
+		delete(?ty(e>t))	
+		put(?Ex.fo(x))		
+ELSE	abort
+IF		ty(e>t)
+        ?Ex.fo(x)
+        ¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.fo(x))
+		delete(ty(e>t))
+		put(?ty(e>t))		
+		v_tran_content(PRED)
+ELSE    abort
+
+v_aux_inf(PRED,TENSE,PERSON)
+IF		?ty(e>t)
+		¬<\/1>Ex.x
+	 	¬<\/0>Ex.x
+	 	¬</\1/\0>Ex.x
+		</\1\/0>ty(e)
+THEN 	aux_content(PRED)
+ELSE	IF		?ty(t)
+				¬<\/1>Ex.x
+	 			¬<\/0>Ex.x
+	 			¬</\0>Ex.x				
+		THEN	IF 		<\/*>+Q
+				THEN    make(\/1)
+						go(\/1)
+						put(?ty(e>t))
+						aux_content(PRED)
+						go(/\1)
+						make(\/0)
+						go(\/0)
+						put(?ty(e))
+				ELSE	put(+Q)
+						make(\/1)
+						go(\/1)
+						put(?ty(e>t))
+						aux_content(PRED)
+						go(/\1)
+						make(\/0)
+						go(\/0)
+						put(?ty(e))
+		ELSE	abort
+
+
+v_aux_be(TENSE,PERSON,NUMBER)
+IF		?ty(e>t)
+		¬<\/1>Ex.x
+	 	¬<\/0>Ex.x
+	 	¬</\1/\0>Ex.x
+		</\1\/0>ty(e)
+THEN 	delete(?ty(e>t))
+		put(ty(e>t))
+		put(?Ex.fo(x))
+		put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(ty(t))
+		ttrput([head:es|p1==TENSE(head):t|p2==continuous(head):t])
+		go(/\L)
+		put(+BE)
+ELSE	IF		?ty(t)
+				¬<\/1>Ex.x
+	 			¬<\/0>Ex.x
+	 			¬</\0>Ex.x			
+		THEN	IF 		<\/*>+Q
+				THEN    make(\/1)
+						go(\/1)
+						put(ty(e>t))
+						put(?Ex.fo(x))
+						put(?+eval)
+						make(\/L)
+						go(\/L)
+						put(ty(t))
+						ttrput([head:es|p1==TENSE(head):t|p2==continuous(head):t])
+						go(/\L)
+						put(+BE)
+						go(/\1)
+						make(\/0)
+						go(\/0)
+						put(?ty(e))
+				ELSE	put(+Q)
+						make(\/1)
+						go(\/1)
+						put(ty(e>t))
+						put(?Ex.fo(x))
+						put(?+eval)
+						make(\/L)
+						go(\/L)
+						put(ty(t))
+						ttrput([head:es|p1==TENSE(head):t|p2==continuous(head):t])
+						go(/\L)
+						put(+BE)
+						go(/\1)
+						make(\/0)
+						go(\/0)
+						put(?ty(e))
+		ELSE	abort
+
+
+prep_es(PRED)
+IF		ty(t)
+		¬<\/L>Ex.x		
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(?ty(t))
+		make(\/1)
+		go(\/1)
+		put(ty(e>t))
+		ttrput(R1^(R1 ++ [head:es|p==PRED(head,R1.head):t]))
+		go(/\1)
+		make(\/0)
+		go(\/0)
+		put(?ty(e))
+		IF		</\0/\L\/*>?Ex.tn(x)
+				</\0/\L\/*>ty(e)
+		THEN	merge(</\0/\L\/*>)
+				delete(?ty(e))
+		ELSE	do_nothing
+ELSE	abort
+
+
+
+prep_e(PRED)
+IF		ty(e)
+		¬<\/L>Ex.x
+		fo(X)		
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(?ty(t))
+		make(\/1)
+		go(\/1)
+		put(?ty(e>t))
+		make(\/1)
+		go(\/1)
+		ttrput(R1^R2^(R1 ++ (R2 ++ [p==PRED(R2.head,R1.head):t])))
+		put(ty(e>(e>t)))
+		put(!)
+		go(/\1)
+		go(/\1)
+		make(\/0)
+		go(\/0)
+		put(fo(X))
+		put(ty(e))
+		put(!)
+		go(/\0)
+		go(\/1)
+		make(\/0)
+		go(\/0)
+		put(?ty(e))
+ELSE	abort
+
+
+
+manner_adv(PRED)
+IF		(?ty(t) || ty(t) || ty(e>t))
+		¬<\/L>Ex.x		
+THEN	put(?+eval)
+		make(\/L)
+		go(\/L)
+		put(ty(t))
+		ttrput([head:es|p==PRED(head):t])
+ELSE	abort
+
+
+assert(PRED)
+IF		ty(t)
+		complete
+		Speaker(X)
+THEN	IF		(<Z>+Q || Assert(Y))
+		THEN	abort
+		ELSE	put(Assert(X))
+ELSE	abort
+
+question(PRED)
+IF		ty(t)
+		complete
+THEN	IF	  	Assert(X)
+		THEN  	abort
+		ELSE    IF	  	<Z>+Q
+			    THEN  	do_nothing
+				ELSE  	put(+Q)
+ELSE	IF		¬+Q
+				?ty(e)
+				Ex.tn(x)
+				¬</\0>?ty(t)
+		THEN	IF		<Z>?Ex.tn(x)
+				THEN	abort	
+				ELSE	put(+Q)
+						put(ty(e))
+						ttrput([x:e|head==x:e])
+						delete(?ty(e))
+		ELSE	abort
+
+
+
+reject(PRED)
+IF		ty(t)
+		complete
+		¬<Z>+Q
+THEN	IF	    +Q
+		THEN    delete(+Q)
+			    put(+neg)
+		        put(!)
+		ELSE    put(+neg)
+				put(!)
+ELSE	abort
+
+accept(PRED)
+IF		ty(t)
+		complete
+		¬+Q
+		¬<\/*>+Q
+		PrevSpeaker(Y)
+		Assert(Y)
+		Speaker(X)
+THEN	IF 		X=Y
+		THEN	abort
+		ELSE	put(Assert(X))
+ELSE	abort
+
+yes(PRED)
+IF 		ty(t)
+		complete
+		+Q
+		Speaker(X)
+		PrevSpeaker(Y)
+THEN	IF		X=Y
+		THEN    abort
+		ELSE	delete(+Q)
+				put(Assert(X))
+ELSE	abort
+
+not(PRED)
+IF		ty(e>t)
+		?Ex.Fo(x)
+		¬<\/0>Ex.x
+        ¬<\/1>Ex.x
+THEN	delete(?Ex.Fo(x))
+		make(\/1)
+		go(\/1)
+		put(ty((e>t)>(e>t)))
+		ttrput(R1^(R1 ++ [p==PRED(R1.head):t|head==p:t]))
+		put(!)
+		go(/\1)
+		make(\/0)
+		put(?ty(e>t))
+		put(?Ex.Fo(x))
+ELSE	abort
+		

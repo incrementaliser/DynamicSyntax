@@ -5,4 +5,4 @@ from dylan.parser.interactive_context_parser import InteractiveContextParser
 
 __all__ = ["TTRRecordType", "InteractiveContextParser", "__version__"]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

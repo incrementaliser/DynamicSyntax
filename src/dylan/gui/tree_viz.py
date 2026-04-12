@@ -5,8 +5,6 @@ from __future__ import annotations
 import io
 import textwrap
 
-import networkx as nx
-
 from dylan.gui.formatting import node_address_type_formula_strings
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
@@ -287,8 +285,10 @@ def _multiline_node_label(
     return "\n".join(lines)
 
 
-def ds_tree_to_graph(tree: Tree) -> nx.DiGraph:
+def ds_tree_to_graph(tree: Tree):
     """Build a directed tree graph: nodes are ``NodeAddress`` keys, edges parent → child."""
+    import networkx as nx
+
     if not isinstance(tree, Tree):
         raise TypeError(f"expected Tree, got {type(tree).__name__}")
     G: nx.DiGraph = nx.DiGraph()
@@ -398,6 +398,8 @@ def render_ds_tree_png(
         import matplotlib.pyplot as plt
     except ImportError:
         return b""
+
+    import networkx as nx
 
     if not isinstance(tree, Tree):
         raise TypeError(f"expected Tree, got {type(tree).__name__}")

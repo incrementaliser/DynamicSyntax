@@ -1,0 +1,296 @@
+/* Mirrors Flet desktop theme from dylan/gui/app.py */
+
+:root {
+  --panel-bg: #263238;
+  --box-bg: #1c262b;
+  --box-border: #37474f;
+  --body-text: #eceff1;
+  --muted: #b0bec5;
+  --hint: #90a4ae;
+  --appbar: #455a64;
+  --mono: "Consolas", "Monaco", "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  color: var(--body-text);
+  background: var(--panel-bg);
+}
+
+.app-header {
+  background: var(--appbar);
+  color: #fff;
+  text-align: center;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.status-banner {
+  padding: 8px 16px;
+  background: #37474f;
+  color: var(--body-text);
+  font-size: 12px;
+}
+
+.status-banner.error {
+  background: #5c2b29;
+}
+
+.main-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 52px - 36px);
+}
+
+.main-row.logs-hidden .left-wrap {
+  flex: 1;
+}
+
+.left-wrap {
+  flex: 0 0 65%;
+  min-width: 0;
+  padding: 8px 8px 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.logs-panel {
+  flex: 0 0 35%;
+  min-width: 280px;
+  padding: 12px;
+  background: var(--panel-bg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.main-row.logs-hidden .logs-panel {
+  display: none;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+label.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--body-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+label.checkbox-inline.compact {
+  font-size: 11px;
+}
+
+button,
+.btn {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  padding: 10px 16px;
+}
+
+.btn-primary {
+  background: #1976d2;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #1565c0;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #90caf9;
+  border: 1px solid #546e7a;
+  padding: 8px 12px;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sentence-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 8px;
+  min-height: 120px;
+}
+
+.caption-box {
+  position: relative;
+  border: 1px solid var(--box-border);
+  border-radius: 4px;
+  background: var(--box-bg);
+  margin-top: 8px;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.caption-box > .caption-label {
+  position: absolute;
+  left: 12px;
+  top: 0;
+  transform: translateY(-50%);
+  background: var(--box-bg);
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.caption-box > .caption-body {
+  padding: 10px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+textarea.field {
+  width: 100%;
+  flex: 1;
+  min-height: 72px;
+  resize: vertical;
+  border: none;
+  background: var(--box-bg);
+  color: var(--body-text);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  outline: none;
+}
+
+textarea.field.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 4px;
+}
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--box-border);
+  background: var(--box-bg);
+  border-radius: 4px 4px 0 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+  color: var(--body-text);
+}
+
+.tab-btn.active {
+  color: #4fc3f7;
+  border-bottom-color: #4fc3f7;
+}
+
+.tab-panels {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--box-border);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background: var(--box-bg);
+}
+
+.tab-panel {
+  display: none;
+  height: 100%;
+  min-height: 280px;
+  padding: 8px;
+  overflow: auto;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.tab-panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--body-text);
+  line-height: 1.4;
+}
+
+.field-outlined {
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  border: 1px solid var(--box-border);
+  border-radius: 4px;
+  background: var(--box-bg);
+  color: var(--body-text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px;
+  resize: vertical;
+  outline: none;
+}
+
+.field-outlined:focus {
+  border-color: #546e7a;
+}
+
+.field-label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.hidden-input {
+  display: none;
+}

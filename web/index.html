@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Set content to your repo path for GitHub project Pages, e.g. /DynamicSyntax/ -->
+    <meta name="dylan-base-path" content="" />
+    <title>DyLan - The Dynamic Syntax Parser</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">DyLan - The Dynamic Syntax Parser</header>
+      <div id="status-banner" class="status-banner">Preparing…</div>
+      <div id="main-row" class="main-row">
+        <div class="left-wrap">
+          <div class="toolbar">
+            <button type="button" class="btn btn-primary" id="btn-load-grammar" disabled>
+              Load grammar folder
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-sample-grammar" disabled>
+              Load sample grammar
+            </button>
+            <label class="checkbox-inline compact">
+              <input type="checkbox" id="chk-logs" checked />
+              Logs
+            </label>
+            <div class="toolbar-spacer"></div>
+            <label class="checkbox-inline">
+              <input type="checkbox" id="chk-repair" />
+              Repair processing
+            </label>
+            <label class="checkbox-inline">
+              <input type="checkbox" id="chk-reset-before" checked />
+              Reset state before parse
+            </label>
+            <button type="button" class="btn btn-secondary" id="btn-init" disabled>Init</button>
+            <button type="button" class="btn btn-secondary" id="btn-new-sentence" disabled>
+              New sentence
+            </button>
+          </div>
+          <div class="sentence-row">
+            <div class="caption-box" style="flex: 1">
+              <span class="caption-label">Sentence</span>
+              <div class="caption-body">
+                <textarea
+                  id="sentence"
+                  class="field"
+                  placeholder="Enter your sentence here..."
+                ></textarea>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-parse" disabled style="align-self: center">
+              Parse
+            </button>
+          </div>
+          <div class="tabs">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn active" data-tab="parse-tree">Parse tree</button>
+              <button type="button" class="tab-btn" data-tab="address">Address order</button>
+              <button type="button" class="tab-btn" data-tab="semantics">Semantics</button>
+              <button type="button" class="tab-btn" data-tab="dag">DAG</button>
+            </div>
+            <div class="tab-panels">
+              <div class="tab-panel active" id="panel-parse-tree" role="tabpanel">
+                <pre id="out-parse-tree"></pre>
+              </div>
+              <div class="tab-panel" id="panel-address" role="tabpanel">
+                <pre id="out-address"></pre>
+              </div>
+              <div class="tab-panel" id="panel-semantics" role="tabpanel">
+                <label class="field-label" for="out-semantics">Semantics</label>
+                <textarea id="out-semantics" class="field-outlined" readonly></textarea>
+              </div>
+              <div class="tab-panel" id="panel-dag" role="tabpanel">
+                <label class="field-label" for="out-dag">DAG</label>
+                <textarea id="out-dag" class="field-outlined" readonly></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="logs-panel">
+          <div class="caption-box">
+            <span class="caption-label">Info</span>
+            <div class="caption-body">
+              <textarea id="info-text" class="field" readonly></textarea>
+            </div>
+          </div>
+          <div class="caption-box" style="flex: 1; min-height: 200px">
+            <span class="caption-label">Logs</span>
+            <div class="caption-body" style="min-height: 0">
+              <textarea id="log-text" class="field mono" readonly style="min-height: 160px"></textarea>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <input type="file" id="grammar-folder-input" class="hidden-input" webkitdirectory directory multiple />
+    <script src="app.js"></script>
+  </body>
+</html>

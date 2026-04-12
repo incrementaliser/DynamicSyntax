@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any
+import os
 import sys
-from pathlib import Path
-
-from dylan.gui.formatting import format_dag_overview, format_ds_tree, format_semantics_display
-from dylan.gui.tree_viz import format_ds_tree_ascii, render_ds_tree_png
-from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
+from typing import Any
+from dylan.gui.parse_session import (
+    GUI_INFO_HELP_TEXT,
+    ParseSession,
+    format_parse_state_log,
+)
+from dylan.nlp.types import DEFAULT_SPEAKER
 from dylan.tree.tree import Tree
-from dylan.parser.interactive_context_parser import InteractiveContextParser
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,6 @@ logger = logging.getLogger(__name__)
 _PLACEHOLDER_PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6XKpQAAAABJRU5ErkJggg=="
 )
-
-_INFO_HELP_TEXT = (
-    "Click Load grammar to pick a folder; the grammar loads as soon as you confirm.\n\n"
-    "Pick again after changing Repair processing. "
-    "The loaded path is listed under each grammar load.\n\n"
-    "Grammar load details and parse output appear in Logs below."
-)
-
 
 def _estimate_wrapped_line_count(text: str, chars_per_line: int = 44) -> int:
     """Approximate how many display lines *text* needs when wrapped in a narrow panel."""
@@ -43,31 +36,6 @@ def _estimate_wrapped_line_count(text: str, chars_per_line: int = 44) -> int:
             continue
         total += max(1, (len(s) + chars_per_line - 1) // chars_per_line)
     return max(total, 2)
-
-
-class _GrammarLoadLogFilter(logging.Filter):
-    """Keep INFO+ from all ``dylan`` loggers; DEBUG only from lexicon (skipped lines, etc.)."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if record.levelno >= logging.INFO:
-            return True
-        return record.name.startswith("dylan.action.lexicon")
-
-
-class _DylanCaptureHandler(logging.Handler):
-    """Collect log records under the ``dylan`` namespace while a grammar is loading."""
-
-    def __init__(self, lines: list[str]) -> None:
-        super().__init__(level=logging.DEBUG)
-        self._lines = lines
-        self.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-        self.addFilter(_GrammarLoadLogFilter())
-
-    def emit(self, record: logging.LogRecord) -> None:
-        try:
-            self._lines.append(self.format(record))
-        except Exception:
-            self.handleError(record)
 
 
 def _ensure_dylan_stderr_logging() -> None:
@@ -111,9 +79,7 @@ def main() -> None:
         page.window.min_width = 1000
         page.window.min_height = 640
 
-        parser_holder: list[InteractiveContextParser | None] = [None]
-        grammar_path_holder: list[str | None] = [None]
-        last_tree_holder: list[Tree | None] = [None]
+        session = ParseSession()
 
         # --- GUI theme (single source for the four main panels + tabs) ----------------
         PANEL_BACKGROUND = "#263238"
@@ -276,9 +242,9 @@ def main() -> None:
             fill_color=BOX_BACKGROUND_COLOR,
             expand=True,
         )
-        _info_lines = _estimate_wrapped_line_count(_INFO_HELP_TEXT)
+        _info_lines = _estimate_wrapped_line_count(GUI_INFO_HELP_TEXT)
         info_field = _dark_borderless_textfield(
-            value=_INFO_HELP_TEXT,
+            value=GUI_INFO_HELP_TEXT,
             read_only=True,
             multiline=True,
             min_lines=_info_lines,
@@ -413,81 +379,10 @@ def main() -> None:
             print(text, file=sys.stderr, flush=True)
             page.update()
 
-        def _format_grammar_load_report(
-            path: Path,
-            captured: list[str],
-            *,
-            ok: bool,
-            error: str | None = None,
-        ) -> str:
-            """Build user-visible grammar load text including captured ``dylan`` log lines."""
-            lines = [
-                "=== Grammar load ===",
-                f"Directory: {path.resolve()}",
-            ]
-            if ok:
-                lines.append("Parser object created and init() completed.")
-            if error:
-                lines.append(f"Error: {error}")
-            if captured:
-                lines.append("")
-                lines.append("Messages from loaders (warnings often mean skipped lexicon lines):")
-                lines.extend(captured)
-            elif ok:
-                lines.append("")
-                lines.append(
-                    "(No loader messages matched the log capture filter during load — "
-                    "if entries are missing, they may be below INFO level outside lexicon.)",
-                )
-            warn_count = sum(1 for s in captured if s.startswith("WARNING "))
-            if ok and warn_count:
-                lines.append("")
-                lines.append(
-                    f"Note: {warn_count} warning(s) above — review lexicon / templates; "
-                    "the grammar may be incomplete.",
-                )
-            return "\n".join(lines)
-
         def apply_grammar(path_str: str) -> None:
             """Load a grammar directory into a fresh parser."""
-            p = Path(path_str.strip())
-            if not p.is_dir():
-                set_log(_format_grammar_load_report(p, [], ok=False, error=f"Not a directory: {p}"))
-                return
-            captured: list[str] = []
-            cap = _DylanCaptureHandler(captured)
-            dylan_log = logging.getLogger("dylan")
-            saved_level = dylan_log.level
-            dylan_log.setLevel(logging.DEBUG)
-            dylan_log.addHandler(cap)
-            try:
-                try:
-                    parser_holder[0] = InteractiveContextParser(
-                        p, repairing=bool(repair_cb.value),
-                    )
-                    parser_holder[0].init()
-                    set_log(_format_grammar_load_report(p, captured, ok=True))
-                except OSError as ex:
-                    parser_holder[0] = None
-                    set_log(
-                        _format_grammar_load_report(
-                            p, captured, ok=False, error=str(ex),
-                        ),
-                    )
-                except Exception as ex:  # noqa: BLE001
-                    parser_holder[0] = None
-                    logger.exception("Grammar load failed")
-                    set_log(
-                        _format_grammar_load_report(
-                            p,
-                            captured,
-                            ok=False,
-                            error=f"{type(ex).__name__}: {ex}",
-                        ),
-                    )
-            finally:
-                dylan_log.removeHandler(cap)
-                dylan_log.setLevel(saved_level)
+            log_text = session.load_grammar(path_str, repairing=bool(repair_cb.value))
+            set_log(log_text)
 
         def _parse_tree_render_px(*, logs_column_visible: bool) -> tuple[int, int]:
             """Approximate pixels available for the parse-tree PNG inside the Output tab."""
@@ -502,35 +397,48 @@ def main() -> None:
 
         def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
             """Fill flat text, PNG graph, or ASCII fallback from a DS ``Tree`` instance."""
-            last_tree_holder[0] = ds_tree
-            tree_view.value = format_ds_tree(ds_tree)
             tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
-            png = render_ds_tree_png(
+            st = session.tree_panel_state(
                 ds_tree,
-                pointer=ds_tree.pointer,
                 target_width_px=tw,
                 target_height_px=th,
+                prefer_png=True,
             )
-            if png:
-                tree_viz_image.src = png
+            tree_view.value = st.address_order
+            if st.used_png and st.png_bytes:
+                tree_viz_image.src = st.png_bytes
                 tree_viz_image.visible = True
                 tree_viz_fallback.visible = False
             else:
                 tree_viz_image.src = _PLACEHOLDER_PNG_BYTES
                 tree_viz_image.visible = False
                 tree_viz_fallback.visible = True
-                tree_viz_fallback.value = format_ds_tree_ascii(ds_tree)
+                tree_viz_fallback.value = st.parse_tree_ascii
 
-        def _refresh_views(par: InteractiveContextParser, msg: str) -> None:
-            """Populate the tree / semantics / DAG text fields from current state."""
-            dag = par.get_state()
-            _refresh_parse_tree_visual(par.get_best_tuple().get_tree())
-            dag_view.value = format_dag_overview(dag)
-            try:
-                sem_view.value = format_semantics_display(str(par.get_final_semantics()))
-            except (TypeError, ValueError) as ex:
-                sem_view.value = f"(could not read semantics: {ex})"
-            append_log(f"=== Parse / state ===\n{msg}")
+        def _refresh_views(msg: str) -> None:
+            """Populate the tree / semantics / DAG text fields from current parser state."""
+            tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
+            vs = session.current_view_strings(
+                target_width_px=tw,
+                target_height_px=th,
+                prefer_png=True,
+            )
+            if vs is None:
+                append_log(format_parse_state_log(msg))
+                return
+            tree_view.value = vs.address_order
+            if vs.used_png and vs.png_bytes:
+                tree_viz_image.src = vs.png_bytes
+                tree_viz_image.visible = True
+                tree_viz_fallback.visible = False
+            else:
+                tree_viz_image.src = _PLACEHOLDER_PNG_BYTES
+                tree_viz_image.visible = False
+                tree_viz_fallback.visible = True
+                tree_viz_fallback.value = vs.parse_tree_ascii
+            dag_view.value = vs.dag
+            sem_view.value = vs.semantics
+            append_log(format_parse_state_log(msg))
 
         # --- event handlers ---------------------------------------------------
 
@@ -540,48 +448,40 @@ def main() -> None:
                 dialog_title="Select grammar folder",
             )
             if path:
-                grammar_path_holder[0] = path
                 apply_grammar(path)
 
         def do_init(_: ft.ControlEvent | None = None) -> None:
             """Re-initialise the parser to the axiom state."""
-            par = parser_holder[0]
-            if par is None:
-                append_log("=== Init ===\nLoad grammar first.")
+            err = session.run_init()
+            if err is not None:
+                append_log(err)
                 return
-            par.init()
-            _refresh_views(par, "Parser re-initialised (axiom state).")
+            _refresh_views("Parser re-initialised (axiom state).")
 
         def do_new_sentence(_: ft.ControlEvent | None = None) -> None:
             """Reset the DAG for a fresh sentence."""
-            par = parser_holder[0]
-            if par is None:
-                append_log("=== New sentence ===\nLoad grammar first.")
+            err = session.run_new_sentence()
+            if err is not None:
+                append_log(err)
                 return
-            par.new_sentence()
-            _refresh_views(par, "New sentence — DAG reset to axiom.")
+            _refresh_views("New sentence — DAG reset to axiom.")
 
         def do_parse(_: ft.ControlEvent | None = None) -> None:
             """Parse the sentence in the text field."""
-            par = parser_holder[0]
-            if par is None:
-                append_log("=== Parse ===\nLoad grammar first.")
+            err, ok = session.run_parse(
+                sentence_field.value or "",
+                reset_before=bool(reset_before.value),
+                speaker=DEFAULT_SPEAKER,
+            )
+            if err is not None:
+                append_log(err)
                 return
-            if reset_before.value:
-                par.init()
-            sp = DEFAULT_SPEAKER
-            sentence = (sentence_field.value or "").strip()
-            if not sentence:
-                append_log("=== Parse ===\nEnter a sentence to parse.")
-                return
-            utt = utterance_from_text(sp, sentence)
-            ok = par.parse_utterance(utt)
             msg = (
                 "Parse OK."
                 if ok
                 else "Parse finished with failures (check sentence / lexicon)."
             )
-            _refresh_views(par, msg)
+            _refresh_views(msg)
 
         sentence_field.on_submit = do_parse
         parse_btn = ft.FilledButton(
@@ -715,22 +615,22 @@ def main() -> None:
             logs_panel.visible = show
             left_wrap.expand = 65 if show else True
             if (
-                parser_holder[0] is not None
-                and last_tree_holder[0] is not None
+                session.parser is not None
+                and session.last_tree is not None
                 and tree_viz_image.visible
             ):
-                _refresh_parse_tree_visual(last_tree_holder[0])
+                _refresh_parse_tree_visual(session.last_tree)
             page.update()
 
         show_logs_toggle.on_change = on_show_logs_change
 
         def on_window_resize(_: ft.ControlEvent | None = None) -> None:
             """Re-render the parse-tree PNG when the window grows or shrinks."""
-            if parser_holder[0] is None or last_tree_holder[0] is None:
+            if session.parser is None or session.last_tree is None:
                 return
             if not tree_viz_image.visible:
                 return
-            _refresh_parse_tree_visual(last_tree_holder[0])
+            _refresh_parse_tree_visual(session.last_tree)
             page.update()
 
         page.on_resize = on_window_resize
@@ -753,7 +653,18 @@ def main() -> None:
 
         page.run_task(_center_window)
 
-    ft.run(main=build)
+    use_web = (
+        os.environ.get("DYLAN_FLET_WEB", "").strip().lower() in ("1", "true", "yes", "on")
+        or os.environ.get("CODESPACES", "").strip().lower() == "true"
+    )
+    if use_web:
+        ft.run(
+            main=build,
+            view=ft.AppView.WEB_BROWSER,
+            port=int(os.environ.get("DYLAN_FLET_PORT", "8550")),
+        )
+    else:
+        ft.run(main=build)
 
 
 if __name__ == "__main__":
