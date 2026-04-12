@@ -28,9 +28,9 @@ You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.12`
 
    Or the published package from PyPI:
 
-   ```bash
-   uv pip install dynamicsyntax
-   ```
+```bash
+uv pip install dynamicsyntax
+```
 
 ## Example
 

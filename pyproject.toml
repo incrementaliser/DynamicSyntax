@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dynamicsyntax"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python port of DyLan Dynamic Syntax + TTR (parser core)"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -21,9 +21,12 @@ classifiers = [
 ]
 dependencies = [
     "networkx>=3.4",
-    "pydantic>=2.10",
     "tqdm>=4.67",
 ]
+
+[project.urls]
+Homepage = "https://github.com/incrementaliser/DynamicSyntax"
+Repository = "https://github.com/incrementaliser/DynamicSyntax"
 
 [project.optional-dependencies]
 gui = ["flet>=0.24.0", "matplotlib>=3.8"]
@@ -35,13 +38,20 @@ dev = [
     "pytest>=8",
     "flet>=0.24.0",
     "matplotlib>=3.8",
+    "ruff>=0.9",
 ]
 
 [project.scripts]
 dylan-gui = "dylan.gui.app:main"
+dynamicsyntax-gui = "dylan.gui.app:main"
+dylan-serve-web = "dylan.web_dev:main"
+dynamicsyntax-serve-web = "dylan.web_dev:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+dynamicsyntax = ["grammars/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
