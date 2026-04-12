@@ -137,7 +137,7 @@ class TTRRecordType(TTRFormula):
         self.add_field(f)
 
     def asymmetric_merge(self, r2: TTRFormula) -> TTRFormula:
-        """Merge record *r2* into *self* (simplified Java ``TTRRecordType.asymmetricMerge``)."""
+        """Merge *r2* into *self* (Java ``TTRRecordType.asymmetricMerge``, ~lines 2069–2119)."""
         from dylan.formula.predicate_argument import Predicate
         from dylan.formula.ttr_infix_expression import TTRInfixExpression
         from dylan.formula.ttr_lambda import TTRLambdaAbstract
@@ -149,16 +149,25 @@ class TTRRecordType(TTRFormula):
             return TTRInfixExpression(Predicate("++"), self, r2).evaluate()
         if not isinstance(r2, TTRRecordType):
             raise TypeError(f"asymmetric_merge expects TTRRecordType, got {type(r2).__name__}")
+        other = r2
         merged = self.clone()
-        for f in r2._fields:
-            new_f = f.clone()  # type: ignore[assignment]
+        for f in other._fields:
             ex = merged.get_field(f.label)
-            if ex is not None:
-                em, nm = ex.manifest_type, f.manifest_type
-                if isinstance(em, TTRRecordType) and isinstance(nm, TTRRecordType):
-                    inner = em.asymmetric_merge(nm)
-                    new_f = TTRField(f.label, f.ds_type, inner)
-            merged.put_field_replace(new_f)  # type: ignore[arg-type]
+            if (
+                ex is not None
+                and ex.manifest_type is not None
+                and isinstance(ex.manifest_type, TTRRecordType)
+                and f.manifest_type is not None
+                and isinstance(f.manifest_type, TTRRecordType)
+            ):
+                inner = ex.manifest_type.asymmetric_merge(f.manifest_type)
+                new_f = TTRField(f.label, f.ds_type, inner)  # type: ignore[arg-type]
+            else:
+                new_f = f.clone()
+            ev = new_f.evaluate()
+            if not isinstance(ev, TTRField):
+                raise TypeError(f"field evaluate must return TTRField, got {type(ev).__name__}")
+            merged.put_field_replace(ev)
         return merged.evaluate()
 
     def instantiate(self) -> Formula:
@@ -253,5 +262,12 @@ class TTRRecordType(TTRFormula):
         return TTR_OPEN + body + TTR_CLOSE
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, TTRRecordType) and self._fields == other._fields
+        """Structural equality for concrete records; ``MetaTTRRecordType`` uses :class:`MetaElement` (Java)."""
+        if not isinstance(other, TTRRecordType):
+            return False
+        from dylan.formula.meta_ttr_record_type import MetaTTRRecordType
+
+        if isinstance(other, MetaTTRRecordType):
+            return NotImplemented
+        return self._fields == other._fields
 

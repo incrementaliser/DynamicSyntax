@@ -1,0 +1,20 @@
+{
+  "name": "dynamicsyntax",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && export PATH=\"${HOME}/.local/bin:${PATH}\" && uv sync --group dev",
+  "forwardPorts": [8550],
+  "portsAttributes": {
+    "8550": {
+      "label": "DyLan GUI (Flet web)",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+      },
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}

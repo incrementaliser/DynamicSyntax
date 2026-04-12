@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      - name: Install dev deps, lint, and run tests
+        run: |
+          uv sync --group dev
+          uv run ruff check tests
+          uv run pytest -q
