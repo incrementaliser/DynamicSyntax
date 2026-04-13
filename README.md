@@ -43,6 +43,10 @@ print(semantics)
 
 The above loads the 2015-english-ttr grammar and parses the utterance "a man arrives".
 
+## Testing
+
+See [testing.md](testing.md) for how to run pytest with **uv**, show per-test pass/fail output, and useful options (`-v`, `--lf`, subsets, and CI).
+
 ## GitHub Codespaces
 
 This repository includes a [dev container](.devcontainer/devcontainer.json). After the container finishes `uv sync --group dev`, run the GUI in the browser (port **8550** is forwarded automatically):
