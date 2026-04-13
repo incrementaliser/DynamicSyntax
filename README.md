@@ -1,6 +1,6 @@
 # dynamicsyntax
 
-`dynamicsyntax` is the python implementation of the **[DyLan](https://github.com/Dynamics-of-Language)** the Dynamic Syntax parser. It has been (vibe) translated from Java to Python by @incrementaliser using Cursor, and is still under development.
+`dynamicsyntax` is the python implementation of the **[DyLan](https://github.com/Dynamics-of-Language)** the Dynamic Syntax parser. It has been (vibe) translated from Java to Python by [@incrementaliser](https://github.com/incrementaliser) using Cursor, and is still under development.
 
 ## Installation
 
