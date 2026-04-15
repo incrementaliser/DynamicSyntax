@@ -72,3 +72,4 @@ Thumbs.db
 viz.py
 translation.csv
 translation_viz.html
+.github/workflows/pages.yml

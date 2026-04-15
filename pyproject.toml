@@ -20,7 +20,6 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "networkx>=3.4",
     "tqdm>=4.67",
 ]
 
@@ -29,7 +28,7 @@ Homepage = "https://github.com/incrementaliser/DynamicSyntax"
 Repository = "https://github.com/incrementaliser/DynamicSyntax"
 
 [project.optional-dependencies]
-gui = ["flet>=0.24.0", "matplotlib>=3.8"]
+gui = ["flet>=0.24.0"]
 nlp = ["nltk>=3.9", "spacy>=3.8"]
 viz = ["plotly>=5", "pandas>=2"]
 
@@ -37,7 +36,6 @@ viz = ["plotly>=5", "pandas>=2"]
 dev = [
     "pytest>=8",
     "flet>=0.24.0",
-    "matplotlib>=3.8",
     "ruff>=0.9",
 ]
 

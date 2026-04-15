@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from dylan.gui.formatting import format_dag_overview, format_ds_tree, format_semantics_display
-from dylan.gui.tree_viz import format_ds_tree_ascii, render_ds_tree_png
+from dylan.gui.tree_viz import format_ds_tree_ascii
 from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
 from dylan.parser.interactive_context_parser import InteractiveContextParser
 from dylan.tree.tree import Tree
@@ -94,22 +94,18 @@ def format_parse_state_log(msg: str) -> str:
 
 @dataclass(frozen=True)
 class TreePanelState:
-    """Strings and optional PNG bytes for the parse-tree / address-order views."""
+    """Strings for the parse-tree / address-order views (graph is drawn in the Flet canvas)."""
 
     address_order: str
     parse_tree_ascii: str
-    png_bytes: bytes | None
-    used_png: bool
 
 
 @dataclass(frozen=True)
 class ViewStrings:
-    """All tab panels plus tree visual state."""
+    """All tab panels plus tree text views."""
 
     address_order: str
     parse_tree_ascii: str
-    png_bytes: bytes | None
-    used_png: bool
     semantics: str
     dag: str
 
@@ -157,62 +153,19 @@ class ParseSession:
             dylan_log.removeHandler(cap)
             dylan_log.setLevel(saved_level)
 
-    def tree_panel_state(
-        self,
-        ds_tree: Tree,
-        *,
-        target_width_px: int,
-        target_height_px: int,
-        prefer_png: bool = True,
-    ) -> TreePanelState:
-        """Build address-order text, optional PNG, and ASCII fallback for *ds_tree*."""
+    def tree_panel_state(self, ds_tree: Tree) -> TreePanelState:
+        """Build address-order text and ASCII tree for *ds_tree*; store as ``last_tree``."""
         self.last_tree = ds_tree
         address = format_ds_tree(ds_tree)
         ascii_art = format_ds_tree_ascii(ds_tree)
-        if not prefer_png:
-            return TreePanelState(
-                address_order=address,
-                parse_tree_ascii=ascii_art,
-                png_bytes=None,
-                used_png=False,
-            )
-        png = render_ds_tree_png(
-            ds_tree,
-            pointer=ds_tree.pointer,
-            target_width_px=target_width_px,
-            target_height_px=target_height_px,
-        )
-        if png:
-            return TreePanelState(
-                address_order=address,
-                parse_tree_ascii=ascii_art,
-                png_bytes=png,
-                used_png=True,
-            )
-        return TreePanelState(
-            address_order=address,
-            parse_tree_ascii=ascii_art,
-            png_bytes=None,
-            used_png=False,
-        )
+        return TreePanelState(address_order=address, parse_tree_ascii=ascii_art)
 
-    def current_view_strings(
-        self,
-        *,
-        target_width_px: int,
-        target_height_px: int,
-        prefer_png: bool = True,
-    ) -> ViewStrings | None:
+    def current_view_strings(self) -> ViewStrings | None:
         """Return strings for all tabs from current parser state, or ``None`` if no parser."""
         if self.parser is None:
             return None
         ds_tree = self.parser.get_best_tuple().get_tree()
-        tree_state = self.tree_panel_state(
-            ds_tree,
-            target_width_px=target_width_px,
-            target_height_px=target_height_px,
-            prefer_png=prefer_png,
-        )
+        tree_state = self.tree_panel_state(ds_tree)
         dag = format_dag_overview(self.parser.get_state())
         try:
             sem = format_semantics_display(str(self.parser.get_final_semantics()))
@@ -221,8 +174,6 @@ class ParseSession:
         return ViewStrings(
             address_order=tree_state.address_order,
             parse_tree_ascii=tree_state.parse_tree_ascii,
-            png_bytes=tree_state.png_bytes,
-            used_png=tree_state.used_png,
             semantics=sem,
             dag=dag,
         )

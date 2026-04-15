@@ -14,17 +14,10 @@ from dylan.gui.parse_session import ParseSession, format_parse_state_log, GUI_IN
 
 _session = ParseSession()
 
-_DEFAULT_TW = 960
-_DEFAULT_TH = 640
 
-
-def _view_dict(*, prefer_png: bool = False) -> dict[str, Any] | None:
+def _view_dict() -> dict[str, Any] | None:
     """Serialise current tab content; ``None`` if no parser."""
-    vs = _session.current_view_strings(
-        target_width_px=_DEFAULT_TW,
-        target_height_px=_DEFAULT_TH,
-        prefer_png=prefer_png,
-    )
+    vs = _session.current_view_strings()
     if vs is None:
         return None
     return {
@@ -32,7 +25,6 @@ def _view_dict(*, prefer_png: bool = False) -> dict[str, Any] | None:
         "parse_tree_ascii": vs.parse_tree_ascii,
         "semantics": vs.semantics,
         "dag": vs.dag,
-        "used_png": vs.used_png,
     }
 
 

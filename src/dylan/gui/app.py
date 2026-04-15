@@ -6,7 +6,6 @@ Targets Flet >= 0.80 (async ``FilePicker`` methods, ``Tabs`` uses
 
 from __future__ import annotations
 
-import base64
 import logging
 import os
 import sys
@@ -16,15 +15,11 @@ from dylan.gui.parse_session import (
     ParseSession,
     format_parse_state_log,
 )
+from dylan.gui.tree_viz import build_canvas_shapes, compute_tree_layout
 from dylan.nlp.types import DEFAULT_SPEAKER
 from dylan.tree.tree import Tree
 
 logger = logging.getLogger(__name__)
-
-# Valid 1×1 PNG so ``ft.Image`` never gets empty ``src`` (avoids Flutter decode / URL errors on startup).
-_PLACEHOLDER_PNG_BYTES = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6XKpQAAAABJRU5ErkJggg=="
-)
 
 def _estimate_wrapped_line_count(text: str, chars_per_line: int = 44) -> int:
     """Approximate how many display lines *text* needs when wrapped in a narrow panel."""
@@ -54,6 +49,7 @@ def _ensure_dylan_stderr_logging() -> None:
 def main() -> None:
     """Entry point for ``dylan-gui`` console script; opens the Flet desktop app."""
     import flet as ft
+    import flet.canvas as cv
 
     def build(page: ft.Page) -> None:
         """Lay out controls mirroring the Java parser frame."""
@@ -287,25 +283,12 @@ def main() -> None:
             expand=True,
             text_style=mono_text_style,
         )
-        tree_viz_image = ft.Image(
-            src=_PLACEHOLDER_PNG_BYTES,
-            fit=ft.BoxFit.FILL,
-            gapless_playback=True,
+        tree_canvas = cv.Canvas(
             expand=True,
-            visible=True,
-        )
-        tree_viz_fallback = ft.Text(
-            "",
-            selectable=True,
-            visible=False,
-            expand=True,
-            style=mono_text_style,
+            shapes=[],
         )
         parse_tree_graph_column = ft.Column(
-            [
-                ft.Container(content=tree_viz_image, expand=True),
-                ft.Container(content=tree_viz_fallback, expand=True),
-            ],
+            [ft.Container(content=tree_canvas, expand=True)],
             expand=True,
             scroll=ft.ScrollMode.AUTO,
         )
@@ -385,7 +368,7 @@ def main() -> None:
             set_log(log_text)
 
         def _parse_tree_render_px(*, logs_column_visible: bool) -> tuple[int, int]:
-            """Approximate pixels available for the parse-tree PNG inside the Output tab."""
+            """Approximate pixels available for the parse-tree canvas inside the Output tab."""
             w = float(page.window.width or page.width or 1400)
             h = float(page.window.height or page.height or 900)
             left_ratio = 0.65 if logs_column_visible else 1.0
@@ -395,47 +378,52 @@ def main() -> None:
             tree_h = max(320.0, h - chrome_y)
             return int(left_w), int(tree_h)
 
-        def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
-            """Fill flat text, PNG graph, or ASCII fallback from a DS ``Tree`` instance."""
-            tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
-            st = session.tree_panel_state(
+        def _paint_parse_tree_canvas(w: float, h: float) -> None:
+            """Re-draw ``tree_canvas`` from ``session.last_tree`` at logical size *(w, h)*."""
+            wf = max(40.0, float(w))
+            hf = max(40.0, float(h))
+            tree_canvas.width = wf
+            tree_canvas.height = hf
+            ds_tree = session.last_tree
+            if ds_tree is None or not ds_tree:
+                tree_canvas.shapes = [
+                    cv.Rect(
+                        x=0,
+                        y=0,
+                        width=wf,
+                        height=hf,
+                        paint=ft.Paint(style=ft.PaintingStyle.FILL, color=PANEL_BACKGROUND),
+                    ),
+                ]
+                return
+            layout = compute_tree_layout(
                 ds_tree,
-                target_width_px=tw,
-                target_height_px=th,
-                prefer_png=True,
+                wf,
+                hf,
+                font_size=float(MONO_FONT_SIZE),
             )
+            tree_canvas.shapes = build_canvas_shapes(
+                layout,
+                ds_tree.pointer,
+                font_size=float(MONO_FONT_SIZE),
+            )
+
+        def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
+            """Fill address-order text and re-paint the parse-tree canvas from *ds_tree*."""
+            tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
+            st = session.tree_panel_state(ds_tree)
             tree_view.value = st.address_order
-            if st.used_png and st.png_bytes:
-                tree_viz_image.src = st.png_bytes
-                tree_viz_image.visible = True
-                tree_viz_fallback.visible = False
-            else:
-                tree_viz_image.src = _PLACEHOLDER_PNG_BYTES
-                tree_viz_image.visible = False
-                tree_viz_fallback.visible = True
-                tree_viz_fallback.value = st.parse_tree_ascii
+            _paint_parse_tree_canvas(float(tw), float(th))
 
         def _refresh_views(msg: str) -> None:
             """Populate the tree / semantics / DAG text fields from current parser state."""
             tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
-            vs = session.current_view_strings(
-                target_width_px=tw,
-                target_height_px=th,
-                prefer_png=True,
-            )
+            vs = session.current_view_strings()
             if vs is None:
                 append_log(format_parse_state_log(msg))
                 return
             tree_view.value = vs.address_order
-            if vs.used_png and vs.png_bytes:
-                tree_viz_image.src = vs.png_bytes
-                tree_viz_image.visible = True
-                tree_viz_fallback.visible = False
-            else:
-                tree_viz_image.src = _PLACEHOLDER_PNG_BYTES
-                tree_viz_image.visible = False
-                tree_viz_fallback.visible = True
-                tree_viz_fallback.value = vs.parse_tree_ascii
+            _paint_parse_tree_canvas(float(tw), float(th))
             dag_view.value = vs.dag
             sem_view.value = vs.semantics
             append_log(format_parse_state_log(msg))
@@ -482,6 +470,17 @@ def main() -> None:
                 else "Parse finished with failures (check sentence / lexicon)."
             )
             _refresh_views(msg)
+
+        def on_tree_canvas_resize(e: cv.CanvasResizeEvent) -> None:
+            """Re-layout the parse tree when the canvas control receives its real size."""
+            aw = float(e.width)
+            ah = float(e.height)
+            if aw < 32.0 or ah < 32.0:
+                return
+            if session.last_tree is not None:
+                _paint_parse_tree_canvas(aw, ah)
+
+        tree_canvas.on_resize = on_tree_canvas_resize
 
         sentence_field.on_submit = do_parse
         parse_btn = ft.FilledButton(
@@ -614,21 +613,15 @@ def main() -> None:
             show = bool(e.control.value)
             logs_panel.visible = show
             left_wrap.expand = 65 if show else True
-            if (
-                session.parser is not None
-                and session.last_tree is not None
-                and tree_viz_image.visible
-            ):
+            if session.parser is not None and session.last_tree is not None:
                 _refresh_parse_tree_visual(session.last_tree)
             page.update()
 
         show_logs_toggle.on_change = on_show_logs_change
 
         def on_window_resize(_: ft.ControlEvent | None = None) -> None:
-            """Re-render the parse-tree PNG when the window grows or shrinks."""
+            """Re-layout the parse-tree canvas when the window grows or shrinks."""
             if session.parser is None or session.last_tree is None:
-                return
-            if not tree_viz_image.visible:
                 return
             _refresh_parse_tree_visual(session.last_tree)
             page.update()

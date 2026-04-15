@@ -24,7 +24,7 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     assert init_out.get("error") is None
     views = init_out.get("views")
     assert isinstance(views, dict)
-    for key in ("semantics", "parse_tree_ascii", "dag", "address_order", "used_png"):
+    for key in ("semantics", "parse_tree_ascii", "dag", "address_order"):
         assert key in views
 
     parse_out = pyodide_api.dispatch(
