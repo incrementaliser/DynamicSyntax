@@ -283,14 +283,36 @@ def main() -> None:
             expand=True,
             text_style=mono_text_style,
         )
+        tree_zoom_label = ft.Text(
+            "Zoom: 100%",
+            size=11,
+            color=MUTED_TEXT_COLOR,
+        )
         tree_canvas = cv.Canvas(
             expand=True,
             shapes=[],
         )
-        parse_tree_graph_column = ft.Column(
-            [ft.Container(content=tree_canvas, expand=True)],
+        tree_canvas_viewer = ft.InteractiveViewer(
+            content=tree_canvas,
             expand=True,
-            scroll=ft.ScrollMode.AUTO,
+            pan_enabled=True,
+            scale_enabled=True,
+            trackpad_scroll_causes_scale=True,
+            min_scale=0.5,
+            max_scale=4.0,
+            boundary_margin=200,
+            constrained=False,
+            scale_factor=200,
+        )
+        parse_tree_graph_column = ft.Column(
+            [
+                ft.Row(
+                    [tree_zoom_label],
+                    alignment=ft.MainAxisAlignment.END,
+                ),
+                ft.Container(content=tree_canvas_viewer, expand=True),
+            ],
+            expand=True,
         )
         output_box = _border_caption_box(
             "Output",
@@ -408,6 +430,11 @@ def main() -> None:
                 font_size=float(MONO_FONT_SIZE),
             )
 
+        def on_tree_zoom_update(e: ft.ScaleUpdateEvent) -> None:
+            """Show the current interactive-viewer zoom factor while the user zooms/pans."""
+            tree_zoom_label.value = f"Zoom: {int(round(float(e.scale) * 100.0))}%"
+            tree_zoom_label.update()
+
         def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
             """Fill address-order text and re-paint the parse-tree canvas from *ds_tree*."""
             tw, th = _parse_tree_render_px(logs_column_visible=bool(show_logs_toggle.value))
@@ -481,6 +508,7 @@ def main() -> None:
                 _paint_parse_tree_canvas(aw, ah)
 
         tree_canvas.on_resize = on_tree_canvas_resize
+        tree_canvas_viewer.on_interaction_update = on_tree_zoom_update
 
         sentence_field.on_submit = do_parse
         parse_btn = ft.FilledButton(
