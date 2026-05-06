@@ -585,12 +585,16 @@ class TTRRecordType(TTRFormula):
 
     def get_empty_abstractions(self, prefix: "NodeAddress") -> list["Tree"]:
         """Return a minimal tree abstraction containing this record at *prefix*."""
-        from dylan.tree.label.labels import FormulaLabel
+        from dylan.tree.label.labels import FormulaLabel, TypeLabel
         from dylan.tree.node import Node
         from dylan.tree.tree import Tree
 
         tree = Tree()
-        tree[prefix] = Node(prefix, [FormulaLabel(self.clone())])
+        labels: list[Any] = [FormulaLabel(self.clone())]
+        ds_type = self.get_ds_type()
+        if ds_type is not None:
+            labels.insert(0, TypeLabel(ds_type))
+        tree[prefix] = Node(prefix, labels)
         tree.pointer = prefix
         return [tree]
 
@@ -601,8 +605,22 @@ class TTRRecordType(TTRFormula):
         filtering: bool,
     ) -> list["Tree"]:
         """Return abstraction trees, optionally filtered by Java ``TreeFilter`` semantics."""
-        _ = (type_, filtering)
-        return self.get_empty_abstractions(prefix)
+        from dylan.induction.em_learner.tree_filter import TreeFilter
+
+        trees = self.get_empty_abstractions(prefix)
+        for _core, abstraction in self.get_abstractions(type_):
+            abstracted = abstraction.evaluate()
+            if isinstance(abstracted, TTRFormula):
+                clone = self.clone()
+                abstracted_tree = clone.get_empty_abstractions(prefix)[0]
+                abstracted_tree.pointed_node.remove_formula_label()
+                from dylan.tree.label.labels import FormulaLabel
+
+                abstracted_tree.pointed_node.add_label(FormulaLabel(abstracted))
+                trees.append(abstracted_tree)
+        if filtering:
+            return TreeFilter(self).filter(trees)
+        return trees
 
     def get_maximal_filtered_abstractions(
         self,
@@ -611,7 +629,16 @@ class TTRRecordType(TTRFormula):
         filtering: bool,
     ) -> list["Tree"]:
         """Return maximal filtered abstraction trees."""
-        return self.get_filtered_abstractions(prefix, type_, filtering)
+        trees = self.get_filtered_abstractions(prefix, type_, filtering)
+        seen: set[str] = set()
+        maximal: list[Any] = []
+        for tree in trees:
+            key = str(tree)
+            if key in seen:
+                continue
+            seen.add(key)
+            maximal.append(tree)
+        return maximal
 
     def get_ttr_paths(self) -> list["TTRPath"]:
         """Return manifest TTR paths contained in this record."""

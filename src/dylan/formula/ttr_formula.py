@@ -46,3 +46,22 @@ class TTRFormula(Formula):
     def freshen_vars(self, tree: Any) -> TTRFormula:
         """Alpha-rename to avoid capture using *tree*'s pools (Java ``TTRFormula.freshenVars``; stub: clone)."""
         return self.clone()  # type: ignore[return-value]
+
+    def get_abstractions(self, basic_ds_type: Any, new_var_suffix: int = 0) -> list[tuple[TTRFormula, TTRFormula]]:
+        """Return abstraction pairs; subclasses with fields override this."""
+        _ = (basic_ds_type, new_var_suffix)
+        return []
+
+    def get_filtered_abstractions(self, prefix: Any, type_: Any, filtering: bool) -> list[Any]:
+        """Return abstraction trees; non-record formulae have none by default."""
+        _ = (prefix, type_, filtering)
+        return []
+
+    def get_maximal_filtered_abstractions(self, prefix: Any, type_: Any, filtering: bool) -> list[Any]:
+        """Return maximal abstraction trees; default delegates to filtered abstractions."""
+        return self.get_filtered_abstractions(prefix, type_, filtering)
+
+
+TTRFormula.getAbstractions = TTRFormula.get_abstractions  # type: ignore[attr-defined]
+TTRFormula.getFilteredAbstractions = TTRFormula.get_filtered_abstractions  # type: ignore[attr-defined]
+TTRFormula.getMaximalFilteredAbstractions = TTRFormula.get_maximal_filtered_abstractions  # type: ignore[attr-defined]
