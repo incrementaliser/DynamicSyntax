@@ -4,12 +4,12 @@
 
 ## Installation
 
-You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.12`** (see `pyproject.toml`).
+You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.13`** (see `pyproject.toml`).
 
 1. Create a virtual environment with a fixed Python version (run this in the directory where you want `.venv`, e.g. the repo root for a clone):
 
    ```bash
-   uv venv --python 3.12
+   uv venv --python 3.13
    ```
 
 2. Activate it. On Linux or macOS:
@@ -32,16 +32,49 @@ You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.12`
    uv pip install -e .
    ```
 
-## Example
+## Examples
+
+`dynamicsyntax.parse` returns a **`ParseResult`** (with `.semantics`, `.ok`, `.tree`, `.vis()`, and `.address_order`). This replaces older versions that returned `TTRRecordType | None` directly—use `.semantics` for the final TTR record.
+
+List bundled grammars and (placeholder) datasets:
 
 ```python
 import dynamicsyntax as ds
 
-semantics = ds.parse("a man arrives", "ttr")
-print(semantics)
+print(ds.get_grammars())   # e.g. ['2015-english-ttr', 'ttr', ...]
+print(ds.get_datasets()) # [] until datasets ship with the package
 ```
 
-The above loads the 2015-english-ttr grammar and parses the utterance "a man arrives".
+One-shot parse with a grammar id or alias (`"ttr"` maps to `2015-english-ttr`):
+
+```python
+import dynamicsyntax as ds
+
+p = ds.parse("a man arrives", "ttr")
+print(p.ok, p.semantics)
+p.vis()  # prints the same address-order tree view as the GUI
+```
+
+Load a grammar once, then parse without repeating the grammar argument:
+
+```python
+import dynamicsyntax as ds
+
+ds.load_grammar("ttr")  # or ds.load_grammar("2015-english-ttr")
+p = ds.parse("a man arrives")
+print(p.semantics)
+p.vis()
+```
+
+Use a filesystem path to a grammar directory (as in the GUI “load folder” flow):
+
+```python
+import dynamicsyntax as ds
+from pathlib import Path
+
+ds.load_grammar(Path("/path/to/grammar-dir"))
+p = ds.parse("go to the red box")
+```
 
 ## Testing
 
