@@ -8,8 +8,9 @@ import pytest
 
 from dylan.dag.uttered_word import UtteredWord
 from dylan.nlp.types import Utterance, utterance_from_text
-from dylan.parser.interactive_context_parser import InteractiveContextParser
-from dylan.tree.label.labels import Requirement
+from dylan.parser.interactive_context_parser import InteractiveContextParser, _repoint_for_verb_lexical
+from dylan.tree.label.labels import FormulaLabel, Requirement, TypeLabel
+from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "parser_minimal"
@@ -79,3 +80,44 @@ def test_parse_mini_sentence_2026_grammar() -> None:
         for node in tup.tree.values()
         for lab in node.labels
     )
+
+
+def test_parse_mini_sentence_materialises_np_formulae_like_java() -> None:
+    """``a man knows you`` should beta-reduce NP semantics onto nodes ``000`` and ``00``."""
+    if not (GRAMMAR_2026 / "lexicon.txt").is_file():
+        pytest.skip("2026-english-ttr-test grammar not in resources")
+    parser = InteractiveContextParser(GRAMMAR_2026)
+    parser.init()
+    for word in ("a", "man", "knows", "you"):
+        assert parser.parse_word(UtteredWord(word, "Dylan", "you")) is not None
+
+    tree = parser.get_best_tuple().tree
+    for address in (NodeAddress("000"), NodeAddress("00")):
+        node = tree.node_at(address)
+        assert node is not None
+        formula = node.get_formula()
+        assert formula is not None, f"missing Fo at {address}: {node.labels!r}"
+        assert "man(" in str(formula)
+        assert any(isinstance(label, FormulaLabel) for label in node.labels)
+
+
+def test_verb_repoint_waits_for_completed_subject_np() -> None:
+    """Verb left adjustment should not bypass beta-reduction at the subject node."""
+    if not (GRAMMAR_2026 / "lexicon.txt").is_file():
+        pytest.skip("2026-english-ttr-test grammar not in resources")
+    parser = InteractiveContextParser(GRAMMAR_2026)
+    parser.init()
+    for word in ("a", "man"):
+        assert parser.parse_word(UtteredWord(word, "Dylan", "you")) is not None
+    verb = next(iter(parser.lexicon.lookup("knows")))
+
+    pending = parser.get_best_tuple().tree.clone()
+    _repoint_for_verb_lexical(pending, verb)
+    assert pending.pointer == NodeAddress("0001")
+
+    complete_subject = parser.get_best_tuple().tree.clone()
+    subj = complete_subject.node_at(NodeAddress("00"))
+    assert subj is not None
+    subj.add_label(TypeLabel.e)
+    _repoint_for_verb_lexical(complete_subject, verb)
+    assert complete_subject.pointer == NodeAddress("01")

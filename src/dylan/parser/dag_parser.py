@@ -63,11 +63,13 @@ class DAGParser:
         return cls(Lexicon(p), Grammar(p), SpeechActInferenceGrammar(p))
 
     def get_state(self) -> WordLevelContextDAG:
+        """Return the active word-level DAG."""
         if self.context is None:
             raise RuntimeError("context not initialised")
         return self.context.get_dag()
 
     def get_context(self) -> Context[DAGTuple, GroundableEdge]:
+        """Return the active parser context."""
         if self.context is None:
             raise RuntimeError("context not initialised")
         return self.context
@@ -141,12 +143,33 @@ class DAGParser:
         return ev
 
     def init(self) -> None:
+        """Reset parser context."""
         if self.context is not None:
             self.context.init()
 
     def new_sentence(self) -> None:
         """Reset DAG to axiom (Java `newSentence`)."""
         self.get_state().init()
+
+    def complete(self, word: UtteredWord | None = None) -> DAGTuple:
+        """Complete the current tree and attach a completion edge."""
+        dag = self.get_state()
+        actions, tree = self.complete_tree(dag.get_current_tuple().get_tree())
+        tup = dag.get_new_tuple(tree)
+        edge = dag.get_new_completion_edge(actions, word)
+        edge.set_repairable(False)
+        dag.add_child(tup, edge)
+        return tup
+
+    def get_n_best_final_semantics(self, n: int) -> list[TTRRecordType]:
+        """Return up to *n* final semantics from complete leaf tuples."""
+        out: list[TTRRecordType] = []
+        for tup in self.get_state().get_n_best_final_tuples(n):
+            sem = tup.get_semantics(self.context)
+            ev = sem.evaluate()
+            if isinstance(ev, TTRRecordType):
+                out.append(ev)
+        return out
 
     def parse(self, goal: Formula | None = None) -> bool:
         """Delegate to `parse(goal)` on concrete parser (Java `DAGParser.parse()`)."""
@@ -157,3 +180,16 @@ class DAGParser:
 
     def parse_word(self, word: UtteredWord) -> WordLevelContextDAG | None:
         raise NotImplementedError
+
+
+DAGParser.separateGrammars = DAGParser._separate_grammars  # type: ignore[attr-defined]
+DAGParser.fromResourceDir = DAGParser.from_resource_dir  # type: ignore[attr-defined]
+DAGParser.getState = DAGParser.get_state  # type: ignore[attr-defined]
+DAGParser.getContext = DAGParser.get_context  # type: ignore[attr-defined]
+DAGParser.applyActions = DAGParser.apply_actions  # type: ignore[attr-defined]
+DAGParser.adjustWithNonOptionalGrammar = DAGParser.adjust_with_non_optional_grammar  # type: ignore[attr-defined]
+DAGParser.completeOnce = DAGParser.complete_once  # type: ignore[attr-defined]
+DAGParser.completeTree = DAGParser.complete_tree  # type: ignore[attr-defined]
+DAGParser.getFinalSemantics = DAGParser.get_final_semantics  # type: ignore[attr-defined]
+DAGParser.newSentence = DAGParser.new_sentence  # type: ignore[attr-defined]
+DAGParser.getNBestFinalSemantics = DAGParser.get_n_best_final_semantics  # type: ignore[attr-defined]

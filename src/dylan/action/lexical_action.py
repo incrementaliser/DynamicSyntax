@@ -32,12 +32,15 @@ class LexicalAction(Action):
         self.effects: list[Effect] = EffectFactory.create_multiple(lines, ifs)
 
     def get_lexical_action_type(self) -> str | None:
+        """Return lexical action type."""
         return self.action_type
 
     def requires_left_adjustment(self) -> bool:
+        """Return whether this lexical action needs left adjustment before application."""
         return not self.no_left_adjustment
 
     def exec(self, tree: Tree, context: Context[DAGTuple, Any] | None) -> Tree | None:
+        """Execute every effect segment on *tree*."""
         cur: Tree | None = tree
         for eff in self.effects:
             assert cur is not None
@@ -47,6 +50,7 @@ class LexicalAction(Action):
         return cur
 
     def exec_tuple_context(self, tree: Tree, context: ParserTuple | None) -> Tree | None:
+        """Execute effects with parser-tuple context compatibility."""
         cur: Tree | None = tree
         for eff in self.effects:
             assert cur is not None
@@ -56,9 +60,15 @@ class LexicalAction(Action):
         return cur
 
     def instantiate(self) -> LexicalAction:
+        """Return a fresh lexical action copy."""
         return LexicalAction(
             self.word,
             list(self._source_lines),
             self.action_type,
             self.no_left_adjustment,
         )
+
+
+LexicalAction.getLexicalActionType = LexicalAction.get_lexical_action_type  # type: ignore[attr-defined]
+LexicalAction.requiresLeftAdjustment = LexicalAction.requires_left_adjustment  # type: ignore[attr-defined]
+LexicalAction.execTupleContext = LexicalAction.exec_tuple_context  # type: ignore[attr-defined]

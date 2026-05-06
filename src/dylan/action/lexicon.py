@@ -95,6 +95,7 @@ class Lexicon(dict[str, list[LexicalAction]]):
 
     def __init__(self, resource_dir: str | Path | None = None, _top_n: int = 3) -> None:
         super().__init__()
+        self.top_n = _top_n
         self._templates: dict[str, _LexicalTemplate] = {}
         if resource_dir is None:
             return
@@ -137,7 +138,15 @@ class Lexicon(dict[str, list[LexicalAction]]):
 
     def lookup(self, word: str) -> Collection[LexicalAction]:
         """Return lexical entries for `word`, or an empty sequence (Java `Lexicon.get`)."""
-        return super().get(word, [])
+        entries = list(super().get(word, []))
+        return entries[: self.top_n] if self.top_n > 0 else entries
+
+    def get(self, word: str, default: object = None) -> Collection[LexicalAction]:  # type: ignore[override]
+        """Return lexical entries for *word* using Java ``get`` semantics."""
+        entries = self.lookup(word)
+        if entries:
+            return entries
+        return [] if default is None else default  # type: ignore[return-value]
 
     def _init_lexical_templates(self, cleaned_lines: list[str | None]) -> None:
         """Parse lexical-action template blocks (already block-comment-stripped)."""

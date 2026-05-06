@@ -17,7 +17,9 @@ from dylan.dag.groundable_edge import GroundableEdge
 from dylan.dag.uttered_word import UtteredWord
 from dylan.dag.word_level_context_dag import WordLevelContextDAG
 from dylan.formula.formula import Formula
-from dylan.nlp.types import WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
+from dylan.formula.ttr_formula import TTRFormula
+from dylan.formula.ttr_record_type import TTRRecordType
+from dylan.nlp.types import Dialogue, WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
 from dylan.parser.dag_parser import DAGParser
 from dylan.tree.label.labels import Requirement, TypeLabel
 from dylan.tree.node_address import NodeAddress
@@ -38,6 +40,9 @@ def _repoint_for_verb_lexical(tree: Tree, la: LexicalAction) -> None:
     at = la.get_lexical_action_type() or ""
     if not at.startswith("v_"):
         return
+    subj = tree.node_at(NodeAddress("00"))
+    if subj is None or subj.get_type() != TypeLabel.e.type:
+        return
     pred = NodeAddress("01")
     if pred not in tree:
         return
@@ -48,6 +53,7 @@ def _repoint_for_verb_lexical(tree: Tree, la: LexicalAction) -> None:
                 return
 
 _MAX_LEXICAL_ADJUSTMENT_PAIRS = 50_000
+MAX_REPAIR_DEPTH = 1
 
 DEFAULT_NAME = "Dylan"
 
@@ -77,15 +83,20 @@ class InteractiveContextParser(DAGParser):
     non_repairing_action_types = list(NON_REPAIRING_ACTION_TYPES)
     RELEASE_TURN = RELEASE_TURN_TOKEN
     WAIT = WAIT_TOKEN
+    max_repair_depth = MAX_REPAIR_DEPTH
 
     def __init__(
         self,
         resource_dir: str | Path,
         repairing: bool = False,
+        top_n: int | tuple[str, ...] = 3,
         participants: tuple[str, ...] = (DEFAULT_NAME,),
     ) -> None:
         p = Path(resource_dir)
-        super().__init__(Lexicon(p), Grammar(p), SpeechActInferenceGrammar(p))
+        if not isinstance(top_n, int):
+            participants = top_n
+            top_n = 3
+        super().__init__(Lexicon(p, top_n), Grammar(p), SpeechActInferenceGrammar(p))
         dag = WordLevelContextDAG()
         parts = participants if participants else (DEFAULT_NAME,)
         self.context = Context(dag, self.sa_grammar, *parts)
@@ -124,13 +135,27 @@ class InteractiveContextParser(DAGParser):
         return obj
 
     def get_name(self) -> str:
+        """Return this parser's context name."""
         return self.context.get_name()
+
+    def repair_initiated(self) -> bool:
+        """Return whether local repair has been initiated."""
+        return self.context.repair_initiated()
 
     def _adjust_once(self, goal: Formula | None) -> bool:
         dag = self.get_state()
         if self.context.repair_initiated():
-            logger.info("Repair initiated (not fully ported — failing adjust step)")
-            return False
+            logger.info("Repair initiated")
+            repair_word = dag.word_stack_ref().pop()
+            if not dag.word_stack:
+                return False
+            target = dag.word_stack[-1]
+            if self.forced_restart:
+                self.restart(target)
+            else:
+                self.backtrack_and_parse(target)
+            if repair_word.word != word_level_repair_marker():
+                dag.word_stack_ref().append(repair_word)
         if dag.out_degree(dag.get_current_tuple()) == 0:
             self._apply_all_permutations(goal)
         result: GroundableEdge | None = None
@@ -143,6 +168,7 @@ class InteractiveContextParser(DAGParser):
         return result is not None
 
     def parse_goal(self, goal: Formula | None) -> bool:
+        """Parse until the DAG word stack is empty, optionally enforcing *goal*."""
         dag = self.get_state()
         if dag.is_exhausted():
             logger.debug("state exhausted")
@@ -158,13 +184,19 @@ class InteractiveContextParser(DAGParser):
         return True
 
     def _apply_all_permutations(self, goal: Formula | None) -> None:
+        """Apply every compatible lexical/grammar permutation for the top stack word."""
         dag = self.get_state()
         if not dag.word_stack:
             return
         word = dag.word_stack[-1]
         if word.word in self.right_edge_indicators:
+            self.replay_backtracked_actions(word)
             return
         if word.word in self.acks:
+            completed = self.complete(word)
+            parent_edge = dag.get_parent_edge(completed)
+            if parent_edge is not None:
+                parent_edge.ground_for(word.speaker)
             return
 
         all_actions = self.lexicon.lookup(word.word)
@@ -185,8 +217,7 @@ class InteractiveContextParser(DAGParser):
             if goal is not None and len(dag.word_stack) == 1 and not head_less.subsumes(goal):
                 continue
             edge_acts: list[Action] = [la.instantiate()]
-            edge = dag.get_new_edge(edge_acts, word)
-            dag.add_child(tup, edge)
+            self._add_permutation_child(dag.get_current_tuple(), tup, edge_acts, word, la)
 
         if not left_adjust:
             return
@@ -222,7 +253,8 @@ class InteractiveContextParser(DAGParser):
         for pair_acts, pair_tree in global_pairs:
             for la in left_adjust:
                 pt = pair_tree.clone()
-                _repoint_for_verb_lexical(pt, la)
+                if pair_acts:
+                    _repoint_for_verb_lexical(pt, la)
                 res = la.exec(pt, self.context)
                 if res is None:
                     continue
@@ -232,16 +264,67 @@ class InteractiveContextParser(DAGParser):
                     continue
                 new_acts = list(pair_acts)
                 new_acts.append(la.instantiate())
-                edge = dag.get_new_edge(new_acts, word)
                 child = dag.get_new_tuple(res)
-                dag.add_child(child, edge)
+                self._add_permutation_child(dag.get_current_tuple(), child, new_acts, word, la)
+
+    def _add_permutation_child(
+        self,
+        parent: DAGTuple,
+        child: DAGTuple,
+        actions: list[Action],
+        word: UtteredWord,
+        lexical_action: LexicalAction,
+    ) -> None:
+        """Add a word child, splitting TRP/completion actions when present."""
+        dag = self.get_state()
+        split_idx = self._index_of_trp(actions)
+        repairable = (lexical_action.get_lexical_action_type() or "") not in NON_REPAIRING_ACTION_TYPES
+        if split_idx is None:
+            edge = dag.get_new_edge(actions, word)
+            edge.set_repairable(repairable)
+            dag.add_child_from(parent, child, edge)
+            return
+        completion_actions = actions[: split_idx + 1]
+        word_actions = actions[split_idx + 1 :]
+        middle_tree = parent.get_tree().clone()
+        applied = self.apply_actions(middle_tree, completion_actions)
+        if applied is None:
+            applied = parent.get_tree().clone()
+        middle = dag.get_new_tuple(applied)
+        completion_edge = dag.get_new_completion_edge(completion_actions, None)
+        completion_edge.set_repairable(False)
+        dag.add_child_from(parent, middle, completion_edge)
+        edge = dag.get_new_edge(word_actions or [lexical_action.instantiate()], word)
+        edge.set_repairable(repairable)
+        dag.add_child_from(middle, child, edge)
+
+    def _index_of_trp(self, actions: list[Action]) -> int | None:
+        """Return index of first completion/TRP action in *actions*."""
+        completion_names = {name.lower() for name in self.completion_grammar.keys()}
+        for i, action in enumerate(actions):
+            name = action.get_name().lower()
+            if name in completion_names or name in {"trp", "completion", "merge"}:
+                return i
+        return None
 
     def init(self) -> None:
+        """Reset parser flags and context."""
         self.forced_restart = False
         self.forced_repair = False
         super().init()
 
+    def init_participants(self, participants: list[str]) -> None:
+        """Reset parser with a new participant list."""
+        self.forced_restart = False
+        self.forced_repair = False
+        self.context.init_participants(participants)
+
+    def new_sentence(self) -> None:
+        """Start a new sentence by adding a fresh axiom."""
+        self.get_state().add_axiom()
+
     def parse_word(self, w: UtteredWord) -> WordLevelContextDAG | None:
+        """Parse one uttered word."""
         participants = list(self.context.get_participants())
         if len(participants) == 2 and w.speaker in participants:
             i = participants.index(w.speaker)
@@ -255,10 +338,17 @@ class InteractiveContextParser(DAGParser):
             return self.get_state()
 
         if self.forced_restart or self.forced_repair:
-            logger.info("restart/repair path not fully ported")
+            logger.info("restart/repair path")
+            self.get_state().word_stack_ref().append(word)
+            self.get_state().initiate_local_repair()
+            ok = self.parse_goal(None)
             self.forced_restart = False
             self.forced_repair = False
-            return None
+            if not ok:
+                self.get_state().reset_to_first_tuple_after_last_word()
+                return None
+            self.get_state().this_is_first_tuple_after_last_word()
+            return self.get_state()
 
         if word.word in self.repairanda:
             self.get_state().this_is_first_tuple_after_last_word()
@@ -298,6 +388,7 @@ class InteractiveContextParser(DAGParser):
 
         self.get_state().this_is_first_tuple_after_last_word()
         self.get_state().set_repair_processing(False)
+        self.context.append_word(word)
         logger.info("Parsed: %s", word)
         return self.get_state()
 
@@ -310,6 +401,133 @@ class InteractiveContextParser(DAGParser):
                 ok = False
         return ok
 
+    def generate_word(self, word: UtteredWord | str, goal: Formula | None = None) -> WordLevelContextDAG | None:
+        """Generate/parse one word under an optional semantic goal."""
+        uw = word if isinstance(word, UtteredWord) else UtteredWord(word, self.get_name())
+        self.get_state().word_stack_ref().append(uw)
+        if not self.parse_goal(goal):
+            self.get_state().reset_to_first_tuple_after_last_word()
+            return None
+        if uw.word == self.RELEASE_TURN:
+            self.context.open_floor()
+        else:
+            self.context.set_who_has_floor(uw.speaker)
+        self.context.append_word(uw)
+        self.get_state().this_is_first_tuple_after_last_word()
+        return self.get_state()
+
+    def parse_dialogue(self, dialogue: Dialogue) -> Context[DAGTuple, GroundableEdge]:
+        """Parse a dialogue utterance by utterance."""
+        participants = dialogue.get_participants()
+        if participants:
+            self.context.init_participants(participants)
+        for utterance in dialogue:
+            self.parse_utterance(utterance)
+        return self.context
+
+    def get_top_n_pending(self, n: int) -> list[TTRRecordType]:
+        """Return up to *n* best final semantics candidates."""
+        return self.get_n_best_final_semantics(n)
+
+    def replay_backtracked_actions(self, word: UtteredWord) -> bool:
+        """Replay the current edge action sequence at a right-edge indicator."""
+        dag = self.get_state()
+        parent_edge = dag.get_parent_edge()
+        if parent_edge is None:
+            return False
+        tree = dag.get_current_tuple().get_tree().clone()
+        res = self.apply_actions(tree, parent_edge.get_actions())
+        if res is None:
+            return False
+        child = dag.get_new_tuple(res)
+        edge = dag.get_new_action_replay_edge(parent_edge.get_actions(), word)
+        edge.set_repairable(False)
+        dag.add_child(child, edge)
+        return True
+
+    def restart(self, word: UtteredWord) -> None:
+        """Restart from the last post-word anchor and parse *word* again."""
+        dag = self.get_state()
+        dag.reset_to_first_tuple_after_last_word()
+        dag.word_stack_ref().append(word)
+        self._apply_all_permutations(None)
+
+    def backtrack_and_parse(self, word: UtteredWord) -> None:
+        """Backtrack locally then parse *word* again."""
+        dag = self.get_state()
+        depth = 0
+        while depth < self.max_repair_depth and dag.get_parent(dag.get_current_tuple()) is not None:
+            edge = dag.get_parent_edge()
+            if edge is None:
+                break
+            if edge.is_repairable() and not edge.is_grounded_for(word.speaker):
+                edge.backtrack(dag)
+                break
+            edge.backtrack(dag)
+            depth += 1
+        dag.word_stack_ref().append(word)
+        self._apply_all_permutations(None)
+
+    def left_adjust_and_apply(self, lexical_action: LexicalAction) -> bool:
+        """Probe whether a lexical action can apply after left adjustment."""
+        dag = self.get_state()
+        before = dag.get_current_tuple()
+        fake_word = UtteredWord(lexical_action.word, self.get_name())
+        self._add_permutation_child(before, before, [lexical_action.instantiate()], fake_word, lexical_action)
+        return dag.out_degree(before) > 0
+
+    def get_local_generation_options(self) -> set[str]:
+        """Return lexicon words with at least one locally applicable action."""
+        options: set[str] = set()
+        tree = self.get_state().get_current_tuple().get_tree()
+        for word, actions in self.lexicon.items():
+            for action in actions:
+                if action.exec(tree.clone(), self.context) is not None:
+                    options.add(word)
+                    break
+        return options
+
+    def roll_back(self, n: int) -> bool:
+        """Roll parser context back by *n* word edges."""
+        return self.get_state().roll_back(n)
+
+    def get_dialogue_history(self) -> list[UtteredWord]:
+        """Return parsed dialogue word history."""
+        return self.context.get_dialogue_history()
+
+    def is_exhausted(self) -> bool:
+        """Return whether the DAG state is exhausted."""
+        return self.get_state().is_exhausted()
+
     def get_best_tuple(self) -> DAGTuple:
         """Current DAG tuple (Java `getBestTuple`)."""
         return self.get_state().get_current_tuple()
+
+
+def word_level_repair_marker() -> str:
+    """Return the repair-init marker used by the word-level DAG."""
+    from dylan.dag.word_level_context_dag import REPAIR_INIT_PREFIX
+
+    return REPAIR_INIT_PREFIX
+
+
+InteractiveContextParser.getName = InteractiveContextParser.get_name  # type: ignore[attr-defined]
+InteractiveContextParser.repairInitiated = InteractiveContextParser.repair_initiated  # type: ignore[attr-defined]
+InteractiveContextParser.adjustOnce = InteractiveContextParser._adjust_once  # type: ignore[attr-defined]
+InteractiveContextParser.applyAllPermutations = InteractiveContextParser._apply_all_permutations  # type: ignore[attr-defined]
+InteractiveContextParser.parseGoal = InteractiveContextParser.parse_goal  # type: ignore[attr-defined]
+InteractiveContextParser.initParticipants = InteractiveContextParser.init_participants  # type: ignore[attr-defined]
+InteractiveContextParser.newSentence = InteractiveContextParser.new_sentence  # type: ignore[attr-defined]
+InteractiveContextParser.parseWord = InteractiveContextParser.parse_word  # type: ignore[attr-defined]
+InteractiveContextParser.parseUtterance = InteractiveContextParser.parse_utterance  # type: ignore[attr-defined]
+InteractiveContextParser.generateWord = InteractiveContextParser.generate_word  # type: ignore[attr-defined]
+InteractiveContextParser.parseDialogue = InteractiveContextParser.parse_dialogue  # type: ignore[attr-defined]
+InteractiveContextParser.getTopNPending = InteractiveContextParser.get_top_n_pending  # type: ignore[attr-defined]
+InteractiveContextParser.replayBacktrackedActions = InteractiveContextParser.replay_backtracked_actions  # type: ignore[attr-defined]
+InteractiveContextParser.backtrackAndParse = InteractiveContextParser.backtrack_and_parse  # type: ignore[attr-defined]
+InteractiveContextParser.leftAdjustAndApply = InteractiveContextParser.left_adjust_and_apply  # type: ignore[attr-defined]
+InteractiveContextParser.getLocalGenerationOptions = InteractiveContextParser.get_local_generation_options  # type: ignore[attr-defined]
+InteractiveContextParser.rollBack = InteractiveContextParser.roll_back  # type: ignore[attr-defined]
+InteractiveContextParser.getDialogueHistory = InteractiveContextParser.get_dialogue_history  # type: ignore[attr-defined]
+InteractiveContextParser.isExhausted = InteractiveContextParser.is_exhausted  # type: ignore[attr-defined]
+InteractiveContextParser.getBestTuple = InteractiveContextParser.get_best_tuple  # type: ignore[attr-defined]

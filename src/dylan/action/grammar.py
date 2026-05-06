@@ -87,3 +87,7 @@ class Grammar(dict[str, ComputationalAction]):
         action = ComputationalAction(name, lines, always_good, backtrack_on_success)
         self[name] = action
         logger.debug("Added computational action %s", action)
+
+
+Grammar.loadFromDisk = Grammar._load_from_disk  # type: ignore[attr-defined]
+Grammar.initActions = Grammar._init_actions  # type: ignore[attr-defined]

@@ -25,9 +25,11 @@ class ComputationalAction(Action):
         self.always_good = always_good
 
     def is_always_good(self) -> bool:
+        """Return whether this action belongs to the non-optional star grammar."""
         return self.always_good
 
     def set_always_good(self, v: bool) -> None:
+        """Set non-optional star-grammar membership."""
         self.always_good = v
 
     def instantiate(self) -> ComputationalAction:
@@ -44,8 +46,13 @@ class ComputationalAction(Action):
         )
 
     def __lt__(self, other: ComputationalAction) -> bool:
+        """Sort always-good actions before optional ones."""
         if self.always_good and not other.always_good:
             return True
         if not self.always_good and other.always_good:
             return False
         return id(self) < id(other)
+
+
+ComputationalAction.isAlwaysGood = ComputationalAction.is_always_good  # type: ignore[attr-defined]
+ComputationalAction.setAlwaysGood = ComputationalAction.set_always_good  # type: ignore[attr-defined]

@@ -1,5 +1,7 @@
-"""Flet GUI (optional extra ``pip install dynamicsyntax[gui]``; entry point ``dylan-gui``)."""
+"""Flet GUI compatibility exports."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from dylan.gui.parser_panel import ParserPanel
+
+__all__: list[str] = ["ParserPanel"]
