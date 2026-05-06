@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import textwrap
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from dylan.gui.formatting import node_address_type_formula_strings
 from dylan.tree.node_address import NodeAddress
@@ -147,10 +147,14 @@ def format_ds_tree_ascii(tree: Tree) -> str:
     return "\n".join(lines) if lines else "(empty tree)"
 
 
+# Must match ``ft.TextStyle.height`` in :func:`build_canvas_shapes` so box height fits rendered text.
+_CANVAS_TEXT_LINE_HEIGHT: float = 1.35
+
+
 def _char_metrics(*, font_size: float) -> tuple[float, float]:
     """Approximate monospace character width and line height in pixels for layout."""
     char_w = max(5.5, 0.58 * font_size)
-    line_h = max(12.0, 1.28 * font_size)
+    line_h = max(12.0, float(font_size) * _CANVAS_TEXT_LINE_HEIGHT)
     return char_w, line_h
 
 
@@ -194,6 +198,9 @@ class NodeBox:
     label: str
 
 
+TreeEdgeStyle = Literal["solid", "dashed", "dotted"]
+
+
 @dataclass
 class TreeEdge:
     """Orthogonal edge segment from parent bottom to child top (already in canvas pixels)."""
@@ -202,6 +209,17 @@ class TreeEdge:
     y1: float
     x2: float
     y2: float
+    style: TreeEdgeStyle = "solid"
+
+
+def _edge_style_for_child(child_addr: NodeAddress) -> TreeEdgeStyle:
+    """Map the last path character of *child_addr* to a canvas edge stroke style."""
+    last = child_addr.address[-1] if child_addr.address else ""
+    if last in ("L", "C"):
+        return "dashed"
+    if last in ("*", "U"):
+        return "dotted"
+    return "solid"
 
 
 @dataclass
@@ -378,6 +396,125 @@ def _buchheim_third_walk(v: _BuchheimNode, shift: float) -> None:
         _buchheim_third_walk(w, shift)
 
 
+def _reflow_label_for_render_width(
+    label: str,
+    *,
+    font_size: float,
+    max_text_width_px: float,
+) -> str:
+    """Re-wrap *label* so lines fit *max_text_width_px* (after the box has its final width on screen)."""
+    if max_text_width_px <= 8.0:
+        return label
+    char_w, _ = _char_metrics(font_size=font_size)
+    max_chars = max(4, int(max_text_width_px / char_w))
+    out: list[str] = []
+    for block in label.split("\n"):
+        if not block.strip():
+            out.append("")
+            continue
+        wrapped = textwrap.wrap(
+            block,
+            width=max_chars,
+            break_long_words=True,
+            break_on_hyphens=False,
+        )
+        out.extend(wrapped if wrapped else [block])
+    return "\n".join(out) if out else label
+
+
+def _recenter_parents_on_children_x(
+    boxes: list[NodeBox],
+    ch_map: dict[NodeAddress, list[NodeAddress]],
+) -> None:
+    """Set each parent's *cx* to the mean of its present children's *cx* (pixel space)."""
+    addr_to_box: dict[NodeAddress, NodeBox] = {b.addr: b for b in boxes}
+    max_d = max((_node_depth(b.addr) for b in boxes), default=0)
+    for d in range(max_d - 1, -1, -1):
+        for b in boxes:
+            if _node_depth(b.addr) != d:
+                continue
+            kids = ch_map.get(b.addr, [])
+            child_boxes = [addr_to_box[c] for c in kids if c in addr_to_box]
+            if not child_boxes:
+                continue
+            b.cx = float(sum(cb.cx for cb in child_boxes) / len(child_boxes))
+
+
+def _reflow_resize_and_relayer_rows(
+    boxes: list[NodeBox],
+    *,
+    font_size: float,
+    node_pad_x: float,
+    node_pad_y: float,
+    margin: float,
+    inner_w: float,
+    inner_h: float,
+    cw: float,
+    ch: float,
+    v_gap_min: float,
+) -> None:
+    """Re-wrap labels to final box width, grow heights, and stack rows by measured layer height."""
+    px = max(0.0, float(node_pad_x))
+    py = max(0.0, float(node_pad_y))
+    for b in boxes:
+        inner_tw = max(8.0, b.w - 2.0 * px)
+        reflowed = _reflow_label_for_render_width(
+            b.label,
+            font_size=font_size,
+            max_text_width_px=inner_tw,
+        )
+        mh = _measure_label_box(
+            reflowed,
+            font_size=font_size,
+            max_text_width_px=inner_tw,
+        )[1]
+        b.h = float(max(b.h, mh + 2.0 * py))
+        b.label = reflowed
+
+    by_depth: dict[int, list[NodeBox]] = {}
+    for b in boxes:
+        d = _node_depth(b.addr)
+        by_depth.setdefault(d, []).append(b)
+    max_d = max(by_depth, default=0)
+    layer_h = [max(b.h for b in by_depth[d]) for d in range(max_d + 1)]
+    sum_layers = sum(layer_h)
+    available = max(1.0, float(inner_h))
+    min_gap = max(2.0, float(v_gap_min) * 0.28)
+    n_gaps = max_d
+    if n_gaps <= 0:
+        gap = 0.0
+    else:
+        gap_raw = (available - sum_layers) / float(n_gaps)
+        gap = max(min_gap, gap_raw) if gap_raw >= min_gap else max(0.0, gap_raw)
+    y_top = margin
+    for d in range(max_d + 1):
+        rh = layer_h[d]
+        cy_row = y_top + 0.5 * rh
+        for b in by_depth[d]:
+            b.cy = float(cy_row)
+        y_top += rh + (gap if d < max_d else 0.0)
+
+    xs2 = [b.cx for b in boxes]
+    ys2 = [b.cy for b in boxes]
+    ws = [b.w for b in boxes]
+    hs = [b.h for b in boxes]
+    min_cx = min(x - w * 0.5 for x, w in zip(xs2, ws, strict=True))
+    max_cx = max(x + w * 0.5 for x, w in zip(xs2, ws, strict=True))
+    min_cy = min(y - h * 0.5 for y, h in zip(ys2, hs, strict=True))
+    max_cy = max(y + h * 0.5 for y, h in zip(ys2, hs, strict=True))
+    span_x2 = max(max_cx - min_cx, 1e-6)
+    span_y2 = max(max_cy - min_cy, 1e-6)
+    fit_scale = min(inner_w / span_x2, inner_h / span_y2, 1.0)
+    if fit_scale < 0.999:
+        mid_x = (min_cx + max_cx) * 0.5
+        mid_y = (min_cy + max_cy) * 0.5
+        for b in boxes:
+            b.cx = (b.cx - mid_x) * fit_scale + cw * 0.5
+            b.cy = (b.cy - mid_y) * fit_scale + ch * 0.5
+            b.w *= fit_scale
+            b.h *= fit_scale
+
+
 def _flatten_buchheim(v: _BuchheimNode, out: list[_BuchheimNode]) -> None:
     """Collect nodes in pre-order."""
     out.append(v)
@@ -392,7 +529,8 @@ def _build_buchheim_tree(
     *,
     font_size: float,
     max_text_width_px: float,
-    h_gap: float,
+    node_pad_x: float,
+    node_pad_y: float,
 ) -> _BuchheimNode | None:
     """Build ordered binary Buchheim tree (sorted children → left-to-right)."""
     if root_addr not in tree:
@@ -407,9 +545,11 @@ def _build_buchheim_tree(
             wrap_oversized_fields=True,
         )
         bw, bh = _measure_label_box(label, font_size=font_size, max_text_width_px=max_text_width_px)
-        bw = max(bw, 40.0)
-        bh = max(bh, 24.0)
-        node = _BuchheimNode(addr=addr, label=label, box_w=bw + 2 * h_gap, box_h=bh + 2 * h_gap, number=number)
+        bw = max(bw, 28.0)
+        bh = max(bh, 18.0)
+        px = max(0.0, float(node_pad_x))
+        py = max(0.0, float(node_pad_y))
+        node = _BuchheimNode(addr=addr, label=label, box_w=bw + 2 * px, box_h=bh + 2 * py, number=number)
         for i, ca in enumerate(kids_addrs):
             child = build(ca, i + 1)
             child.parent = node
@@ -458,14 +598,17 @@ def compute_tree_layout(
     font_size: float = 12.0,
     margin: float = 16.0,
     h_gap: float = 12.0,
+    node_pad_x: float = 4.0,
+    node_pad_y: float = 10.0,
     v_gap_min: float = 24.0,
 ) -> TreeLayout:
     """Lay out *tree* with Buchheim (Reingold–Tilford) and scale to fit *(canvas_w, canvas_h)*.
 
-    Root is drawn toward the top; children below. Wide/tall nodes use measured
-    bounding boxes so subtrees stay separated; a short overlap pass fixes residual
-    collisions after uniform scaling. *font_size*, *margin*, *h_gap*, and *v_gap_min*
-    tune text metrics and spacing.
+    Root is drawn toward the top; children below. Internal nodes stay centred on
+    their direct children (standard Buchheim). *h_gap* controls horizontal spacing
+    between subtrees; *node_pad_x* / *node_pad_y* are in-box padding (tight
+    horizontally, roomier vertically). After scaling, labels are re-wrapped to
+    the final box width and row *cy* is recomputed from layer heights so text fits.
     """
     if not isinstance(tree, Tree):
         raise TypeError(f"expected Tree, got {type(tree).__name__}")
@@ -485,7 +628,8 @@ def compute_tree_layout(
         ch_map,
         font_size=font_size,
         max_text_width_px=max_text_w,
-        h_gap=h_gap,
+        node_pad_x=node_pad_x,
+        node_pad_y=node_pad_y,
     )
     if root is None:
         return TreeLayout(nodes=[], edges=[], canvas_w=cw, canvas_h=ch)
@@ -547,6 +691,21 @@ def compute_tree_layout(
             b.w *= fit_scale
             b.h *= fit_scale
 
+    _reflow_resize_and_relayer_rows(
+        boxes,
+        font_size=font_size,
+        node_pad_x=node_pad_x,
+        node_pad_y=node_pad_y,
+        margin=margin,
+        inner_w=inner_w,
+        inner_h=inner_h,
+        cw=cw,
+        ch=ch,
+        v_gap_min=v_gap_min,
+    )
+    _resolve_overlaps(boxes, gap=h_gap * 0.5)
+    _recenter_parents_on_children_x(boxes, ch_map)
+
     edges: list[TreeEdge] = []
     for n in flat:
         if not n.children:
@@ -557,9 +716,10 @@ def compute_tree_layout(
             cb = addr_to_box[c.addr]
             y_child = cb.cy - cb.h * 0.5
             mid_y = y_parent + (y_child - y_parent) * 0.5
-            edges.append(TreeEdge(pb.cx, y_parent, pb.cx, mid_y))
-            edges.append(TreeEdge(pb.cx, mid_y, cb.cx, mid_y))
-            edges.append(TreeEdge(cb.cx, mid_y, cb.cx, y_child))
+            estyle = _edge_style_for_child(c.addr)
+            edges.append(TreeEdge(pb.cx, y_parent, pb.cx, mid_y, style=estyle))
+            edges.append(TreeEdge(pb.cx, mid_y, cb.cx, mid_y, style=estyle))
+            edges.append(TreeEdge(cb.cx, mid_y, cb.cx, y_child, style=estyle))
 
     return TreeLayout(nodes=boxes, edges=edges, canvas_w=cw, canvas_h=ch)
 
@@ -571,6 +731,8 @@ class CanvasTreeTheme:
     background: str = "#263238"
     edge_color: str = "#b0bec5"
     edge_width: float = 1.2
+    edge_dash_pattern: tuple[float, ...] = (6.0, 4.0)
+    edge_dot_pattern: tuple[float, ...] = (1.5, 3.0)
     node_fill: str = "#455a64"
     node_stroke: str = "#263238"
     pointer_fill: str = "#4fc3f7"
@@ -587,11 +749,12 @@ def build_canvas_shapes(
     theme: CanvasTreeTheme | None = None,
     *,
     font_size: float = 12.0,
-    text_padding: float = 10.0,
+    text_padding: float = 4.0,
 ) -> list[Any]:
     """Build Flet Canvas shapes for *layout*; highlights *pointer* if set.
 
-    *font_size* controls ``cv.Text`` body size; *text_padding* shrinks ``max_width`` inside each box.
+    *font_size* controls ``cv.Text`` body size; *text_padding* is horizontal inset
+    for ``max_width`` (vertical space comes from layout ``NodeBox.h``).
     Returns a list of ``flet.canvas`` shape objects (requires ``flet``).
     """
     import flet as ft
@@ -607,13 +770,38 @@ def build_canvas_shapes(
             paint=ft.Paint(style=ft.PaintingStyle.FILL, color=th.background),
         )
     ]
-    edge_paint = ft.Paint(
+    edge_paint_solid = ft.Paint(
         style=ft.PaintingStyle.STROKE,
         color=th.edge_color,
         stroke_width=th.edge_width,
     )
+    edge_paint_dashed = ft.Paint(
+        style=ft.PaintingStyle.STROKE,
+        color=th.edge_color,
+        stroke_width=th.edge_width,
+        stroke_dash_pattern=list(th.edge_dash_pattern),
+    )
+    edge_paint_dotted = ft.Paint(
+        style=ft.PaintingStyle.STROKE,
+        color=th.edge_color,
+        stroke_width=th.edge_width,
+        stroke_dash_pattern=list(th.edge_dot_pattern),
+    )
+    edge_paints: dict[TreeEdgeStyle, ft.Paint] = {
+        "solid": edge_paint_solid,
+        "dashed": edge_paint_dashed,
+        "dotted": edge_paint_dotted,
+    }
     for e in layout.edges:
-        shapes.append(cv.Line(x1=e.x1, y1=e.y1, x2=e.x2, y2=e.y2, paint=edge_paint))
+        shapes.append(
+            cv.Line(
+                x1=e.x1,
+                y1=e.y1,
+                x2=e.x2,
+                y2=e.y2,
+                paint=edge_paints[e.style],
+            ),
+        )
 
     for nb in layout.nodes:
         is_ptr = pointer is not None and nb.addr == pointer
@@ -659,7 +847,7 @@ def build_canvas_shapes(
                     size=int(round(font_size)),
                     color=th.text_color,
                     font_family="Consolas, monospace",
-                    height=1.25,
+                    height=_CANVAS_TEXT_LINE_HEIGHT,
                 ),
             ),
         )

@@ -25,6 +25,7 @@ class NodeAddress:
     address: str = ROOT
 
     def is_root(self) -> bool:
+        """Return true for the root address."""
         return self.address == ROOT
 
     def down(self, path: str) -> NodeAddress:
@@ -32,15 +33,19 @@ class NodeAddress:
         return NodeAddress(self.address + path)
 
     def down0(self) -> NodeAddress:
+        """Return the 0-daughter address."""
         return self.down(PATH_0)
 
     def down1(self) -> NodeAddress:
+        """Return the 1-daughter address."""
         return self.down(PATH_1)
 
     def down_link(self) -> NodeAddress:
+        """Return the linked daughter address."""
         return self.down(PATH_LINK)
 
     def down_star(self) -> NodeAddress:
+        """Return the unfixed daughter address."""
         return self.down(PATH_UNFIXED)
 
     def down_local_unfixed(self) -> NodeAddress:
@@ -108,6 +113,7 @@ class NodeAddress:
         return na
 
     def __str__(self) -> str:
+        """Return the address string."""
         return self.address
 
     def subsumes(self, other: NodeAddress) -> bool:
@@ -125,3 +131,12 @@ from dylan.tree.basic_operator import BasicOperator  # noqa: E402
 from dylan.tree.modality import Modality  # noqa: E402
 
 __all__ = ["NodeAddress"]
+
+NodeAddress.isRoot = NodeAddress.is_root  # type: ignore[attr-defined]
+NodeAddress.downLink = NodeAddress.down_link  # type: ignore[attr-defined]
+NodeAddress.downStar = NodeAddress.down_star  # type: ignore[attr-defined]
+NodeAddress.downLocalUnfixed = NodeAddress.down_local_unfixed  # type: ignore[attr-defined]
+NodeAddress.downChar = NodeAddress.down_char  # type: ignore[attr-defined]
+NodeAddress.isLocallyFixed = NodeAddress.is_locally_fixed  # type: ignore[attr-defined]
+NodeAddress.goOp = NodeAddress.go_op  # type: ignore[attr-defined]
+NodeAddress.goModality = NodeAddress.go_modality  # type: ignore[attr-defined]

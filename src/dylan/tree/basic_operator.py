@@ -41,12 +41,15 @@ class BasicOperator:
         return ops
 
     def is_down(self) -> bool:
+        """Return true for a downward operator."""
         return self.direction == ARROW_DOWN
 
     def is_up(self) -> bool:
+        """Return true for an upward operator."""
         return self.direction == ARROW_UP
 
     def is_link(self) -> bool:
+        """Return true for a link-path operator."""
         return self.path == "L"
 
     def is_fixed(self) -> bool:
@@ -54,9 +57,11 @@ class BasicOperator:
         return self.path not in (PATH_UNFIXED, PATH_LOCAL_UNFIXED)
 
     def is_star(self) -> bool:
+        """Return true for an unfixed-star operator."""
         return self.path == PATH_UNFIXED
 
     def is_u(self) -> bool:
+        """Return true for a local-unfixed operator."""
         return self.path == PATH_LOCAL_UNFIXED
 
     def inverse(self) -> BasicOperator:
@@ -65,7 +70,16 @@ class BasicOperator:
         return BasicOperator(inv_dir, self.path)
 
     def __str__(self) -> str:
+        """Return Java operator syntax."""
         return self.direction + self.path
 
 
 DOWN_0 = BasicOperator(ARROW_DOWN, PATH_0)
+
+BasicOperator.isDown = BasicOperator.is_down  # type: ignore[attr-defined]
+BasicOperator.isUp = BasicOperator.is_up  # type: ignore[attr-defined]
+BasicOperator.isLink = BasicOperator.is_link  # type: ignore[attr-defined]
+BasicOperator.isFixed = BasicOperator.is_fixed  # type: ignore[attr-defined]
+BasicOperator.isStar = BasicOperator.is_star  # type: ignore[attr-defined]
+BasicOperator.isU = BasicOperator.is_u  # type: ignore[attr-defined]
+BasicOperator.create = BasicOperator.create_many  # type: ignore[attr-defined]

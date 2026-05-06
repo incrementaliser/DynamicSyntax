@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from dylan.gui.tree_viz import (
     NodeBox,
+    TreeEdge,
+    _build_buchheim_tree,
+    _children_map,
+    _edge_style_for_child,
     compute_tree_layout,
     format_ds_tree_ascii,
     _wrapped_pipe_fields,
 )
+from dylan.tree.node_address import NodeAddress
 from dylan.tree.node import Node
 from dylan.tree.tree import Tree
 
@@ -136,3 +141,81 @@ def test_skewed_tree_many_left_children_no_crash() -> None:
     layout = compute_tree_layout(t, 1400.0, 800.0)
     assert len(layout.nodes) == 7
     _assert_no_pairwise_overlap(layout.nodes)
+
+
+def test_rt_parent_centered_on_direct_children_x() -> None:
+    """Each internal node is horizontally centred on the mean of its children's *cx*."""
+    t = Tree()
+    a00 = t.root_addr.down0()
+    a01 = t.root_addr.down1()
+    a000 = a00.down0()
+    a001 = a00.down1()
+    for addr in (a00, a01, a000, a001):
+        t[addr] = Node(addr, [])
+    layout = compute_tree_layout(t, 1200.0, 700.0)
+    root_box = next(n for n in layout.nodes if n.addr == t.root_addr)
+    b00 = next(n for n in layout.nodes if n.addr == a00)
+    b01 = next(n for n in layout.nodes if n.addr == a01)
+    b000 = next(n for n in layout.nodes if n.addr == a000)
+    b001 = next(n for n in layout.nodes if n.addr == a001)
+    assert abs(root_box.cx - (b00.cx + b01.cx) * 0.5) < 3.0
+    assert abs(b00.cx - (b000.cx + b001.cx) * 0.5) < 3.0
+
+
+def test_edge_style_dashed_for_L_and_C_children() -> None:
+    """Link and context steps use dashed edge style."""
+    assert _edge_style_for_child(NodeAddress("01L")) == "dashed"
+    assert _edge_style_for_child(NodeAddress("01C")) == "dashed"
+
+
+def test_edge_style_dotted_for_star_and_U_children() -> None:
+    """Unfixed and local-unfixed steps use dotted edge style."""
+    assert _edge_style_for_child(NodeAddress("01*")) == "dotted"
+    assert _edge_style_for_child(NodeAddress("01U")) == "dotted"
+
+
+def test_edge_style_solid_for_fixed_children() -> None:
+    """Fixed 0/1 steps use solid edges."""
+    assert _edge_style_for_child(NodeAddress("010")) == "solid"
+    assert _edge_style_for_child(NodeAddress("011")) == "solid"
+
+
+def test_layout_edges_mark_styles_per_child() -> None:
+    """Layout edges carry dashed style for ``…L`` children and solid for ``…0``."""
+    t = Tree()
+    a00 = t.root_addr.down0()
+    a01 = t.root_addr.down1()
+    a010 = a01.down0()
+    a01L = a01.down_link()
+    for addr in (a00, a01, a010, a01L):
+        t[addr] = Node(addr, [])
+    layout = compute_tree_layout(t, 1000.0, 600.0)
+    dashed = [e for e in layout.edges if e.style == "dashed"]
+    solid = [e for e in layout.edges if e.style == "solid"]
+    assert len(dashed) == 3
+    assert len(solid) == 9
+
+
+def test_node_padding_smaller_than_legacy_floors() -> None:
+    """Buchheim intrinsic box uses tighter width floors and modest horizontal *node_pad_x*."""
+    t = Tree()
+    t[t.root_addr] = Node(t.root_addr, [])
+    ch = _children_map(t)
+    root = _build_buchheim_tree(
+        t,
+        t.root_addr,
+        ch,
+        font_size=12.0,
+        max_text_width_px=560.0,
+        node_pad_x=4.0,
+        node_pad_y=10.0,
+    )
+    assert root is not None
+    assert root.box_w < 50.0
+    assert root.box_h < 80.0
+
+
+def test_tree_edge_dataclass_default_style() -> None:
+    """``TreeEdge`` defaults to solid when style omitted."""
+    e = TreeEdge(0.0, 0.0, 1.0, 1.0)
+    assert e.style == "solid"

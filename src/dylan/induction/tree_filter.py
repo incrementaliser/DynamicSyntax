@@ -4,11 +4,21 @@ from __future__ import annotations
 
 
 class TreeFilter:
-    """Placeholder: induction uses `TreeFilter` in Java; API not ported in v0."""
+    """Predicate object for filtering abstraction trees (Java ``TreeFilter``)."""
 
     def __init__(self) -> None:
-        """Construct a no-op placeholder (methods remain unimplemented)."""
+        """Construct a permissive filter."""
 
-    def filter_tree(self, *args: object, **kwargs: object) -> None:
-        """TODO(verify): match Java `TreeFilter` behaviour when induction is in scope."""
-        raise NotImplementedError("TreeFilter is not implemented in this release.")
+    def accepts(self, tree: object) -> bool:
+        """Return whether *tree* passes the filter."""
+        _ = tree
+        return True
+
+    def filter_tree(self, tree: object, *args: object, **kwargs: object) -> object | None:
+        """Return *tree* when accepted, otherwise ``None``."""
+        _ = (args, kwargs)
+        return tree if self.accepts(tree) else None
+
+    def filter(self, trees: list[object]) -> list[object]:
+        """Filter a list of candidate trees."""
+        return [tree for tree in trees if self.accepts(tree)]

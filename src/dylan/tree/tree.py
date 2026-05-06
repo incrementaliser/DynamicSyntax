@@ -446,3 +446,24 @@ class Tree(dict[NodeAddress, Node]):
                 if isinstance(lab, _Req):
                     return False
         return True
+
+
+Tree.setPointer = Tree.set_pointer  # type: ignore[attr-defined]
+Tree.getFreshEntityVariable = Tree.get_fresh_entity_variable  # type: ignore[attr-defined]
+Tree.getFreshEventVariable = Tree.get_fresh_event_variable  # type: ignore[attr-defined]
+Tree.getFreshPropositionVariable = Tree.get_fresh_proposition_variable  # type: ignore[attr-defined]
+Tree.getFreshRecTypeVariable = Tree.get_fresh_record_type_variable  # type: ignore[attr-defined]
+Tree.getFreshRecordTypeVariable = Tree.get_fresh_record_type_variable  # type: ignore[attr-defined]
+Tree.getFreshPredicateVariable = Tree.get_fresh_predicate_variable  # type: ignore[attr-defined]
+Tree.getRootNode = Tree.get_root_node  # type: ignore[attr-defined]
+Tree.getNode = Tree.get_node  # type: ignore[attr-defined]
+Tree.getDaughters = Tree.get_daughters  # type: ignore[attr-defined]
+Tree.getUnfixedNodes = Tree.get_unfixed_nodes  # type: ignore[attr-defined]
+Tree.mergeNode = Tree.merge_node  # type: ignore[attr-defined]
+Tree.mergeUnfixed = Tree.merge_unfixed  # type: ignore[attr-defined]
+Tree.getMaximalSemantics = Tree.get_maximal_semantics  # type: ignore[attr-defined]
+Tree.getMaximalSemanticsWithContext = Tree.get_maximal_semantics_with_context  # type: ignore[attr-defined]
+Tree.goOp = Tree.go_op  # type: ignore[attr-defined]
+Tree.putLabel = Tree.put_label  # type: ignore[attr-defined]
+Tree.deleteLabel = Tree.delete_label  # type: ignore[attr-defined]
+Tree.isComplete = Tree.is_complete  # type: ignore[attr-defined]

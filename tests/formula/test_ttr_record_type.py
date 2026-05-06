@@ -1,5 +1,5 @@
 """Tests for `TTRRecordType` parsing, merge, accessors, and structural ops."""
-
+# TODO fix epsilon vs iota being a/the.
 from __future__ import annotations
 
 import pytest
@@ -15,14 +15,24 @@ from dylan.type.dstype import DSType
 
 
 # ------------------ Some strings for testing ------------------
+# more juice
 t = TTRRecordType.parse("[r : [x:e|p1==juice(x):t|head==x:e]|x1==more(r.head,r):e|head==x1:e]")
+
+# TODO Add equivalent sentence
 t2 = TTRRecordType.parse("[x1 : e|y==dylan : e|" +
         "p4==obj_box(x1) : t|" +
         "e1 == state_beside : es| p1 == subj(e1, y) : t|" +
         "p2 == obj(e1, x1) : t| head == e1 : es]")
+# red box        
 t3 = TTRRecordType.parse("[x1 : e|p4==box(x1) : t|p5==red(x1) : t|head==x1 : e]")
+
+# goto a green ball
 t4 = TTRRecordType.parse("[r : [x19 : e|head==x19 : e|p28==obj_ball(x19) : t|p29==col_green(x19) : t]|x20==epsilon(r.head, r) : e|e10==state_facing : es|head==e10 : es|p29==subj(e10,x20) : t]")
+
+# a green ball
 t5 = TTRRecordType.parse("[r : [x19 : e|p29==col_green(x19) : t|p28==obj_ball(x19) : t|head==x19 : e]|x20==epsilon(r.head, r) : e|head==x20 : e]")
+
+# dylan goto a green ball
 t6 = TTRRecordType.parse("[x3==dylan : e|r : [x19 : e|head==x19 : e|p28==obj_ball(x19) : t|p29==col_green(x19) : t]|x20==epsilon(r.head, r) : e|e10==state_facing : es|head==e10 : es|p41==subj(e10,x3) : t|p29==obj(e10,x20) : t]")
 
 # AA: RTs to test the new versions of `getAbstractions`
@@ -31,26 +41,33 @@ t6 = TTRRecordType.parse("[x3==dylan : e|r : [x19 : e|head==x19 : e|p28==obj_bal
 # First playing with the subject (from CHILDES semantics):
 # subj-0, obj-0: "planes left london"
 t0 = TTRRecordType.parse("[x4==london : e|e6==leave : es|x1==planes : e|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-0, obj-0: "planes left london" but not using proper noun for "planes".
 t1 = TTRRecordType.parse("[x4==london : e|e6==leave : es|x1 : e|p2==planes(x1) : t|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-1, obj-0: "a plane left london"
 t10 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-2, obj-0: "a big plane left london"
 t20 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t|p8==big(x2) : t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-3, obj-0: "a big old plane left london"
 t30 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t|p8==big(x2) : t|p9==old(x2) : t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
 
 # Now playing with the object:
 # subj-0, obj-1: "planes left the airport"
 t01 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-0, obj-2: "planes left the massive airport"
 t02 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e|p9==massive(x2) : t]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-0, obj-3: "planes left the massive dirty airport"
 t03 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e|p9==massive(x2) : t|p10==dirty(x2) : t]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
 
 # Now playing with both subject and object:
 # subj-1, obj-1: "a plane left the airport"
 t11 = TTRRecordType.parse("[r1 : [x2 : e|p7==plane(x2) :t|head==x2 : e]|x1==epsilon(r1.head, r1) : e|r2 : [x3 : e|p8==airport(x3) : t|head==x3 : e]|x4==iota(r2.head, r2) : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
 # subj-3, obj-3: "a big old plane left the sad ugly airport"
 t33 = TTRRecordType.parse("[r1 : [x2 : e|p11==plane(x2) : t|p7==big(x2) : t|p8==old(x2) : t|head==x2 : e]|x1==epsilon(r1.head, r1) : e|r2 : [x3 : e|p12==airport(x3) : t|head==x3 : e|p9==sad(x3) :t|p10==ugly(x3) : t]|x4==iota(r2.head, r2) : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
 
@@ -67,7 +84,6 @@ b1 = TTRRecordType.parse("[r : [x13 : e|head==x13 : e|p13==obj_box(x13) : t|p14=
 bds_c1_0 = TTRRecordType.parse("[r : [x215 : e|head==x215 : e|p322==obj_key(x215) : t]|x216==epsilon(r.head, r) : e|e108==state_facing : es|head==e108 : es|p324==obj(e108,x216) : t]")
 
 # ----- Subj-0, Obj-2
-
 # Pickup a red box
 bds_c1_1 = TTRRecordType.parse("[r : [x13 : e|head==x13 : e|p13==obj_box(x13) : t|p2==col_red(x13) : t]|x14==epsilon(r.head, r) : e|e7==state_holding : es|head==e7 : es|p14==obj(e7, x14) : t]")
 
@@ -79,10 +95,133 @@ bds_c2_00 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t]
 # Subj-0, Obj-1, ind_obj-2: putnextto the key the red ball
 bds_c2_01 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t|p10==col_red(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
 
+# TODO Add equivalent sentence
 bds_c2_10 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t|p14==col_red(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
 
+# TODO Add equivalent sentence
 bds_c2_11 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t|p14==col_red(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t|p15==col_blue(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
 
+
+
+def _checked_rt(record: TTRRecordType | None) -> TTRRecordType:
+    """Return a parsed fixture record and fail loudly if fixture parsing regresses."""
+    assert record is not None
+    return record
+
+
+@pytest.mark.parametrize(
+    ("name", "record", "expected_fields"),
+    [
+        ("t", t, 3),  # TODO How to deal with embedded record types? Currently, we are not counting the fields of the embedded record types.
+        ("t2", t2, 7),
+        ("t3", t3, 4),
+        ("t4", t4, 5),
+        ("t5", t5, 3),
+        ("t6", t6, 7),
+        ("t0", t0, 7),
+        ("t1", t1, 8),
+        ("t10", t10, 8),
+        ("t20", t20, 8),
+        ("t30", t30, 8),
+        ("t01", t01, 9),
+        ("t02", t02, 9),
+        ("t03", t03, 9),
+        ("t11", t11, 9),
+        ("t33", t33, 9),
+        ("t44", t44, 9),
+        ("b1", b1, 5),
+        ("bds_c1_0", bds_c1_0, 5),
+        ("bds_c1_1", bds_c1_1, 5),
+        ("bds_c2_00", bds_c2_00, 8),
+        ("bds_c2_01", bds_c2_01, 8),
+        ("bds_c2_10", bds_c2_10, 8),
+        ("bds_c2_11", bds_c2_11, 8),
+    ],
+)
+def test_fixture_record_type_field_counts(
+    name: str,
+    record: TTRRecordType | None,
+    expected_fields: int,
+) -> None:
+    """Fixture RTs from the top of the file parse with stable top-level field counts."""
+    rt = _checked_rt(record)
+    assert rt.num_fields() == expected_fields, name
+    assert len(rt.get_fields()) == expected_fields, name
+
+
+@pytest.mark.parametrize(
+    ("record", "label", "expected_nested_fields"),
+    [
+        (t10, "r", 3),
+        (t20, "r", 4),
+        (t30, "r", 5),
+        (t01, "r", 3),
+        (t02, "r", 4),
+        (t03, "r", 5),
+        (t11, "r1", 3),
+        (t11, "r2", 3),
+        (t33, "r1", 5),
+        (t33, "r2", 5),
+        (t44, "r1", 4),
+        (t44, "r2", 6),
+    ],
+)
+def test_embedded_fixture_record_type_field_counts(
+    record: TTRRecordType | None,
+    label: str,
+    expected_nested_fields: int,
+) -> None:
+    """Embedded restrictor RTs preserve adjective-dependent field counts."""
+    rt = _checked_rt(record)
+    field = rt.get_field(TTRLabel(label))
+    assert field is not None
+    nested = field.manifest_type
+    assert isinstance(nested, TTRRecordType)
+    assert nested.num_fields() == expected_nested_fields
+
+
+def test_childes_adjective_fixtures_increase_nested_specificity() -> None:
+    """Subject and object adjective fixture series add nested fields monotonically."""
+    subject_counts = []
+    for record in (t10, t20, t30):
+        rt = _checked_rt(record)
+        nested = rt.get_field(TTRLabel("r"))
+        assert nested is not None and isinstance(nested.manifest_type, TTRRecordType)
+        subject_counts.append(nested.manifest_type.num_fields())
+
+    object_counts = []
+    for record in (t01, t02, t03):
+        rt = _checked_rt(record)
+        nested = rt.get_field(TTRLabel("r"))
+        assert nested is not None and isinstance(nested.manifest_type, TTRRecordType)
+        object_counts.append(nested.manifest_type.num_fields())
+
+    assert subject_counts == [3, 4, 5]
+    assert object_counts == [3, 4, 5]
+
+
+def test_babyds_record_dependency_helpers_on_top_fixtures() -> None:
+    """Dependency helpers find event dependents in BabyDS command RTs."""
+    rt = _checked_rt(bds_c2_11)
+    event_field = rt.get_field(TTRLabel("e1"))
+    assert event_field is not None
+
+    dependents = rt.get_dependents(event_field)
+    dependent_labels = {field.label for field in dependents}
+    assert {TTRLabel("head"), TTRLabel("p10"), TTRLabel("p20")} <= dependent_labels
+    assert rt.has_dependent(event_field)
+    assert rt.get_proper_dependents(event_field)
+
+
+def test_fixture_restrictor_and_head_helpers() -> None:
+    """New restrictor/head helpers work on the richer top-of-file RT fixtures."""
+    rt = _checked_rt(t44)
+    restrictor = rt.get_restrictor_field()
+    assert restrictor is not None
+    assert restrictor.label == TTRLabel("x1")
+    assert rt.has_head()
+    assert rt.get_head_field() == rt.get_field(TTRLabel("e6"))
+    assert rt.remove_head().num_fields() == rt.num_fields() - 1
 
 
 def test_parse_empty_record() -> None:

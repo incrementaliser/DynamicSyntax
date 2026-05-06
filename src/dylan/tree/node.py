@@ -120,4 +120,20 @@ class Node:
         return True
 
     def __repr__(self) -> str:
+        """Return a debug representation."""
         return f"Node({self.address!s},{self.labels!r})"
+
+
+Node.addLabel = Node.add_label  # type: ignore[attr-defined]
+Node.removeLabel = Node.remove_label  # type: ignore[attr-defined]
+Node.isLocallyFixed = Node.is_locally_fixed  # type: ignore[attr-defined]
+Node.mergeFrom = Node.merge_from  # type: ignore[attr-defined]
+Node.getTypeLabel = Node.get_type_label  # type: ignore[attr-defined]
+Node.getFormulaLabel = Node.get_formula_label  # type: ignore[attr-defined]
+Node.getType = Node.get_type  # type: ignore[attr-defined]
+Node.getFormula = Node.get_formula  # type: ignore[attr-defined]
+Node.hasType = Node.has_type  # type: ignore[attr-defined]
+Node.getRequiredType = Node.get_required_type  # type: ignore[attr-defined]
+Node.getRequiredFormula = Node.get_required_formula  # type: ignore[attr-defined]
+Node.removeFormulaLabel = Node.remove_formula_label  # type: ignore[attr-defined]
+Node.isUnifiable = Node.is_unifiable  # type: ignore[attr-defined]

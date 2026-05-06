@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Iterable
 
 from dylan.formula.formula import Formula
 from dylan.formula.variable import Variable
@@ -96,14 +97,17 @@ class TTRField(Formula):
         return None
 
     def clone(self) -> Formula:
+        """Return a deep copy of this field."""
         mt = self.manifest_type.clone() if self.manifest_type is not None else None
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
 
     def instantiate(self) -> Formula:
+        """Instantiate metavariables inside the manifest formula."""
         mt = self.manifest_type.instantiate() if self.manifest_type is not None else None
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
 
     def evaluate(self) -> Formula:
+        """Evaluate the manifest formula while preserving label and DS type."""
         mt = self.manifest_type.evaluate() if self.manifest_type is not None else None
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
 
@@ -120,11 +124,61 @@ class TTRField(Formula):
         return TTRField(new_label, self.ds_type, mt)  # type: ignore[arg-type]
 
     def conjoin(self, other: Formula) -> Formula:
+        """Reject field-level conjunction; records handle field merging."""
         raise TypeError(f"Cannot conjoin TTRField with {type(other).__name__}")
 
+    def get_label(self) -> TTRLabel | MetaTTRLabel:
+        """Return this field's label (Java ``getLabel``)."""
+        return self.label
+
+    def get_type(self) -> Formula | None:
+        """Return the manifest type/formula (Java ``getType``)."""
+        return self.manifest_type
+
+    def get_ds_type(self) -> DSType | None:
+        """Return the dynamic-syntax type (Java ``getDSType``)."""
+        return self.ds_type
+
+    def has_manifest(self) -> bool:
+        """Whether this field has manifest content."""
+        return self.manifest_type is not None
+
+    def mentions(self, label: TTRLabel) -> bool:
+        """Return true when the manifest string mentions *label* as a variable/path segment."""
+        if self.manifest_type is None:
+            return False
+        text = str(self.manifest_type)
+        return any(part == label.label for part in _identifier_tokens(text))
+
+    def subsumes(self, other: object) -> bool:
+        """Conservative field subsumption compatible with Java record matching."""
+        if not isinstance(other, TTRField):
+            return False
+        if self.ds_type is not None and other.ds_type is not None and self.ds_type != other.ds_type:
+            return False
+        if self.manifest_type is None:
+            return True
+        if other.manifest_type is None:
+            return False
+        return self.manifest_type.subsumes(other.manifest_type)
+
     def __str__(self) -> str:
+        """Return Java-compatible TTR field syntax."""
         if self.ds_type is not None:
             mid = "" if self.manifest_type is None else TTR_TYPE_SEPARATOR + str(self.manifest_type)
             return f"{self.label}{mid} {TTR_LABEL_SEPARATOR} {self.ds_type}"
         rhs = "" if self.manifest_type is None else str(self.manifest_type)
         return f"{self.label} {TTR_LABEL_SEPARATOR} {rhs}"
+
+
+def _identifier_tokens(text: str) -> Iterable[str]:
+    """Yield identifier-like tokens from formula text."""
+    import re
+
+    return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
+
+
+TTRField.getLabel = TTRField.get_label  # type: ignore[attr-defined]
+TTRField.getType = TTRField.get_type  # type: ignore[attr-defined]
+TTRField.getDSType = TTRField.get_ds_type  # type: ignore[attr-defined]
+TTRField.hasManifest = TTRField.has_manifest  # type: ignore[attr-defined]
