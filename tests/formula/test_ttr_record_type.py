@@ -14,6 +14,77 @@ from dylan.formula.variable import Variable
 from dylan.type.dstype import DSType
 
 
+# ------------------ Some strings for testing ------------------
+t = TTRRecordType.parse("[r : [x:e|p1==juice(x):t|head==x:e]|x1==more(r.head,r):e|head==x1:e]")
+t2 = TTRRecordType.parse("[x1 : e|y==dylan : e|" +
+        "p4==obj_box(x1) : t|" +
+        "e1 == state_beside : es| p1 == subj(e1, y) : t|" +
+        "p2 == obj(e1, x1) : t| head == e1 : es]")
+t3 = TTRRecordType.parse("[x1 : e|p4==box(x1) : t|p5==red(x1) : t|head==x1 : e]")
+t4 = TTRRecordType.parse("[r : [x19 : e|head==x19 : e|p28==obj_ball(x19) : t|p29==col_green(x19) : t]|x20==epsilon(r.head, r) : e|e10==state_facing : es|head==e10 : es|p29==subj(e10,x20) : t]")
+t5 = TTRRecordType.parse("[r : [x19 : e|p29==col_green(x19) : t|p28==obj_ball(x19) : t|head==x19 : e]|x20==epsilon(r.head, r) : e|head==x20 : e]")
+t6 = TTRRecordType.parse("[x3==dylan : e|r : [x19 : e|head==x19 : e|p28==obj_ball(x19) : t|p29==col_green(x19) : t]|x20==epsilon(r.head, r) : e|e10==state_facing : es|head==e10 : es|p41==subj(e10,x3) : t|p29==obj(e10,x20) : t]")
+
+# AA: RTs to test the new versions of `getAbstractions`
+# Definition of the below representation: the number after subj or obj is the number of adjectives that comes with the noun in that role.
+
+# First playing with the subject (from CHILDES semantics):
+# subj-0, obj-0: "planes left london"
+t0 = TTRRecordType.parse("[x4==london : e|e6==leave : es|x1==planes : e|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-0, obj-0: "planes left london" but not using proper noun for "planes".
+t1 = TTRRecordType.parse("[x4==london : e|e6==leave : es|x1 : e|p2==planes(x1) : t|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-1, obj-0: "a plane left london"
+t10 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-2, obj-0: "a big plane left london"
+t20 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t|p8==big(x2) : t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-3, obj-0: "a big old plane left london"
+t30 = TTRRecordType.parse("[r : [x2 : e|head==x2 : e|p7==plane(x2) :t|p8==big(x2) : t|p9==old(x2) : t]|x1==epsilon(r.head, r) : e|x4==london : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
+# Now playing with the object:
+# subj-0, obj-1: "planes left the airport"
+t01 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-0, obj-2: "planes left the massive airport"
+t02 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e|p9==massive(x2) : t]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-0, obj-3: "planes left the massive dirty airport"
+t03 = TTRRecordType.parse("[r : [x2 : e|p7==airport(x2) : t|head==x2 : e|p9==massive(x2) : t|p10==dirty(x2) : t]|x4==iota(r.head, r) : e|x1 : e|p8==planes(x1) : t|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
+# Now playing with both subject and object:
+# subj-1, obj-1: "a plane left the airport"
+t11 = TTRRecordType.parse("[r1 : [x2 : e|p7==plane(x2) :t|head==x2 : e]|x1==epsilon(r1.head, r1) : e|r2 : [x3 : e|p8==airport(x3) : t|head==x3 : e]|x4==iota(r2.head, r2) : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+# subj-3, obj-3: "a big old plane left the sad ugly airport"
+t33 = TTRRecordType.parse("[r1 : [x2 : e|p11==plane(x2) : t|p7==big(x2) : t|p8==old(x2) : t|head==x2 : e]|x1==epsilon(r1.head, r1) : e|r2 : [x3 : e|p12==airport(x3) : t|head==x3 : e|p9==sad(x3) :t|p10==ugly(x3) : t]|x4==iota(r2.head, r2) : e|e6==leave : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
+# subj-3, obj-4: "the good old ds parsed the long complex funny utterance"
+t44 = TTRRecordType.parse("[r1 : [x2==ds : e|p11==good(x2) : t|p7==old(x2) : t|head==x2 : e]|x1==iota(r1.head, r1) : e|r2 : [x3 : e|p14==utterance(x3) : t|head==x3 : e|p12==long(x3) : t|p9==complex(x3) :t|p10==funny(x3) : t]|x4==iota(r2.head, r2) : e|e6==parse : es|head==e6 : es|p4==past(e6) : t|p6==subj(e6, x1) : t|p5==obj(e6, x4) : t]")
+
+# ===== BabyDS semantics =====
+# ----- Subj-0, Obj-1
+
+# Pickup a box
+b1 = TTRRecordType.parse("[r : [x13 : e|head==x13 : e|p13==obj_box(x13) : t|p14==col_red(x13) : t]|x14==epsilon(r.head, r) : e|e7==state_holding : es|head==e7 : es|p14==obj(e7, x14) : t]")
+
+# go to a key
+bds_c1_0 = TTRRecordType.parse("[r : [x215 : e|head==x215 : e|p322==obj_key(x215) : t]|x216==epsilon(r.head, r) : e|e108==state_facing : es|head==e108 : es|p324==obj(e108,x216) : t]")
+
+# ----- Subj-0, Obj-2
+
+# Pickup a red box
+bds_c1_1 = TTRRecordType.parse("[r : [x13 : e|head==x13 : e|p13==obj_box(x13) : t|p2==col_red(x13) : t]|x14==epsilon(r.head, r) : e|e7==state_holding : es|head==e7 : es|p14==obj(e7, x14) : t]")
+
+# ----- Subj-0, Obj-1, ind_obj-1
+
+# putnextto the key the ball
+bds_c2_00 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
+
+# Subj-0, Obj-1, ind_obj-2: putnextto the key the red ball
+bds_c2_01 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t|p10==col_red(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
+
+bds_c2_10 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t|p14==col_red(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
+
+bds_c2_11 = TTRRecordType.parse("[r1 : [x1 : e|head==x1 : e|p1==obj_key(x1) : t|p14==col_red(x1) : t]|x2==iota(r1.head, r1) : e|r2 : [x3 : e|head==x3 : e|p3==obj_ball(x3) : t|p15==col_blue(x3) : t]|x4==iota(r2.head, r2) : e|e1==state_beside : es|head==e1 : es|p10==obj(e1, x2) : t|p20==ind_obj(e1, x4) : t]")
+
+
+
 def test_parse_empty_record() -> None:
     """Empty brackets yield an empty record type."""
     r = TTRRecordType.parse("[]")
@@ -28,7 +99,7 @@ def test_parse_single_field() -> None:
     assert len(r.fields) == 1
 
 
-def test_parse_malformed_returns_none() -> None:
+def test_parse_malformed_returns_none() -> None:  # TODO
     """Non-bracket strings are rejected."""
     assert TTRRecordType.parse("not a record") is None
 
