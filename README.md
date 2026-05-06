@@ -20,17 +20,17 @@ You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.12`
 
    On Windows, use `.venv\Scripts\activate` (cmd) or `.\.venv\Scripts\Activate.ps1` (PowerShell).
 
-3. Install into that environment. Editable install from a git clone:
+3. Install into that environment, using the published package from PyPI:
+
+   ```bash
+   uv pip install dynamicsyntax
+   ```
+
+   or editable install from a git clone:
 
    ```bash
    uv pip install -e .
    ```
-
-   Or the published package from PyPI:
-
-```bash
-uv pip install dynamicsyntax
-```
 
 ## Example
 
@@ -59,4 +59,4 @@ uv run dylan-gui
 
 Open the forwarded URL for port 8550 in your browser. You can override the port with `DYLAN_FLET_PORT`.
 
-Contributions (via PRs) are very welcome!
+Contributions (via PRs) are very welcome! Since this project has been translated using Cursor, there is a chance errors have been introduced. We would be grateful if you could report them by opening an issue. Although, it is important to mention that the output of (some of) the methods here have been verified via unit tests.
