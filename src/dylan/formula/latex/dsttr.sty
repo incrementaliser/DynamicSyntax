@@ -1,0 +1,118 @@
+\usepackage{rtrees}
+\usepackage{epic,ecltree}
+\usepackage{array}
+\usepackage{pstricks}
+\usepackage{txfonts}
+\usepackage{rotating}
+
+
+\newcommand{\digraph}[3][scale=1]{     \newwrite\dotfile     \immediate\openout\dotfile=#2.dot     \immediate\write\dotfile{digraph #2 {\string#3}}     \immediate\closeout\dotfile     \IfFileExists{#2.ps}         % the postscript exists: include it         
+{ \includegraphics[#1]{#2} }         
+% the postscript doesn't exist: tell the user how to create it        
+ { \fbox{ \begin{tabular}{l}            
+  The file \texttt{#2.ps} hasn't been created from             \texttt{#2.dot} yet. \\            
+   Run `\texttt{dot -Tps -o #2.ps #2.dot}' to create it. \\             Here is a \textsf{bash} loop to process all \textsf{dot} files             in the current directory: \\             \texttt{             for f in *.dot do ;              dot -Tps -o \$\{f\%dot\}ps \$f ;              done             }             \end{tabular}}         } } 
+   
+
+%%DS MACROS
+\newcommand{\lexentry}[2]{\lexentryyy{\lexentryy{#1}{#2}}}
+\newcommand{\lexentryyy}[1]{\vspace*{0.25cm}\noindent\begin{tabular}{l|l}#1\end{tabular}\vspace*{0.25cm}}
+\newcommand{\lexentryy}[2]{\emph{#1} & \begin{tabular}{p{1cm}lp{7cm}llll}#2\end{tabular}\\}
+\newcommand{\lexentryysub}[2]{\word{#1} & \begin{tabular}{p{1cm}p{1cm}l}#2\end{tabular}\\}
+\newcommand{\lexentrysub}[2]{\lexentryyy{\lexentryysub{#1}{#2}}}
+
+%The black evaluation pointer
+
+
+
+\newcommand{\dsnode}[1]{$#1$}
+\newcommand{\dsttree}[1]{
+
+\begin{small}\begin{tabular}{l}
+#1
+\end{tabular}\end{small}
+}
+
+\newcommand{\dsbr}[2]{
+\begin{bundle}{#1}
+#2
+\end{bundle}
+}
+
+\newcommand{\dstbr}[2]{
+\begin{bundle}{\begin{tabular}{c}#1\end{tabular}}
+#2
+\end{bundle}
+}
+
+\newcommand{\dslf}[1]{
+\chunk{#1}
+}
+
+\newcommand{\dstlf}[1]{
+\chunk{\begin{tabular}{c}#1\end{tabular}}
+}
+
+\newcommand{\ccnode}[3]{
+\ttrnode{#1}{ctxt\!\! & #2 \\ cont\!\! &  #3}
+}
+
+\newcommand{\ccinode}[4]{
+\ttrnode{#1}{ctxt\!\! & #2 \\ cont\!\! &  #3 \\ inf\!\! &  #4}
+}
+
+\newcommand{\ri}[1]{
+\rightarrow
+}
+
+
+%% TTR MACROS 
+   
+\newcommand{\ttrnode}[2]{
+
+#1
+%\left[\begin{array}{l@{~\triangleright~}l}
+\left[\begin{array}{l@{~:~}l}
+#2
+\end{array}\right]
+}
+
+\newcommand{\ttrlambda}[3]{
+
+#1
+\lambda\left[
+#2
+\right].
+%\left[\begin{array}{l@{~\triangleright~}l}
+\left[\begin{array}{l@{~:~}l}
+#3
+\end{array}\right]
+}
+
+
+\newcommand{\ttrlambdafull}[3]{
+
+#1
+%\lambda\left[\begin{array}{l@{~\triangleright~}l}
+\lambda\left[\begin{array}{l@{~:~}l}
+#2
+\end{array}\right].
+%\left[\begin{array}{l@{~\triangleright~}l}
+\left[\begin{array}{l@{~:~}l}
+#3
+\end{array}\right]
+}
+
+\newcommand{\ptr}{{\red\diamondsuit}}
+
+\newcommand{\ttrrec}[2]{#1\left[\begin{array}{l@{~=~}l}#2\end{array}\right]}
+\newcommand{\smttrnode}[2]{#1[~\!\!\begin{array}{l@{~\!:\!~}l}#2 \end{array}\!\!~]}
+\newcommand{\smttrlambda}[3]{#1\lambda[#2].[\!\!\begin{array}{l@{~\!:\!~}l}#3\end{array}\!\!]}
+\newcommand{\smttrrec}[2]{#1[~\!\!\begin{array}{l@{~\!=\!~}l}#2\end{array}\!\!~]}
+
+\newcommand{\ttrmerge}{\text{ }\begin{sideways}$\gtrdot$\end{sideways}\text{ }}
+\newcommand{\ttrminsuper}{\text{ }\begin{sideways}$\lessdot$\end{sideways}\text{ }}
+\newcommand{\ttrasymm}{\text{ }\fbox{\begin{sideways}$\gtrdot$\end{sideways}}\text{ }}
+
+\def\subtype{\sqsubseteq}
+\def\supertype{\sqsupseteq}

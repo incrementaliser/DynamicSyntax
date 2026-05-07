@@ -1,0 +1,61 @@
+\begin{figure*}[ht]\centering
+\vspace{-0.2cm}
+\begin{tabular}{ccccc}
+
+\hspace*{-1cm}
+\begin{tree}
+\begin{footnotesize}
+\psset{levelsep=1.4cm,treesep=1.5cm} 
+\lf{\begin{tabular}{c}$?Ty(t)$\end{tabular}}
+%{
+%  \lf{\begin{tabular}{c}$?Ty(e),$\\$\ptr$\end{tabular}}
+%  \lf{\begin{tabular}{c}$?Ty(e\rightarrow t)$\\$\quad$\end{tabular}}
+%}
+\end{footnotesize}
+\end{tree}
+
+&
+\hspace{-0.75cm}
+$\begin{array}{c}
+\arrow{1} \\
+\textrm{\footnotesize \textsc{intro-pred}; ``john''}
+\end{array}$
+&
+\hspace{-1.5cm}
+\begin{tree}
+\begin{footnotesize}
+\psset{levelsep=1.4cm,treesep=2cm} 
+\br{\begin{tabular}{c}$?Ty(t)$\end{tabular}}
+{
+  \lf{\begin{tabular}{c}$Ty(e)$,$\langle \downarrow\rangle\bot$,$\ptr$\\$\ttrnode{}{x_{=john} & e \\ head_{=x} & e}$\end{tabular}}
+  \lf{\begin{tabular}{c}$?Ty(e\rightarrow t)$\end{tabular}}
+}
+\end{footnotesize}
+\end{tree}
+
+\hspace*{-0.75cm}
+$\begin{array}{c}
+\arrow{3} \\
+\textsc{completion; anticip; }\textrm{``arrives'';}\\
+\textsc{completion; beta-reduce}
+\end{array}$\hspace{-0.5cm}
+
+&
+\hspace{-0.5cm}
+\begin{tree}
+\begin{footnotesize}
+\psset{levelsep=2.5cm,treesep=3.5cm}
+\br{$\ttrnode{\diamondsuit,Ty(t),}{x_{=john} & e \\ e_{=arrive} & e_s \\ p_{=subj(e,x)} & t \\ head_{=p} & t}$}{
+  \lf{\begin{tabular}{c}$Ty(e),\langle\downarrow\rangle\bot,$\\$\ttrnode{}{x_{=john} & e \\ head_{=x} & e}$\end{tabular}}
+  \lf{\begin{tabular}{c}$Ty(e\rightarrow t),$\\
+      \begin{tabular}{c}$\lambda r : \ttrnode{}{head&e}.$\\
+        $\ttrnode{}{x_{=r.head} & e \\ e_{=arrive} & e_s \\ p_{=subj(e,x)} & t \\ head_{=p} & t }$
+      \end{tabular}
+      \end{tabular}} 
+}
+\end{footnotesize}
+\end{tree}
+
+\end{tabular}
+\caption{Incremental parsing in DS-TTR: \emph{``John arrives''}}\label{fig:tree}\vspace{-0.5cm}
+\end{figure*}
