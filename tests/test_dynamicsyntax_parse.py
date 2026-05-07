@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
+import shutil
+from pathlib import Path
+
 import pytest
 
 import dynamicsyntax as ds
@@ -76,3 +80,101 @@ def test_vis_prints_address_order(capsys: pytest.CaptureFixture[str]) -> None:
     p.vis()
     out = capsys.readouterr().out
     assert "00" in out and "man" in out.lower()
+
+
+def test_parse_trace_snapshots() -> None:
+    """``trace=True`` records one tree per word plus the initial state."""
+    p = ds.parse("a man arrives", "ttr", trace=True)
+    assert len(p.trace_trees) == 4
+    assert len(p.trace_step_labels) == 3
+    assert p.trace_step_labels == ("a", "man", "arrives")
+
+
+def test_to_latex_semantics_document() -> None:
+    """Semantics export wraps a full LaTeX document."""
+    p = ds.parse("a man arrives", "ttr")
+    r = p.to_latex("semantics", title="test semantics")
+    assert "\\documentclass" in r.tex
+    assert "dsttr" in r.tex or "input" in r.tex
+    assert "\\[" in r.tex
+
+
+def test_to_latex_tree_has_rtrees() -> None:
+    """Tree export includes a ``tree`` environment."""
+    p = ds.parse("a man arrives", "ttr")
+    r = p.to_latex("tree")
+    assert "\\begin{tree}" in r.tex
+
+
+def test_to_latex_incremental_requires_trace() -> None:
+    """Incremental export without ``trace=True`` raises."""
+    p = ds.parse("a man arrives", "ttr")
+    with pytest.raises(ValueError, match="trace"):
+        p.to_latex("incremental")
+
+
+def test_to_latex_incremental_with_trace() -> None:
+    """Incremental layout references ``figure*`` and tabular."""
+    p = ds.parse("a man arrives", "ttr", trace=True)
+    r = p.to_latex("incremental")
+    assert "figure*" in r.tex
+    assert "tabular" in r.tex
+
+
+def test_compile_tex_smoke_if_latexmk_available(tmp_path: Path) -> None:
+    """When ``latexmk`` is on PATH, smoke-compile semantics to PDF."""
+    import shutil
+
+    if shutil.which("latexmk") is None:
+        pytest.skip("latexmk not available")
+    p = ds.parse("a man arrives", "ttr")
+    tex = tmp_path / "smoke.tex"
+    pdf = tmp_path / "smoke.pdf"
+    r = p.to_latex("semantics", write_tex=tex, compile_tex=True, pdf_out=pdf)
+    assert r.exit_code == 0
+    assert r.pdf_path is not None and r.pdf_path.is_file()
+
+
+def test_parse_action_trace_steps() -> None:
+    """``trace=True`` captures action-level steps for Manim export."""
+    p = ds.parse("a man arrives", "ttr", trace=True)
+    assert p.action_steps
+    assert any(step.action_name for step in p.action_steps)
+
+
+def test_parse_result_to_manim_render_free() -> None:
+    """``ParseResult.to_manim(render=False)`` returns generated scene code only."""
+    p = ds.parse("a man arrives", "ttr", trace=True)
+    r = p.to_manim(render=False)
+    assert r.video_path is None
+    assert "from manim import" in r.scene_code
+    assert "Dynamic Syntax parse" in r.scene_code
+    assert "a man arrives" in r.scene_code
+
+
+def test_top_level_to_manim_render_free() -> None:
+    """Top-level ``ds.to_manim`` parses with action trace and returns scene code."""
+    r = ds.to_manim("a man arrives", "ttr", render=False)
+    assert r.video_path is None
+    assert "class AManArrivesScene" in r.scene_code
+    assert "a man arrives" in r.scene_code
+
+
+def test_to_manim_requires_action_trace() -> None:
+    """Existing untraced results ask users to parse with ``trace=True``."""
+    p = ds.parse("a man arrives", "ttr")
+    with pytest.raises(ValueError, match="trace=True"):
+        p.to_manim(render=False)
+
+
+def test_manim_render_smoke_if_available(tmp_path: Path) -> None:
+    """When Manim and LaTeX are available, smoke-render a low-quality MP4."""
+    if shutil.which("manim") is None and importlib.util.find_spec("manim") is None:
+        pytest.skip("manim not available")
+    if shutil.which("latex") is None and shutil.which("pdflatex") is None:
+        pytest.skip("latex not available for Manim MathTex")
+    out = tmp_path / "parse.mp4"
+    p = ds.parse("a man arrives", "ttr", trace=True)
+    r = p.to_manim(output_path=out, quality="l")
+    assert r.exit_code == 0
+    assert r.video_path is not None and r.video_path.is_file()

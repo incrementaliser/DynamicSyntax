@@ -63,6 +63,7 @@ Thumbs.db
 *~
 *.swp
 *.swo
+.cursor/
 
 # JetBrains / PyCharm
 .idea/
@@ -73,3 +74,4 @@ viz.py
 translation.csv
 translation_viz.html
 .github/workflows/pages.yml
+src/dylan/formula/manim_example.py

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
+from dylan.formula.latex.build_result import LaTeXBuildResult
+from dylan.formula.manim.models import ManimBuildResult
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.parser.interactive_context_parser import InteractiveContextParser
 
+from dynamicsyntax._manim import to_manim
 from dynamicsyntax._parse import parse
 from dynamicsyntax._session import get_datasets, get_grammars, load_grammar
 from dynamicsyntax.parse_result import ParseResult
@@ -18,6 +21,8 @@ except PackageNotFoundError:  # pragma: no cover - editable checkout without met
 
 __all__ = [
     "InteractiveContextParser",
+    "LaTeXBuildResult",
+    "ManimBuildResult",
     "ParseResult",
     "TTRRecordType",
     "__version__",
@@ -25,4 +30,5 @@ __all__ = [
     "get_grammars",
     "load_grammar",
     "parse",
+    "to_manim",
 ]
