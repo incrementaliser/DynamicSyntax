@@ -80,16 +80,6 @@ p = ds.parse("go to the red box")
 
 See [testing.md](testing.md) for how to run pytest with **uv**, show per-test pass/fail output, and useful options (`-v`, `--lf`, subsets, and CI).
 
-## GitHub Codespaces
+## Get Involved
 
-This repository includes a [dev container](.devcontainer/devcontainer.json). After the container finishes `uv sync --group dev`, run the GUI in the browser (port **8550** is forwarded automatically):
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-export DYLAN_FLET_WEB=1
-uv run dylan-gui
-```
-
-Open the forwarded URL for port 8550 in your browser. You can override the port with `DYLAN_FLET_PORT`.
-
-Contributions (via PRs) are very welcome! Since this project has been translated using Cursor, there is a chance errors have been introduced. We would be grateful if you could report them by opening an issue. Although, it is important to mention that the output of (some of) the methods here have been verified via unit tests.
+Contributions (issues, PRs, [donations](https://buymeacoffee.com/incrementaliser)) are very welcome! Since this project has been translated using Cursor, there is a small chance errors have been introduced. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been corrrect so far.
