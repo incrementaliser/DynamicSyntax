@@ -82,4 +82,4 @@ See [testing.md](testing.md) for how to run pytest with **uv**, show per-test pa
 
 ## Get Involved
 
-Contributions (issues, PRs, [donations](https://buymeacoffee.com/incrementaliser)) are very welcome! Since this project has been translated using Cursor, there is a small chance errors have been introduced. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been corrrect so far.
+Contributions (issues, PRs, [donations](https://buymeacoffee.com/incrementaliser)) are very welcome! Since this project has been translated using Cursor and tested only on Windows, there is a small chance errors exist. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been corrrect so far.
