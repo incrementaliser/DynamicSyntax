@@ -8,6 +8,10 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
@@ -15,6 +19,6 @@ jobs:
           version: "latest"
       - name: Install dev deps, lint, and run tests
         run: |
-          uv sync --group dev
+          uv sync --group dev --python ${{ matrix.python-version }}
           uv run ruff check tests
           uv run pytest -q

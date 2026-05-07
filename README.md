@@ -4,12 +4,12 @@
 
 ## Installation
 
-You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.13`** (see `pyproject.toml`).
+You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.11`** (see `pyproject.toml`).
 
 1. Create a virtual environment with a fixed Python version (run this in the directory where you want `.venv`, e.g. the repo root for a clone):
 
    ```bash
-   uv venv --python 3.13
+   uv venv --python 3.12
    ```
 
 2. Activate it. On Linux or macOS:

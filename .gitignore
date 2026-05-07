@@ -78,3 +78,9 @@ translation.csv
 translation_viz.html
 .github/workflows/pages.yml
 src/dylan/formula/manim_example.py
+publish.ps1
+.env.example
+scripts/Set-PyPIEnv.ps1
+scripts/publish.sh
+scripts/publish.ps1
+my_manual.md

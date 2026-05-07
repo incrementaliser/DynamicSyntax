@@ -7,7 +7,7 @@ name = "dynamicsyntax"
 version = "0.2.0"
 description = "Python port of DyLan Dynamic Syntax + TTR (parser core)"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 license = { text = "BSD-3-Clause (see DyLan upstream LICENSE.txt)" }
 authors = [{ name = "DyLan Python port" }]
 keywords = ["dialogue", "dynamic-syntax", "ttr", "semantics", "parser"]
@@ -15,6 +15,8 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
@@ -59,7 +61,7 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py311"
 
 # Skip uploading dist files that already exist on PyPI (avoids 400 file name reuse).
 [tool.uv]
