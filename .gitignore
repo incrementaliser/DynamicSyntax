@@ -36,6 +36,9 @@ env/
 # uv (project-local cache if present)
 .uv/
 
+# Local secrets (e.g. PyPI token for publishing)
+.env
+
 # Testing / coverage
 .pytest_cache/
 .coverage
