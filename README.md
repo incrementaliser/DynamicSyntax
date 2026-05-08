@@ -4,33 +4,22 @@
 
 ## Installation
 
-You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.11`** (see `pyproject.toml`).
+You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies `>=3.11`.
 
 1. Create a virtual environment with a fixed Python version (run this in the directory where you want `.venv`, e.g. the repo root for a clone):
-
-   ```bash
+  ```bash
    uv venv --python 3.11 # or 3.12 or 3.13
-   ```
-
+  ```
 2. Activate it. On Linux or macOS:
-
-   ```bash
+  ```bash
    source .venv/bin/activate
-   ```
-
+  ```
    On Windows, use `.venv\Scripts\activate` (cmd) or `.\.venv\Scripts\Activate.ps1` (PowerShell).
-
 3. Install into that environment, using the published package from PyPI:
-
-   ```bash
+  ```bash
    uv pip install dynamicsyntax
-   ```
-
+  ```
    or editable install from a git clone:
-
-   ```bash
-   uv pip install -e .
-   ```
 
 ## Examples
 
