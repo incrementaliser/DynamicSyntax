@@ -34,47 +34,7 @@ You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies **`>=3.11`
 
 ## Examples
 
-`dynamicsyntax.parse` returns a **`ParseResult`** (with `.semantics`, `.ok`, `.tree`, `.vis()`, and `.address_order`). This replaces older versions that returned `TTRRecordType | None` directly—use `.semantics` for the final TTR record.
-
-List bundled grammars and (placeholder) datasets:
-
-```python
-import dynamicsyntax as ds
-
-print(ds.get_grammars())   # e.g. ['2015-english-ttr', 'ttr', ...]
-print(ds.get_datasets()) # [] until datasets ship with the package
-```
-
-One-shot parse with a grammar id or alias (`"ttr"` maps to `2015-english-ttr`):
-
-```python
-import dynamicsyntax as ds
-
-p = ds.parse("a man arrives", "ttr")
-print(p.ok, p.semantics)
-p.vis()  # prints the same address-order tree view as the GUI
-```
-
-Load a grammar once, then parse without repeating the grammar argument:
-
-```python
-import dynamicsyntax as ds
-
-ds.load_grammar("ttr")  # or ds.load_grammar("2015-english-ttr")
-p = ds.parse("a man arrives")
-print(p.semantics)
-p.vis()
-```
-
-Use a filesystem path to a grammar directory (as in the GUI “load folder” flow):
-
-```python
-import dynamicsyntax as ds
-from pathlib import Path
-
-ds.load_grammar(Path("/path/to/grammar-dir"))
-p = ds.parse("go to the red box")
-```
+For some code examples, please see [this Google Colab notebook](https://colab.research.google.com/drive/1ofpCLwLOE88AvbtR3gh5uisaYkpWGNP9?usp=sharing).
 
 ## Testing
 
