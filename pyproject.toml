@@ -34,12 +34,14 @@ gui = ["flet>=0.24.0"]
 nlp = ["nltk>=3.9", "spacy>=3.8"]
 viz = ["plotly>=5", "pandas>=2"]
 video = ["manim>=0.20"]
+rich = ["rich>=13"]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
     "flet>=0.24.0",
     "ruff>=0.9",
+    "rich>=13",
 ]
 
 [project.scripts]

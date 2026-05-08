@@ -428,6 +428,9 @@ nlp = [
     { name = "nltk" },
     { name = "spacy" },
 ]
+rich = [
+    { name = "rich" },
+]
 video = [
     { name = "manim" },
 ]
@@ -440,6 +443,7 @@ viz = [
 dev = [
     { name = "flet" },
     { name = "pytest" },
+    { name = "rich" },
     { name = "ruff" },
 ]
 
@@ -450,15 +454,17 @@ requires-dist = [
     { name = "nltk", marker = "extra == 'nlp'", specifier = ">=3.9" },
     { name = "pandas", marker = "extra == 'viz'", specifier = ">=2" },
     { name = "plotly", marker = "extra == 'viz'", specifier = ">=5" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=13" },
     { name = "spacy", marker = "extra == 'nlp'", specifier = ">=3.8" },
     { name = "tqdm", specifier = ">=4.67" },
 ]
-provides-extras = ["gui", "nlp", "viz", "video"]
+provides-extras = ["gui", "nlp", "viz", "video", "rich"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "flet", specifier = ">=0.24.0" },
     { name = "pytest", specifier = ">=8" },
+    { name = "rich", specifier = ">=13" },
     { name = "ruff", specifier = ">=0.9" },
 ]
 
