@@ -2,33 +2,32 @@
 
 `dynamicsyntax` is the python implementation of **[DyLan](https://github.com/Dynamics-of-Language)** the Dynamic Syntax parser. It has been (vibe) translated from Java to Python by [@incrementaliser](https://github.com/incrementaliser), and is still under development.
 
----
-
 ## Installation
 
 You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies `>=3.11`.
 
 1. Create a virtual environment with a fixed Python version (run this in the directory where you want `.venv`, e.g. the repo root for a clone):
+
   ```bash
    uv venv --python 3.11 # or 3.12 or 3.13
   ```
-2. Activate it. On Linux or macOS:
+
+1. Activate it. On Linux or macOS:
+
   ```bash
    source .venv/bin/activate
   ```
+
    On Windows, use `.venv\Scripts\activate` (cmd) or `.\.venv\Scripts\Activate.ps1` (PowerShell).
 3. Install into that environment, using the published package from PyPI:
+
   ```bash
    uv pip install dynamicsyntax
   ```
 
----
-
 ## Examples
 
 For some code examples of the parser in action, check out this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ofpCLwLOE88AvbtR3gh5uisaYkpWGNP9?usp=sharing)
-
----
 
 ## Get Involved
 
