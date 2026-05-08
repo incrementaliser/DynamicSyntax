@@ -48,6 +48,57 @@ def test_parse_empty_returns_failed_result() -> None:
     assert p.semantics is None
 
 
+def test_parse_list_empty_returns_empty() -> None:
+    """Batch parse of an empty list returns ``[]`` and does not require a loaded grammar."""
+    from dynamicsyntax._session import clear_grammar_session
+
+    clear_grammar_session()
+    try:
+        assert ds.parse([], "ttr") == []
+        assert ds.parse([]) == []
+    finally:
+        ds.load_grammar("ttr")
+
+
+def test_parse_list_singleton_matches_single() -> None:
+    """One-element list with explicit grammar matches single-string parse."""
+    one = ds.parse("a man arrives", "ttr")
+    batch = ds.parse(["a man arrives"], "ttr")
+    assert len(batch) == 1
+    assert batch[0].ok == one.ok
+    assert batch[0].sentence == one.sentence
+    assert str(batch[0].semantics) == str(one.semantics)
+
+
+def test_parse_list_mixed_blank_slot() -> None:
+    """Per-item blank strings yield a failed result for that index only."""
+    out = ds.parse(["a man arrives", "   "], "ttr")
+    assert len(out) == 2
+    assert out[0].ok
+    assert not out[1].ok
+    assert out[1].semantics is None
+
+
+def test_parse_list_trace_matches_individual() -> None:
+    """``trace=True`` on a list records the same trace shape as per-sentence parses."""
+    sentences = ["a man arrives", "a man arrives"]
+    batch = ds.parse(sentences, "ttr", trace=True)
+    assert len(batch) == 2
+    for sent, got in zip(sentences, batch):
+        ref = ds.parse(sent, "ttr", trace=True)
+        assert len(got.trace_trees) == len(ref.trace_trees)
+        assert got.trace_step_labels == ref.trace_step_labels
+        assert len(got.action_steps) == len(ref.action_steps)
+
+
+def test_parse_list_session_grammar() -> None:
+    """List input works with session grammar from ``load_grammar``."""
+    ds.load_grammar("ttr")
+    batch = ds.parse(["a man arrives", "a man arrives"])
+    assert len(batch) == 2
+    assert all(r.ok for r in batch)
+
+
 def test_parse_unknown_grammar_raises() -> None:
     """Invalid grammar id raises :class:`FileNotFoundError`."""
     with pytest.raises(FileNotFoundError, match="unknown bundled grammar"):
