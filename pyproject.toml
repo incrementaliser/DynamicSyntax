@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=75", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dynamicsyntax"
-version = "0.2.1"
+dynamic = ["version"]
 description = "DyLan, the Dynamic Syntax parser in Python"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -47,6 +47,8 @@ dylan-gui = "dylan.gui.app:main"
 dynamicsyntax-gui = "dylan.gui.app:main"
 dylan-serve-web = "dylan.web_dev:main"
 dynamicsyntax-serve-web = "dylan.web_dev:main"
+
+[tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
 where = ["src"]

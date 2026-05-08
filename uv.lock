@@ -415,7 +415,6 @@ wheels = [
 
 [[package]]
 name = "dynamicsyntax"
-version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "tqdm" },
