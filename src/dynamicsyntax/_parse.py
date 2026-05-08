@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import overload
 
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.dag.dag_tuple import DAGTuple
@@ -120,36 +121,88 @@ def _run_parse_core(
     )
 
 
+def _parse_one(
+    parser: InteractiveContextParser,
+    raw: str,
+    *,
+    speaker: str,
+    trace: bool,
+) -> ParseResult:
+    """Strip *raw*, return a blank failure without parsing, or run the parse pipeline on *parser*."""
+    stripped = raw.strip()
+    if not stripped:
+        return ParseResult(ok=False, semantics=None, tree=None, sentence="")
+    return _run_parse_core(parser, stripped, speaker=speaker, trace=trace)
+
+
 def _parse_at_path(grammar_path: Path, sentence: str, *, speaker: str, trace: bool) -> ParseResult:
     """Run parse at *grammar_path* and build a :class:`ParseResult`."""
     parser = InteractiveContextParser(grammar_path)
-    return _run_parse_core(parser, sentence, speaker=speaker, trace=trace)
+    return _parse_one(parser, sentence, speaker=speaker, trace=trace)
 
 
+@overload
 def parse(
     sentence: str,
     grammar: str | Path | None = None,
     /,
     *,
+    speaker: str = ...,
+    trace: bool = ...,
+) -> ParseResult: ...
+
+
+@overload
+def parse(
+    sentences: list[str],
+    grammar: str | Path | None = None,
+    /,
+    *,
+    speaker: str = ...,
+    trace: bool = ...,
+) -> list[ParseResult]: ...
+
+
+def parse(
+    sentence_or_sentences: str | list[str],
+    grammar: str | Path | None = None,
+    /,
+    *,
     speaker: str = DEFAULT_SPEAKER,
     trace: bool = False,
-) -> ParseResult:
-    """Parse *sentence* and return a :class:`~dynamicsyntax.parse_result.ParseResult`.
+) -> ParseResult | list[ParseResult]:
+    """Parse one or many sentences and return :class:`~dynamicsyntax.parse_result.ParseResult` objects.
 
-    :param sentence: Whitespace-tokenised surface string (lowercased by the tokenizer).
+    :param sentence_or_sentences: A single whitespace-tokenised surface string, or a list of
+        such strings (lowercased by the tokenizer). An empty list returns ``[]`` without using
+        a grammar. Per-item blank or whitespace-only strings yield a failed result for that slot.
     :param grammar: Bundled id or alias (e.g. ``\"ttr\"``), a grammar directory path, or
         ``None`` to use the parser from :func:`~dynamicsyntax.load_grammar`.
     :param speaker: Dialogue participant id passed to the parser (default matches ``dylan``).
     :param trace: If ``True``, record one DS tree after ``new_sentence`` and after each word
         (for :meth:`~dynamicsyntax.parse_result.ParseResult.to_latex` ``incremental``).
-    :returns: :class:`~dynamicsyntax.parse_result.ParseResult` with ``ok``, ``semantics``,
-        and ``tree``; ``semantics`` is ``None`` on failure or blank input.
-    :raises ValueError: If *grammar* is ``None`` but no grammar was loaded.
+    :returns: One :class:`~dynamicsyntax.parse_result.ParseResult`, or a list of them in input
+        order; ``semantics`` is ``None`` on failure or blank input for that item.
+    :raises ValueError: If *grammar* is ``None`` but no grammar was loaded (non-empty input only).
     :raises FileNotFoundError: If *grammar* is unknown or not a directory.
 
-    Bundled grammars are read via :mod:`importlib.resources`; each one-shot parse with an
-    explicit *grammar* uses a fresh parser under a short-lived extract path.
+    Bundled grammars are read via :mod:`importlib.resources`. A single string with explicit
+    *grammar* uses one fresh parser; a list with explicit *grammar* reuses one parser for all items.
     """
+    if isinstance(sentence_or_sentences, list):
+        sentences = sentence_or_sentences
+        if not sentences:
+            return []
+        if grammar is not None:
+            with resolved_grammar_path(grammar) as grammar_path:
+                parser = InteractiveContextParser(grammar_path)
+                return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
+        parser = session_parser()
+        if parser is None:
+            raise ValueError("no grammar loaded; call load_grammar(...) first or pass grammar= to parse(...)")
+        return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
+
+    sentence = sentence_or_sentences
     stripped = sentence.strip()
     if not stripped:
         return ParseResult(ok=False, semantics=None, tree=None, sentence="")
