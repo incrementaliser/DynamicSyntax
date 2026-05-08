@@ -1,0 +1,8 @@
+#!/bin/sh
+# Validates conventional commits format (install: git config core.hooksPath scripts/git-hooks).
+pattern="^(feat|fix|docs|refactor|perf|test|chore|style)(\(.+\))?: .{1,100}"
+if ! grep -qE "$pattern" "$1"; then
+  echo "ERROR: Commit message does not follow Conventional Commits format."
+  echo "Please see CONTRIBUTING.md for accepted formats."
+  exit 1
+fi
