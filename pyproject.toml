@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dynamicsyntax"
-version = "0.2.0"
-description = "Python port of DyLan Dynamic Syntax + TTR (parser core)"
+version = "0.2.1"
+description = "DyLan, the Dynamic Syntax parser in Python"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "BSD-3-Clause (see DyLan upstream LICENSE.txt)" }
-authors = [{ name = "DyLan Python port" }]
-keywords = ["dialogue", "dynamic-syntax", "ttr", "semantics", "parser"]
+authors = [{ name = "Arash Ashrafzadeh" }]
+keywords = ["computational-linguistics", "computational-semantics", "semantic-parsing", "natural-language-processing", "parser", "ttr", "dialogue"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
