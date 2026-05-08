@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TextIO
 
+from dylan.action.lexicon import NotebookMultilineText
 from dylan.formula.latex.build_result import LaTeXBuildResult
 from dylan.formula.latex.figure_tex import trace_figure_tex
 from dylan.formula.latex.pipeline import run_latex_pipeline
@@ -17,13 +18,14 @@ from dylan.formula.manim.template import build_manim_scene_code, scene_class_nam
 from dylan.formula.manim.tree_scene import serialize_action_steps
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.gui.formatting import format_ds_tree
+from dylan.parser.interactive_context_parser import InteractiveContextParser
 from dylan.tree.tree import Tree
 from dynamicsyntax.parse_trace import ParseActionStep
 
 
 @dataclass(frozen=True)
 class ParseResult:
-    """Result of :func:`dynamicsyntax.parse` with semantics, DS tree, and GUI-style tree view."""
+    """Outcome of :func:`dynamicsyntax.parse`: semantics, tree, trace data, and optionally the parser used."""
 
     ok: bool
     semantics: TTRRecordType | None
@@ -32,6 +34,7 @@ class ParseResult:
     trace_trees: tuple[Tree, ...] = field(default_factory=tuple)
     trace_step_labels: tuple[str, ...] = field(default_factory=tuple)
     action_steps: tuple[ParseActionStep, ...] = field(default_factory=tuple)
+    parser: InteractiveContextParser | None = None  # set by parse() when a parser ran (not blank-only skips)
 
     @property
     def address_order(self) -> str:
@@ -46,6 +49,27 @@ class ParseResult:
             print("(no parse tree)")
             return
         print(format_ds_tree(self.tree))
+
+    def get_vocab(
+        self,
+        groupby: Literal["category", "alpha"] = "category",
+        *,
+        stream: TextIO | None = None,
+        backend: Literal["plain", "rich"] = "plain",
+        max_cell_width: int | None = 120,
+    ) -> NotebookMultilineText:
+        """Format loaded lexical entries via :meth:`~dylan.parser.dag_parser.DAGParser.get_vocab` on the parse parser."""
+        if self.parser is None:
+            raise ValueError(
+                "ParseResult has no parser (whitespace-only input skips loading a grammar); "
+                "call parse(...) with text or use InteractiveContextParser/Lexicon.get_vocab.",
+            )
+        return self.parser.get_vocab(
+            groupby,
+            stream=stream,
+            backend=backend,
+            max_cell_width=max_cell_width,
+        )
 
     def to_latex(
         self,

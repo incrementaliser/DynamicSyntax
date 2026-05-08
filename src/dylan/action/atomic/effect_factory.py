@@ -64,12 +64,23 @@ class EffectFactory:
         cls._macro_templates.clear()
 
     @classmethod
-    def init_macro_templates(cls, cleaned_lines: list[str | None]) -> None:
-        """Load ``lexical-macros.txt`` (already block-comment-stripped like Java)."""
+    def init_macro_templates(
+        cls,
+        cleaned_lines: list[str | None],
+    ) -> tuple[int, int, tuple[str, ...]]:
+        """Load ``lexical-macros.txt`` (already block-comment-stripped like Java).
+
+        Returns ``(macros_loaded, macros_failed, failed_macro_names)`` where *macros_failed*
+        counts macro headers that never received a non-empty body (including at EOF),
+        and *failed_macro_names* lists those macro base names in parse order.
+        """
         cls.clear_macro_templates()
         name: str | None = None
         metavars: list[str] = []
         body: list[str] = []
+        loaded = 0
+        failed = 0
+        failed_names: list[str] = []
         for raw in cleaned_lines:
             if raw is None:
                 continue
@@ -78,6 +89,7 @@ class EffectFactory:
                 continue
             if not line and body and name is not None:
                 cls._macro_templates[name] = (list(metavars), list(body))
+                loaded += 1
                 name, metavars, body = None, [], []
                 continue
             if name is None:
@@ -86,6 +98,11 @@ class EffectFactory:
                 body.append(line)
         if name is not None and body:
             cls._macro_templates[name] = (list(metavars), list(body))
+            loaded += 1
+        elif name is not None:
+            failed += 1
+            failed_names.append(name)
+        return loaded, failed, tuple(failed_names)
 
     @classmethod
     def _expand_macro_body(cls, name: str, metavals: list[str]) -> list[str]:

@@ -6,7 +6,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Collection
+from textwrap import shorten
+from typing import Collection, Literal, TextIO
 
 from dylan.action.atomic.effect_factory import EffectFactory
 from dylan.action.lexical_action import LexicalAction
@@ -20,6 +21,68 @@ _END_COMMENT = "*//"
 _INLINE_BLOCK_RE = re.compile(
     re.escape(_BEGIN_COMMENT) + r".*?" + re.escape(_END_COMMENT),
 )
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+# Above this length, Jupyter HTML escape + browser layout can freeze the UI; use plain MIME or a short HTML notice.
+NOTEBOOK_MULTILINE_HTML_MAX_CHARS = 80_000
+
+
+def _mime_filter_allows_html(include: object, exclude: object) -> bool:
+    """Return whether IPython ``include`` / ``exclude`` filters request a ``text/html`` representation."""
+    if exclude is not None and "text/html" in exclude:
+        return False
+    if include is None:
+        return True
+    if isinstance(include, (set, frozenset, dict)):
+        return "text/html" in include
+    return True
+
+
+class NotebookMultilineText(str):
+    """Multiline string that Jupyter/IPython displays as HTML ``<pre>`` (preserves line breaks).
+
+    Returned by :meth:`Lexicon.get_vocab` so notebook cells show formatted vocabulary instead of
+    one long escaped line. Still a normal ``str`` for printing, files, and equality tests.
+    """
+
+    def _repr_html_(self) -> str:
+        """HTML preformatted block; ANSI sequences from Rich backends are stripped for display."""
+        import html
+
+        plain = str(self)
+        if len(plain) > NOTEBOOK_MULTILINE_HTML_MAX_CHARS:
+            notice = (
+                f"(Output is {len(plain)} characters; use print(...) or the text/plain MIME view for the full text.)"
+            )
+            body = html.escape(notice)
+            return (
+                '<pre style="white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; '
+                'font-size: 0.88em; line-height: 1.45; margin: 0; overflow-x: auto;">'
+                f"{body}</pre>"
+            )
+        visible = _ANSI_ESCAPE_RE.sub("", plain)
+        body = html.escape(visible)
+        return (
+            '<pre style="white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; '
+            'font-size: 0.88em; line-height: 1.45; margin: 0; overflow-x: auto;">'
+            f"{body}</pre>"
+        )
+
+    def _repr_mimebundle_(
+        self,
+        include: object = None,
+        exclude: object = None,
+        **kwargs: object,
+    ) -> dict[str, str]:
+        """Expose HTML (preferred in notebooks) and plain text MIME; large bodies skip heavy HTML."""
+        plain = str(self)
+        bundle: dict[str, str] = {"text/plain": plain}
+        if not _mime_filter_allows_html(include, exclude):
+            return bundle
+        if len(plain) > NOTEBOOK_MULTILINE_HTML_MAX_CHARS:
+            return bundle
+        bundle["text/html"] = self._repr_html_()
+        return bundle
 
 
 def strip_block_comments(raw_lines: list[str]) -> list[str | None]:
@@ -86,6 +149,26 @@ def _referenced_template_names_from_lexicon(cleaned_lines: list[str | None]) -> 
     return names
 
 
+@dataclass(frozen=True)
+class LexiconLoadStats:
+    """Counts recorded while loading a grammar directory into a `Lexicon`."""
+
+    word_entries_loaded: int
+    """Successful lexicon lines (each adds one lexical entry)."""
+    words_unique: int
+    """Distinct surface forms with at least one loaded entry."""
+    words_failed: int
+    """Lexicon lines skipped (bad shape, unknown template, arity, instantiation)."""
+    macros_loaded: int
+    """Macro definitions stored in `EffectFactory` for this load."""
+    macros_failed: int
+    """Macro headers that never received a non-empty body."""
+    words_failed_names: tuple[str, ...] = field(default_factory=tuple)
+    """Surface words (or best label) for each failed lexicon line, in order."""
+    macros_failed_names: tuple[str, ...] = field(default_factory=tuple)
+    """Macro base names that failed to load (incomplete body), in order."""
+
+
 class Lexicon(dict[str, list[LexicalAction]]):
     """Maps surface words to a list of instantiated `LexicalAction` objects."""
 
@@ -97,12 +180,17 @@ class Lexicon(dict[str, list[LexicalAction]]):
         super().__init__()
         self.top_n = _top_n
         self._templates: dict[str, _LexicalTemplate] = {}
+        self._resource_dir: Path | None = None
+        self._load_stats = LexiconLoadStats(0, 0, 0, 0, 0)
+        self._vocab_cache: dict[tuple[str, str, int | None], str] = {}
         if resource_dir is None:
             return
         root = Path(resource_dir)
+        self._resource_dir = root
         macro_path = root / self.MACRO_FILE_NAME
+        macro_loaded, macro_failed, macros_failed_names = 0, 0, ()
         if macro_path.is_file():
-            EffectFactory.init_macro_templates(
+            macro_loaded, macro_failed, macros_failed_names = EffectFactory.init_macro_templates(
                 strip_block_comments(macro_path.read_text(encoding="utf-8").splitlines()),
             )
         else:
@@ -114,12 +202,27 @@ class Lexicon(dict[str, list[LexicalAction]]):
             self._init_lexical_templates(strip_block_comments(list(action_raw_lines)))
         word_path = root / self.WORD_FILE_NAME
         cleaned_word_lines: list[str | None] = []
+        word_entries, word_failed, words_failed_names = 0, 0, ()
         if word_path.is_file():
             cleaned_word_lines = strip_block_comments(
                 word_path.read_text(encoding="utf-8").splitlines(),
             )
             _lexicon_recover_missing_templates(self, action_raw_lines, cleaned_word_lines)
-            self._read_words(cleaned_word_lines)
+            word_entries, word_failed, words_failed_names = self._read_words(cleaned_word_lines)
+        self._load_stats = LexiconLoadStats(
+            word_entries_loaded=word_entries,
+            words_unique=len(self),
+            words_failed=word_failed,
+            macros_loaded=macro_loaded,
+            macros_failed=macro_failed,
+            words_failed_names=words_failed_names,
+            macros_failed_names=macros_failed_names,
+        )
+
+    @property
+    def load_stats(self) -> LexiconLoadStats:
+        """Parse counters snapshot from the last grammar load (zeros if no ``resource_dir``)."""
+        return self._load_stats
 
     @staticmethod
     def strip_comment(line: str) -> str | None:
@@ -147,6 +250,53 @@ class Lexicon(dict[str, list[LexicalAction]]):
         if entries:
             return entries
         return [] if default is None else default  # type: ignore[return-value]
+
+    def invalidate_vocab_cache(self) -> None:
+        """Clear memoised `get_vocab` output (needed after mutating entries post-load)."""
+        self._vocab_cache.clear()
+
+    def get_vocab(
+        self,
+        groupby: Literal["category", "alpha"] = "category",
+        *,
+        stream: TextIO | None = None,
+        backend: Literal["plain", "rich"] = "plain",
+        max_cell_width: int | None = 120,
+    ) -> NotebookMultilineText:
+        """Surface words only in a fixed-width grid (five columns); with ``groupby='category'``, template names appear as ``=== … ===`` sections only.
+
+        Pass *groupby* positionally (e.g. ``get_vocab("alpha")``) or by keyword. ``stream``, ``backend``,
+        and ``max_cell_width`` remain keyword-only.
+
+        Cached per `(groupby, backend, max_cell_width)` until `invalidate_vocab_cache`.
+        In Jupyter/IPython, the result renders as a monospace block with line breaks (see
+        :class:`NotebookMultilineText`); elsewhere it behaves like a normal string.
+        """
+        if groupby not in ("category", "alpha"):
+            raise ValueError(
+                "groupby must be 'category' or 'alpha' "
+                f"(got {groupby!r}); use get_vocab('alpha') or get_vocab(groupby='alpha').",
+            )
+        if backend not in ("plain", "rich"):
+            raise ValueError(
+                "backend must be 'plain' or 'rich' "
+                f"(got {backend!r}); use get_vocab(..., backend='plain') or backend='rich'.",
+            )
+        cache_key = (groupby, backend, max_cell_width)
+        if cache_key in self._vocab_cache:
+            text = self._vocab_cache[cache_key]
+            if stream is not None:
+                stream.write(text)
+            return NotebookMultilineText(text)
+        rows = _collect_vocab_rows(self)
+        if backend == "plain":
+            text = _format_vocab_plain(self, rows, groupby=groupby, max_cell_width=max_cell_width)
+        else:
+            text = _format_vocab_rich(self, rows, groupby=groupby, max_cell_width=max_cell_width)
+        self._vocab_cache[cache_key] = text
+        if stream is not None:
+            stream.write(text)
+        return NotebookMultilineText(text)
 
     def _init_lexical_templates(self, cleaned_lines: list[str | None]) -> None:
         """Parse lexical-action template blocks (already block-comment-stripped)."""
@@ -186,8 +336,11 @@ class Lexicon(dict[str, list[LexicalAction]]):
             )
         logger.info("Read %s lexical action templates", len(self._templates))
 
-    def _read_words(self, cleaned_lines: list[str | None]) -> None:
-        """Parse lexicon word entries (already block-comment-stripped)."""
+    def _read_words(self, cleaned_lines: list[str | None]) -> tuple[int, int, tuple[str, ...]]:
+        """Parse lexicon word entries; returns entries loaded, failure count, and failed surface-word labels."""
+        entries_ok = 0
+        failed = 0
+        failed_names: list[str] = []
         for raw in cleaned_lines:
             if raw is None:
                 continue
@@ -197,11 +350,15 @@ class Lexicon(dict[str, list[LexicalAction]]):
             fields = line.split()
             if len(fields) < 2:
                 logger.warning("Skipping lexicon line (need word and template name): %s", line)
+                failed += 1
+                failed_names.append(fields[0] if fields else "(malformed line)")
                 continue
             word, template = fields[0], fields[1]
             lt = self._templates.get(template)
             if lt is None:
                 logger.debug("No template %s, skipping word %s", template, word)
+                failed += 1
+                failed_names.append(word)
                 continue
             metavals = fields[2:]
             if lt.metavar_count != len(metavals):
@@ -212,15 +369,213 @@ class Lexicon(dict[str, list[LexicalAction]]):
                     lt.metavar_count,
                     len(metavals),
                 )
+                failed += 1
+                failed_names.append(word)
                 continue
             try:
                 action = lt.create(word, metavals)
             except (ValueError, RuntimeError) as ex:
-                logger.warning("Could not instantiate lexical template %s for %s: %s", template, word, ex)
+                logger.warning(
+                    "Could not instantiate lexical template %s for %s: %s", template, word, ex,
+                )
+                failed += 1
+                failed_names.append(word)
                 continue
+            entries_ok += 1
             logger.info('Created lexical action for "%s" with template "%s"', word, template)
             self.setdefault(word, []).append(action)
         logger.info("Read lexicon with %s words.", len(self))
+        return entries_ok, failed, tuple(failed_names)
+
+
+_VOCAB_GRID_COLUMNS = 5
+
+
+def _vocab_grid_lines(cells: list[str]) -> list[str]:
+    """Join display-ready word strings into grid lines (``_VOCAB_GRID_COLUMNS`` words per line)."""
+    if not cells:
+        return []
+    col_w = max(len(c) for c in cells)
+    lines: list[str] = []
+    for i in range(0, len(cells), _VOCAB_GRID_COLUMNS):
+        row = cells[i : i + _VOCAB_GRID_COLUMNS]
+        padded = [c.ljust(col_w) for c in row]
+        lines.append("  ".join(padded))
+    return lines
+
+
+def _truncate_cell(text: str, max_cell_width: int | None) -> str:
+    """Shorten a table cell when *max_cell_width* is set (``None`` = no limit)."""
+    if not text:
+        return ""
+    if max_cell_width is None or len(text) <= max_cell_width:
+        return text
+    return shorten(text, width=max_cell_width, placeholder="…")
+
+
+def _collect_vocab_rows(lex: Lexicon) -> list[tuple[str, str]]:
+    """Build ``(word, category)`` rows from loaded lexical entries (template name = category)."""
+    rows: list[tuple[str, str]] = []
+    for word in sorted(lex.keys()):
+        for la in lex[word]:
+            cat = la.action_type or ""
+            rows.append((word, cat))
+    return rows
+
+
+_FAILED_WORDS_PER_LINE = 10
+
+
+def _wrapped_comma_name_lines(names: tuple[str, ...], *, per_line: int, indent: str) -> list[str]:
+    """Format *names* as comma-separated groups with at most *per_line* names per line, each prefixed by *indent*."""
+    if not names:
+        return []
+    seq = list(names)
+    return [f"{indent}{', '.join(seq[i : i + per_line])}" for i in range(0, len(seq), per_line)]
+
+
+def _format_stats_header(lex: Lexicon) -> str:
+    """Render grammar id line, path to ``lexicon.txt``, load statistics, and optional failure name lists."""
+    st = lex._load_stats
+    lines: list[str] = []
+    if lex._resource_dir is not None:
+        root = lex._resource_dir
+        word_file = (root / Lexicon.WORD_FILE_NAME).resolve()
+        lines.append(f"Lexicon: {root.name}")
+        lines.append(f"Source: {word_file}")
+        lines.append("")
+    lines.extend(
+        [
+            "Load statistics:",
+            f"  Word entries loaded:    {st.word_entries_loaded}",
+            f"  Unique words:           {st.words_unique}",
+            f"  Words failed:           {st.words_failed}",
+            f"  Macros loaded:          {st.macros_loaded}",
+            f"  Macros failed:          {st.macros_failed}",
+            "",
+        ],
+    )
+    if st.words_failed != 0:
+        lines.append("Failed words:")
+        if st.words_failed_names:
+            lines.extend(_wrapped_comma_name_lines(st.words_failed_names, per_line=_FAILED_WORDS_PER_LINE, indent="  "))
+        else:
+            lines.append("  —")
+        lines.append("")
+    if st.macros_failed != 0:
+        lines.append("Failed macros:")
+        if st.macros_failed_names:
+            lines.append(f"  {', '.join(st.macros_failed_names)}")
+        else:
+            lines.append("  —")
+        lines.append("")
+    while lines and lines[-1] == "":
+        lines.pop()
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_vocab_plain(
+    lex: Lexicon,
+    rows: list[tuple[str, str]],
+    *,
+    groupby: Literal["category", "alpha"],
+    max_cell_width: int | None,
+) -> str:
+    """Format vocabulary as a grid of words (category only in section titles when grouped)."""
+    parts: list[str] = [_format_stats_header(lex)]
+    if not rows:
+        parts.append("(no lexical entries loaded)")
+        return "\n".join(parts)
+
+    disp: list[tuple[str, str]] = [
+        (_truncate_cell(w, max_cell_width), _truncate_cell(c, max_cell_width)) for w, c in rows
+    ]
+
+    if groupby == "alpha":
+        disp.sort(key=lambda t: (t[0], t[1]))
+        words_only = [w for w, _ in disp]
+        parts.extend(_vocab_grid_lines(words_only))
+        return "\n".join(parts)
+
+    by_cat: dict[str, list[tuple[str, str]]] = {}
+    for w, c in disp:
+        by_cat.setdefault(c, []).append((w, c))
+    for cat in sorted(by_cat.keys(), key=lambda x: (x == "", x)):
+        parts.append(f"=== {cat or '(empty category)'} ===")
+        group_rows = sorted(by_cat[cat], key=lambda t: (t[0],))
+        words_only = [w for w, _ in group_rows]
+        parts.extend(_vocab_grid_lines(words_only))
+        parts.append("")
+    while parts and parts[-1] == "":
+        parts.pop()
+    return "\n".join(parts)
+
+
+def _format_vocab_rich(
+    lex: Lexicon,
+    rows: list[tuple[str, str]],
+    *,
+    groupby: Literal["category", "alpha"],
+    max_cell_width: int | None,
+) -> str:
+    """Render vocabulary as a word grid (Rich optional dependency)."""
+    try:
+        from rich.console import Console
+        from rich.markup import escape
+        from rich.table import Table
+    except ImportError as exc:
+        raise ImportError(
+            "backend='rich' requires the 'rich' package (pip install rich or pip install "
+            "dynamicsyntax[rich]).",
+        ) from exc
+
+    from io import StringIO
+
+    buf = StringIO()
+    header = _format_stats_header(lex)
+    if not rows:
+        return "\n".join([header, "(no lexical entries loaded)"])
+
+    console = Console(
+        file=buf,
+        force_terminal=False,
+        width=160,
+        highlight=False,
+        markup=False,
+    )
+    buf.write(header)
+    buf.write("\n")
+
+    def emit_vocab_grid(display_words: list[str]) -> None:
+        """Print pre-formatted words in a borderless grid (``_VOCAB_GRID_COLUMNS`` columns)."""
+        if not display_words:
+            return
+        table = Table(show_header=False, box=None, pad_edge=False, collapse_padding=True)
+        for _ in range(_VOCAB_GRID_COLUMNS):
+            table.add_column(justify="left")
+        for i in range(0, len(display_words), _VOCAB_GRID_COLUMNS):
+            chunk = display_words[i : i + _VOCAB_GRID_COLUMNS]
+            padded = list(chunk) + [""] * (_VOCAB_GRID_COLUMNS - len(chunk))
+            table.add_row(*padded[:_VOCAB_GRID_COLUMNS])
+        console.print(table, highlight=False)
+
+    disp = list(rows)
+    if groupby == "alpha":
+        disp.sort(key=lambda t: (t[0], t[1]))
+        emit_vocab_grid([w for w, _ in disp])
+        return buf.getvalue()
+
+    by_cat: dict[str, list[tuple[str, str]]] = {}
+    for w, c in disp:
+        by_cat.setdefault(c, []).append((w, c))
+    for cat in sorted(by_cat.keys(), key=lambda x: (x == "", x)):
+        label = cat or "(empty category)"
+        console.print(f"[bold]{escape(label)}[/bold]", highlight=False, markup=True)
+        group_rows = sorted(by_cat[cat], key=lambda t: (t[0],))
+        emit_vocab_grid([w for w, _ in group_rows])
+        console.print("")
+    return buf.getvalue()
 
 
 @dataclass

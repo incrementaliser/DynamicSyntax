@@ -92,7 +92,7 @@ def _run_parse_core(
         ok = parser.parse_utterance(utt)
         tree = parser.get_best_tuple().get_tree()
         semantics: TTRRecordType | None = parser.get_final_semantics() if ok else None
-        return ParseResult(ok=ok, semantics=semantics, tree=tree, sentence=stripped)
+        return ParseResult(ok=ok, semantics=semantics, tree=tree, sentence=stripped, parser=parser)
     trace_list: list[Tree] = [parser.get_best_tuple().get_tree().clone()]
     labels: list[str] = []
     action_steps: list[ParseActionStep] = []
@@ -118,6 +118,7 @@ def _run_parse_core(
         trace_trees=tuple(trace_list),
         trace_step_labels=tuple(labels),
         action_steps=tuple(action_steps),
+        parser=parser,
     )
 
 
@@ -131,7 +132,7 @@ def _parse_one(
     """Strip *raw*, return a blank failure without parsing, or run the parse pipeline on *parser*."""
     stripped = raw.strip()
     if not stripped:
-        return ParseResult(ok=False, semantics=None, tree=None, sentence="")
+        return ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=parser)
     return _run_parse_core(parser, stripped, speaker=speaker, trace=trace)
 
 
@@ -183,6 +184,9 @@ def parse(
         (for :meth:`~dynamicsyntax.parse_result.ParseResult.to_latex` ``incremental``).
     :returns: One :class:`~dynamicsyntax.parse_result.ParseResult`, or a list of them in input
         order; ``semantics`` is ``None`` on failure or blank input for that item.
+        Each result may include ``parser`` (the
+        :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser` used), except when
+        the facade returns early for whitespace-only single-string input without a parse.
     :raises ValueError: If *grammar* is ``None`` but no grammar was loaded (non-empty input only).
     :raises FileNotFoundError: If *grammar* is unknown or not a directory.
 
@@ -205,7 +209,7 @@ def parse(
     sentence = sentence_or_sentences
     stripped = sentence.strip()
     if not stripped:
-        return ParseResult(ok=False, semantics=None, tree=None, sentence="")
+        return ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=None)
 
     if grammar is not None:
         with resolved_grammar_path(grammar) as grammar_path:

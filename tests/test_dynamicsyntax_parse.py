@@ -39,13 +39,17 @@ def test_parse_ttr_bundled_grammar() -> None:
     assert "man(" in s and "arrive" in s
     assert p.tree is not None
     assert "00" in p.address_order
+    assert p.parser is not None
 
 
 def test_parse_empty_returns_failed_result() -> None:
-    """Whitespace-only input yields no semantics."""
+    """Whitespace-only input yields no semantics and no parser reference."""
     p = ds.parse("   ", "ttr")
     assert not p.ok
     assert p.semantics is None
+    assert p.parser is None
+    with pytest.raises(ValueError, match="no parser"):
+        p.get_vocab()
 
 
 def test_parse_list_empty_returns_empty() -> None:
@@ -77,6 +81,27 @@ def test_parse_list_mixed_blank_slot() -> None:
     assert out[0].ok
     assert not out[1].ok
     assert out[1].semantics is None
+
+
+def test_parse_result_get_vocab_matches_lexicon() -> None:
+    """``ParseResult.get_vocab`` matches ``Lexicon.get_vocab`` for the same grammar directory."""
+    from dylan.action.lexicon import Lexicon
+
+    from dynamicsyntax._session import resolved_grammar_path
+
+    p = ds.parse("a man arrives", "ttr")
+    assert p.parser is not None
+    with resolved_grammar_path("ttr") as path:
+        ref = Lexicon(path).get_vocab(groupby="alpha")
+    assert p.get_vocab(groupby="alpha") == ref
+
+
+def test_parse_list_blank_slot_keeps_parser_for_get_vocab() -> None:
+    """List parse shares one parser; blank slots still expose ``get_vocab``."""
+    out = ds.parse(["a man arrives", "   "], "ttr")
+    assert out[0].parser is not None
+    assert out[0].parser is out[1].parser
+    assert "Load statistics" in out[1].get_vocab()
 
 
 def test_parse_list_trace_matches_individual() -> None:
@@ -111,6 +136,7 @@ def test_load_grammar_then_parse() -> None:
     p = ds.parse("a man arrives")
     assert p.ok
     assert isinstance(p.semantics, TTRRecordType)
+    assert p.parser is not None
 
 
 def test_parse_without_grammar_and_without_load_raises() -> None:

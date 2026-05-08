@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
+from dylan.action.lexicon import NotebookMultilineText
 from dylan.formula.latex.build_result import LaTeXBuildResult
 from dylan.formula.manim.models import ManimBuildResult
 from dylan.formula.ttr_record_type import TTRRecordType
@@ -23,6 +24,7 @@ __all__ = [
     "InteractiveContextParser",
     "LaTeXBuildResult",
     "ManimBuildResult",
+    "NotebookMultilineText",
     "ParseResult",
     "TTRRecordType",
     "__version__",

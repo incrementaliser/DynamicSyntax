@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Literal, TextIO
 
 from dylan.action.action import Action
-from dylan.action.computational_action import ComputationalAction
 from dylan.action.grammar import Grammar
-from dylan.action.lexicon import Lexicon
+from dylan.action.lexicon import Lexicon, NotebookMultilineText
 from dylan.action.speech_act_inference_grammar import SpeechActInferenceGrammar
 from dylan.context.context import Context
 from dylan.dag.dag_tuple import DAGTuple
@@ -61,6 +60,26 @@ class DAGParser:
         """Load lexicon + grammars from a directory (Java `DAGParser(String)`)."""
         p = Path(resource_dir)
         return cls(Lexicon(p), Grammar(p), SpeechActInferenceGrammar(p))
+
+    def get_vocab(
+        self,
+        groupby: Literal["category", "alpha"] = "category",
+        *,
+        stream: TextIO | None = None,
+        backend: Literal["plain", "rich"] = "plain",
+        max_cell_width: int | None = 120,
+    ) -> NotebookMultilineText:
+        """Show loaded lexical entries via :meth:`~dylan.action.lexicon.Lexicon.get_vocab`.
+
+        Uses this parser's lexicon only; computational grammar rules live on ``Grammar``
+        objects (`nonoptional_grammar`, etc.), not in this listing.
+        """
+        return self.lexicon.get_vocab(
+            groupby,
+            stream=stream,
+            backend=backend,
+            max_cell_width=max_cell_width,
+        )
 
     def get_state(self) -> WordLevelContextDAG:
         """Return the active word-level DAG."""
@@ -184,6 +203,7 @@ class DAGParser:
 
 DAGParser.separateGrammars = DAGParser._separate_grammars  # type: ignore[attr-defined]
 DAGParser.fromResourceDir = DAGParser.from_resource_dir  # type: ignore[attr-defined]
+DAGParser.getVocab = DAGParser.get_vocab  # type: ignore[attr-defined]
 DAGParser.getState = DAGParser.get_state  # type: ignore[attr-defined]
 DAGParser.getContext = DAGParser.get_context  # type: ignore[attr-defined]
 DAGParser.applyActions = DAGParser.apply_actions  # type: ignore[attr-defined]
