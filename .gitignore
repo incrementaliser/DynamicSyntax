@@ -84,3 +84,4 @@ scripts/Set-PyPIEnv.ps1
 scripts/publish.sh
 scripts/publish.ps1
 my_manual.md
+testing.md

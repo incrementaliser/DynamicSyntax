@@ -9,7 +9,15 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+# Running ``python .../src/dylan/gui/app.py`` only puts ``gui/`` on sys.path; add the
+# directory that contains the ``dylan`` package (checkout ``src/``).
+_pkg_root = Path(__file__).resolve().parent.parent.parent
+if str(_pkg_root) not in sys.path:
+    sys.path.insert(0, str(_pkg_root))
+
 from dylan.gui.parse_session import (
     GUI_INFO_HELP_TEXT,
     ParseSession,
@@ -48,8 +56,16 @@ def _ensure_dylan_stderr_logging() -> None:
 
 def main() -> None:
     """Entry point for ``dylan-gui`` console script; opens the Flet desktop app."""
-    import flet as ft
-    import flet.canvas as cv
+    try:
+        import flet as ft
+        import flet.canvas as cv
+    except ImportError as exc:
+        raise SystemExit(
+            "The DyLan GUI needs Flet (optional dependency). From the repo root run:\n"
+            "  uv sync --group dev\n"
+            "or: uv pip install -e \".[gui]\"\n"
+            "PyPI installs: pip install \"dynamicsyntax[gui]\""
+        ) from exc
 
     def build(page: ft.Page) -> None:
         """Lay out controls mirroring the Java parser frame."""
