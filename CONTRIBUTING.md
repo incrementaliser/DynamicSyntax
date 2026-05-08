@@ -10,7 +10,7 @@ Format: `type(scope): short description` — e.g. `fix(parser): handle empty tok
 
 Types: feat · fix · docs · refactor · perf · test · chore · style
 
-Suggested scopes: `parser` · `lexicon` · `learner` · `generator` · `ttr` · `gui` · `tests`
+Suggested scopes: `parser` · `lexicon` · `learner` · `generator` · `ttr` · `gui` · `tests` · `ci`
 
 Use imperative mood in the description: "add X", not "adds X" or "added X".
 
