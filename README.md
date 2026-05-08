@@ -2,6 +2,8 @@
 
 `dynamicsyntax` is the python implementation of **[DyLan](https://github.com/Dynamics-of-Language)** the Dynamic Syntax parser. It has been (vibe) translated from Java to Python by [@incrementaliser](https://github.com/incrementaliser), and is still under development.
 
+---
+
 ## Installation
 
 You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies `>=3.11`.
@@ -19,16 +21,18 @@ You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies `>=3.11`.
   ```bash
    uv pip install dynamicsyntax
   ```
-   or editable install from a git clone:
+
+---
 
 ## Examples
 
-For some code examples, please see [this Google Colab notebook](https://colab.research.google.com/drive/1ofpCLwLOE88AvbtR3gh5uisaYkpWGNP9?usp=sharing).
+For some code examples of the parser in action, check out this notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ofpCLwLOE88AvbtR3gh5uisaYkpWGNP9?usp=sharing)
 
-## Testing
-
-See [testing.md](testing.md) for how to run pytest with **uv**, show per-test pass/fail output, and useful options (`-v`, `--lf`, subsets, and CI).
+---
 
 ## Get Involved
 
-Contributions (issues, PRs, [donations](https://buymeacoffee.com/incrementaliser)) are very welcome! Since this project has been translated using Cursor and tested only on Windows, there is a small chance errors exist. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been correct so far.
+Contributions (issues, PRs, [donations (spent on coffee/LLM credits!)](https://buymeacoffee.com/incrementaliser)) are very welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+**Note**
+Since this project has been translated using Cursor and tested only on Windows, there is a small chance errors exist. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been correct so far.
