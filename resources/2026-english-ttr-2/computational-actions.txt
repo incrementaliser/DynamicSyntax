@@ -1,0 +1,190 @@
+// Computational actions for English
+// as per Dynamics of Conversational Dialogue project, 2010
+
+// Rules prefixed with * are non-optional
+// Rules prefixed with + are applied repeatedly, exhausting all successful Rule Metavariable combinations
+// If a Rule is both non-optional and is to be exhaustively applied, 
+// then the + should be preceded by the *, i.e. the name should be prefixed by "*+".
+// Rule metavariables: X,Y,Z
+// Formula metavariables: A,B,C
+
+intro-pred
+IF		?ty(t)
+		¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+THEN	make(\/1)
+		go(\/1)
+		put(?ty(e>t))
+		go(/\1)
+		make(\/0)
+		go(\/0)
+		put(?ty(e))
+ELSE	abort
+
+anticipation0
+IF      <\/0>Ex.?x
+THEN    go(\/0)
+ELSE    abort
+
+anticipation1	
+IF      <\/1>Ex.?x
+THEN    go(\/1)
+ELSE    abort
+
+*thinning
+IF      ?X
+        X
+THEN    delete(?X)
+ELSE    abort
+
+
+completion
+IF      ty(X)
+		¬?ty(X)
+        </\>Ex.x
+THEN    go(/\)
+ELSE    abort
+
+*elimination
+IF      ?ty(X)
+        ¬Ex.fo(x)
+        <\/1>ty(Y>X)
+        <\/0>ty(Y)
+        ¬<\/1>Ex.?x
+        ¬<\/0>Ex.?x
+THEN    beta-reduce
+ELSE    abort
+
+//*
+star-adjunction
+IF      ?ty(t)
+        ¬<\/1>Ex.x
+        ¬<\/0>Ex.x
+        ¬<\/*>Ex.x
+THEN    make(\/*)
+        go(\/*)
+        put(?ty(e))
+        put(?Ex.tn(x))
+ELSE    abort
+*//
+
+
+anticipationL
+IF		(ty(t) || ty(e>t))
+		<\/L>Ex.x
+THEN	go(\/L)		
+ELSE	abort
+
+
+//*
+
+link-adj-e
+IF      ty(e)
+		+PN
+		¬<\/L>Ex.x
+THEN    put(?+eval)
+		make(\/L)
+       	go(\/L)        
+       	put(?ty(e))
+ELSE    abort
+
+*//
+//anticipating wh-response
+anticipation-res
+IF		ty(t)
+		complete
+		<Z>+Q
+THEN	go(Z)
+ELSE	abort
+
+late-star-adj-q
+IF		¬!
+		+Q
+ 		//</\*>tn(0)
+        ty(X)  
+   		//¬<\/1>Ex.x
+        //¬<\/0>Ex.x
+      	¬<\/*>Ex.x // should actually check for no existing unfixed node in this sub-tree
+        Ex.tn(x)
+THEN	delete(+Q)
+        make(\/*)
+        go(\/*)
+       	put(?Ex.tn(x))
+       	put(?ty(X))
+ELSE	abort
+
+
+//*
+late-star-adj-q
+IF      ty(t)
+		//<\/*>+Q
+		<Z>+Q
+THEN	go(Z)
+		IF		¬!
+        		//</\*>tn(0)
+        		ty(X)  // could restrict this to e/t but no way to do disjunction here yet
+        		//¬<\/1>Ex.x
+        		//¬<\/0>Ex.x
+        		¬<\/*>Ex.x // should actually check for no existing unfixed node in this sub-tree
+        		Ex.tn(x)
+        THEN	delete(+Q)
+        		make(\/*)
+        		go(\/*)
+        		put(?Ex.tn(x))
+        		put(?ty(X))
+        ELSE	abort
+ELSE    abort
+*//
+
+
+merge
+IF      Ex.tn(x)
+		¬<\/*>Ex.x
+		<Y>(?Ex.tn(x) & ty(V))
+		subsumes(Y)
+		?ty(V)		           
+THEN    merge(Y)
+		delete(?Ex.tn(x))	
+ELSE    abort
+
+*late-star-merge
+IF		ty(Y)
+		Ex.tn(x)
+		<\/*>?Ex.tn(x)
+		<\/*>ty(Y)
+THEN	IF		Fo(X)
+		THEN	delete(Fo(X))
+				merge(<\/*>)
+				delete(?Ex.tn(x))
+				unreduce
+		ELSE	merge(<\/*>)
+				delete(?Ex.tn(x))
+				unreduce
+ELSE	abort
+
+
+
+*link-evaluation
+IF      ?+eval
+		Ex.fo(x)
+		<\/L>Ex.x
+		<\/L>fo(X)
+THEN    conjoin(X)
+		delete(?+eval)
+		IF		</\L>Ex.x
+				¬</\L>?+eval
+		THEN	go(/\L)
+				put(?+eval)
+		ELSE	do_nothing
+ELSE    abort
+
+
+//transition relevance place
+
+trp
+IF		complete
+THEN	addaxiom
+ELSE	abort
+
+
+
