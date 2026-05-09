@@ -19,15 +19,28 @@ def test_import_dynamicsyntax_version() -> None:
 
 
 def test_get_grammars_includes_bundled_and_alias() -> None:
-    """Bundled grammar dir and ``ttr`` alias are listed."""
+    """Bundled grammar dirs (``grammars/`` and ``resources/``) and ``ttr`` alias are listed."""
     g = ds.get_grammars()
     assert "2015-english-ttr" in g
+    assert "2026-english-ttr" in g
     assert "ttr" in g
+    assert "__pycache__" not in g
 
 
 def test_get_datasets_empty_placeholder() -> None:
     """No bundled datasets yet."""
     assert ds.get_datasets() == []
+
+
+def test_parse_2026_english_ttr_bundled_grammar() -> None:
+    """End-to-end parse via packaged ``resources/2026-english-ttr`` grammar."""
+    p = ds.parse("a man arrives", "2026-english-ttr")
+    assert p.ok
+    assert isinstance(p.semantics, TTRRecordType)
+    s = str(p.semantics)
+    assert "man(" in s and "arrive" in s
+    assert p.tree is not None
+    assert p.parser is not None
 
 
 def test_parse_ttr_bundled_grammar() -> None:
@@ -126,7 +139,7 @@ def test_parse_list_session_grammar() -> None:
 
 def test_parse_unknown_grammar_raises() -> None:
     """Invalid grammar id raises :class:`FileNotFoundError`."""
-    with pytest.raises(FileNotFoundError, match="unknown bundled grammar"):
+    with pytest.raises(FileNotFoundError, match="unknown grammar"):
         ds.parse("hello", "not-a-backend")
 
 

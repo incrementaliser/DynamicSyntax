@@ -190,7 +190,9 @@ def parse(
     :raises ValueError: If *grammar* is ``None`` but no grammar was loaded (non-empty input only).
     :raises FileNotFoundError: If *grammar* is unknown or not a directory.
 
-    Bundled grammars are read via :mod:`importlib.resources`. A single string with explicit
+    Packaged grammars: ``dynamicsyntax/grammars/`` in the library, and the project
+    :mod:`dynamicsyntax.resources` tree (the repository ``resources/`` directory at build time), read
+    via :mod:`importlib.resources`. A single string with explicit
     *grammar* uses one fresh parser; a list with explicit *grammar* reuses one parser for all items.
     """
     if isinstance(sentence_or_sentences, list):

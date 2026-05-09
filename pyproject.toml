@@ -52,11 +52,9 @@ dynamicsyntax-serve-web = "dylan.web_dev:main"
 
 [tool.setuptools_scm]
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.setuptools.package-data]
 dynamicsyntax = ["grammars/**/*"]
+"dynamicsyntax.resources" = ["**/*.txt", "**/__init__.py"]
 "dylan.formula.latex" = ["*.sty", "*.txt"]
 
 [tool.pytest.ini_options]
