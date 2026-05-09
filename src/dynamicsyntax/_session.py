@@ -17,7 +17,7 @@ _GRAMMAR_ALIASES: dict[str, str] = {
 
 _AsFileCtx: TypeAlias = AbstractContextManager[Path]
 
-# When a bundled grammar is loaded via :func:`load_grammar`, we keep ``as_file`` entered so
+# When a bundled grammar is loaded via :func:`set_grammar`, we keep ``as_file`` entered so
 # wheel extract paths stay valid until the next load.
 _bundled_as_file_cm: _AsFileCtx | None = None
 _session_parser: InteractiveContextParser | None = None
@@ -82,15 +82,21 @@ def get_datasets() -> list[str]:
 
 
 def _exit_bundled_context() -> None:
-    """Release any active ``resources.as_file`` context from a prior :func:`load_grammar`."""
+    """Release any active ``resources.as_file`` context from a prior :func:`set_grammar`."""
     global _bundled_as_file_cm
     if _bundled_as_file_cm is not None:
         _bundled_as_file_cm.__exit__(None, None, None)
         _bundled_as_file_cm = None
 
 
-def load_grammar(grammar: str | Path, *, repairing: bool = False) -> None:
-    """Load a grammar directory into the module-level parser (used by :func:`parse` with no grammar arg).
+def set_grammar(grammar: str | Path, *, repairing: bool = False) -> None:
+    """Load grammar resources into the module-level session parser.
+
+    Reads the grammar directory (lexicon, computational and lexical actions, macros, etc.),
+    constructs an :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser`,
+    calls ``init()`` on it, and stores it for subsequent :func:`~dynamicsyntax.parse` calls that
+    omit the ``grammar`` argument. Replaces any previously set session grammar and releases any
+    prior bundled ``resources.as_file`` extract.
 
     :param grammar: Bundled id or alias (e.g. ``\"2015-english-ttr\"``, ``\"ttr\"``) or a filesystem
         directory path containing lexicon / grammar files.
@@ -137,7 +143,7 @@ def load_grammar(grammar: str | Path, *, repairing: bool = False) -> None:
 
 
 def session_parser() -> InteractiveContextParser | None:
-    """Return the parser from the last successful :func:`load_grammar`, if any."""
+    """Return the parser from the last successful :func:`set_grammar`, if any."""
     return _session_parser
 
 

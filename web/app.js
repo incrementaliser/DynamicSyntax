@@ -165,7 +165,7 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     const pyodide = state.pyodide;
     if (!pyodide) return;
     const repairing = document.getElementById("chk-repair").checked;
-    const r = callApi("load_grammar", { path: "/grammar", repairing });
+    const r = callApi("set_grammar", { path: "/grammar", repairing });
     setLog(r.grammar_log || "");
     if (r.parser_ready) {
       const v = callApi("current_views", {});

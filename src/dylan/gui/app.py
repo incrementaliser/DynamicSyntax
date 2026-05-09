@@ -221,7 +221,7 @@ def main() -> None:
                     ],
                 )
             return ft.Container(expand=expand, content=stack)
-        load_grammar_btn = ft.FilledButton(
+        set_grammar_btn = ft.FilledButton(
             content=ft.Row(
                 [
                     ft.Icon(ft.Icons.FOLDER_OPEN, size=20),
@@ -402,7 +402,7 @@ def main() -> None:
 
         def apply_grammar(path_str: str) -> None:
             """Load a grammar directory into a fresh parser."""
-            log_text = session.load_grammar(path_str, repairing=bool(repair_cb.value))
+            log_text = session.set_grammar(path_str, repairing=bool(repair_cb.value))
             set_log(log_text)
 
         def _parse_tree_render_px(*, logs_column_visible: bool) -> tuple[int, int]:
@@ -536,7 +536,7 @@ def main() -> None:
                 shape=_primary_btn_shape,
             ),
         )
-        load_grammar_btn.on_click = pick_grammar_dir
+        set_grammar_btn.on_click = pick_grammar_dir
 
         # --- app bar ----------------------------------------------------------
 
@@ -595,7 +595,7 @@ def main() -> None:
         )
         grammar_toolbar = ft.Row(
             [
-                load_grammar_btn,
+                set_grammar_btn,
                 show_logs_toggle,
                 ft.Container(expand=True),
                 repair_cb,

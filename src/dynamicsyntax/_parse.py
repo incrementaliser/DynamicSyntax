@@ -145,7 +145,6 @@ def _parse_at_path(grammar_path: Path, sentence: str, *, speaker: str, trace: bo
 @overload
 def parse(
     sentence: str,
-    grammar: str | Path | None = None,
     /,
     *,
     speaker: str = ...,
@@ -156,7 +155,28 @@ def parse(
 @overload
 def parse(
     sentences: list[str],
-    grammar: str | Path | None = None,
+    /,
+    *,
+    speaker: str = ...,
+    trace: bool = ...,
+) -> list[ParseResult]: ...
+
+
+@overload
+def parse(
+    sentence: str,
+    grammar: str | Path | None,
+    /,
+    *,
+    speaker: str = ...,
+    trace: bool = ...,
+) -> ParseResult: ...
+
+
+@overload
+def parse(
+    sentences: list[str],
+    grammar: str | Path | None,
     /,
     *,
     speaker: str = ...,
@@ -178,7 +198,7 @@ def parse(
         such strings (lowercased by the tokenizer). An empty list returns ``[]`` without using
         a grammar. Per-item blank or whitespace-only strings yield a failed result for that slot.
     :param grammar: Bundled id or alias (e.g. ``\"ttr\"``), a grammar directory path, or
-        ``None`` to use the parser from :func:`~dynamicsyntax.load_grammar`.
+        ``None`` to use the parser from :func:`~dynamicsyntax.set_grammar`.
     :param speaker: Dialogue participant id passed to the parser (default matches ``dylan``).
     :param trace: If ``True``, record one DS tree after ``new_sentence`` and after each word
         (for :meth:`~dynamicsyntax.parse_result.ParseResult.to_latex` ``incremental``).
@@ -187,7 +207,8 @@ def parse(
         Each result may include ``parser`` (the
         :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser` used), except when
         the facade returns early for whitespace-only single-string input without a parse.
-    :raises ValueError: If *grammar* is ``None`` but no grammar was loaded (non-empty input only).
+    :raises ValueError: If *grammar* is omitted or ``None`` but no session grammar was set with
+        :func:`~dynamicsyntax.set_grammar` (non-empty sentence, or any list item non-blank after strip).
     :raises FileNotFoundError: If *grammar* is unknown or not a directory.
 
     Packaged grammars: ``dynamicsyntax/grammars/`` in the library, and the project
@@ -205,7 +226,14 @@ def parse(
                 return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
         parser = session_parser()
         if parser is None:
-            raise ValueError("no grammar loaded; call load_grammar(...) first or pass grammar= to parse(...)")
+            if any(s.strip() for s in sentences):
+                raise ValueError(
+                    "no grammar set; call dynamicsyntax.set_grammar(...) first or pass grammar= to parse(...)",
+                )
+            return [
+                ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=None)
+                for _ in sentences
+            ]
         return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
 
     sentence = sentence_or_sentences
@@ -219,5 +247,7 @@ def parse(
 
     parser = session_parser()
     if parser is None:
-        raise ValueError("no grammar loaded; call load_grammar(...) first or pass grammar= to parse(...)")
+        raise ValueError(
+            "no grammar set; call dynamicsyntax.set_grammar(...) first or pass grammar= to parse(...)",
+        )
     return _run_parse_core(parser, stripped, speaker=speaker, trace=trace)

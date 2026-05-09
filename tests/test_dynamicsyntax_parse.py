@@ -74,7 +74,7 @@ def test_parse_list_empty_returns_empty() -> None:
         assert ds.parse([], "ttr") == []
         assert ds.parse([]) == []
     finally:
-        ds.load_grammar("ttr")
+        ds.set_grammar("ttr")
 
 
 def test_parse_list_singleton_matches_single() -> None:
@@ -130,8 +130,8 @@ def test_parse_list_trace_matches_individual() -> None:
 
 
 def test_parse_list_session_grammar() -> None:
-    """List input works with session grammar from ``load_grammar``."""
-    ds.load_grammar("ttr")
+    """List input works with session grammar from ``set_grammar``."""
+    ds.set_grammar("ttr")
     batch = ds.parse(["a man arrives", "a man arrives"])
     assert len(batch) == 2
     assert all(r.ok for r in batch)
@@ -143,25 +143,38 @@ def test_parse_unknown_grammar_raises() -> None:
         ds.parse("hello", "not-a-backend")
 
 
-def test_load_grammar_then_parse() -> None:
-    """Session-style parse reuses ``load_grammar``."""
-    ds.load_grammar("ttr")
+def test_set_grammar_then_parse() -> None:
+    """Session-style parse reuses grammar from ``set_grammar``."""
+    ds.set_grammar("ttr")
     p = ds.parse("a man arrives")
     assert p.ok
     assert isinstance(p.semantics, TTRRecordType)
     assert p.parser is not None
 
 
-def test_parse_without_grammar_and_without_load_raises() -> None:
-    """Calling ``parse(s)`` with no prior ``load_grammar`` is rejected."""
+def test_parse_without_grammar_and_without_set_raises() -> None:
+    """Calling ``parse(s)`` with no prior ``set_grammar`` is rejected."""
     from dynamicsyntax._session import clear_grammar_session
 
     clear_grammar_session()
     try:
-        with pytest.raises(ValueError, match="no grammar loaded"):
+        with pytest.raises(ValueError, match="no grammar set"):
             ds.parse("hello")
     finally:
-        ds.load_grammar("ttr")
+        ds.set_grammar("ttr")
+
+
+def test_parse_list_all_blank_without_session_no_raise() -> None:
+    """List of only blank strings does not require session grammar."""
+    from dynamicsyntax._session import clear_grammar_session
+
+    clear_grammar_session()
+    try:
+        out = ds.parse(["   ", ""])
+        assert len(out) == 2
+        assert all(not r.ok and r.parser is None for r in out)
+    finally:
+        ds.set_grammar("ttr")
 
 
 def test_vis_prints_address_order(capsys: pytest.CaptureFixture[str]) -> None:

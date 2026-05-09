@@ -14,7 +14,7 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     node = root / "grammars" / "2015-english-ttr"
     with resources.as_file(node) as grammar_path:
         load_out = pyodide_api.dispatch(
-            "load_grammar",
+            "set_grammar",
             {"path": str(grammar_path), "repairing": False},
         )
     assert load_out.get("parser_ready") is True

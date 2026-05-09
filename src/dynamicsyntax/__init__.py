@@ -12,7 +12,7 @@ from dylan.parser.interactive_context_parser import InteractiveContextParser
 
 from dynamicsyntax._manim import to_manim
 from dynamicsyntax._parse import parse
-from dynamicsyntax._session import get_datasets, get_grammars, load_grammar
+from dynamicsyntax._session import get_datasets, get_grammars, set_grammar
 from dynamicsyntax.parse_result import ParseResult
 
 try:
@@ -30,7 +30,7 @@ __all__ = [
     "__version__",
     "get_datasets",
     "get_grammars",
-    "load_grammar",
+    "set_grammar",
     "parse",
     "to_manim",
 ]

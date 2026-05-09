@@ -117,8 +117,12 @@ class ParseSession:
         self.parser: InteractiveContextParser | None = None
         self.last_tree: Tree | None = None
 
-    def load_grammar(self, path_str: str, *, repairing: bool) -> str:
-        """Load grammar from *path_str*; return log text and set ``self.parser`` or clear it."""
+    def set_grammar(self, path_str: str, *, repairing: bool) -> str:
+        """Load grammar from a filesystem directory *path_str*; return log text and set ``self.parser``.
+
+        Bundled grammar nicknames (e.g. ``\"ttr\"``) are only accepted by :func:`dynamicsyntax.set_grammar`;
+        this GUI/session path expects a real directory from the file picker.
+        """
         p = Path(path_str.strip())
         if not p.is_dir():
             self.parser = None

@@ -34,10 +34,10 @@ def dispatch(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         return {"help": GUI_INFO_HELP_TEXT}
     if action == "current_views":
         return {"views": _view_dict()}
-    if action == "load_grammar":
+    if action == "set_grammar":
         path = str(payload.get("path", ""))
         repairing = bool(payload.get("repairing", False))
-        log_text = _session.load_grammar(path, repairing=repairing)
+        log_text = _session.set_grammar(path, repairing=repairing)
         return {
             "grammar_log": log_text,
             "parser_ready": _session.parser is not None,
