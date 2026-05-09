@@ -25,7 +25,7 @@ from dynamicsyntax.parse_trace import ParseActionStep
 
 @dataclass(frozen=True)
 class ParseResult:
-    """Outcome of :func:`dynamicsyntax.parse`: semantics, tree, trace data, and optionally the parser used."""
+    """Outcome of :func:`dynamicsyntax.parse` or :meth:`InteractiveContextParser.parse`: semantics, tree, trace, optional parser."""
 
     ok: bool
     semantics: TTRRecordType | None

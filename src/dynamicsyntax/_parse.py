@@ -12,7 +12,7 @@ from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
 from dylan.parser.interactive_context_parser import InteractiveContextParser
 from dylan.tree.tree import Tree
 
-from dynamicsyntax._session import resolved_grammar_path, session_parser
+from dynamicsyntax._session import resolved_grammar_path
 from dynamicsyntax.parse_trace import ParseActionStep
 from dynamicsyntax.parse_result import ParseResult
 
@@ -142,9 +142,16 @@ def _parse_at_path(grammar_path: Path, sentence: str, *, speaker: str, trace: bo
     return _parse_one(parser, sentence, speaker=speaker, trace=trace)
 
 
+_GRAMMAR_REQUIRED_MSG = (
+    "grammar is required for dynamicsyntax.parse(...); use parser.parse(...) after "
+    "dynamicsyntax.icp().set_grammar(...), or pass grammar= to parse(...)"
+)
+
+
 @overload
 def parse(
     sentence: str,
+    grammar: str | Path,
     /,
     *,
     speaker: str = ...,
@@ -155,28 +162,7 @@ def parse(
 @overload
 def parse(
     sentences: list[str],
-    /,
-    *,
-    speaker: str = ...,
-    trace: bool = ...,
-) -> list[ParseResult]: ...
-
-
-@overload
-def parse(
-    sentence: str,
-    grammar: str | Path | None,
-    /,
-    *,
-    speaker: str = ...,
-    trace: bool = ...,
-) -> ParseResult: ...
-
-
-@overload
-def parse(
-    sentences: list[str],
-    grammar: str | Path | None,
+    grammar: str | Path,
     /,
     *,
     speaker: str = ...,
@@ -197,8 +183,9 @@ def parse(
     :param sentence_or_sentences: A single whitespace-tokenised surface string, or a list of
         such strings (lowercased by the tokenizer). An empty list returns ``[]`` without using
         a grammar. Per-item blank or whitespace-only strings yield a failed result for that slot.
-    :param grammar: Bundled id or alias (e.g. ``\"ttr\"``), a grammar directory path, or
-        ``None`` to use the parser from :func:`~dynamicsyntax.set_grammar`.
+    :param grammar: Bundled id or alias (e.g. ``\"ttr\"``) or a grammar directory path. Required
+        for non-empty input; for grammar-bound parsing on a long-lived object use
+        :func:`dynamicsyntax.icp` and :meth:`~dylan.parser.interactive_context_parser.InteractiveContextParser.parse`.
     :param speaker: Dialogue participant id passed to the parser (default matches ``dylan``).
     :param trace: If ``True``, record one DS tree after ``new_sentence`` and after each word
         (for :meth:`~dynamicsyntax.parse_result.ParseResult.to_latex` ``incremental``).
@@ -207,8 +194,7 @@ def parse(
         Each result may include ``parser`` (the
         :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser` used), except when
         the facade returns early for whitespace-only single-string input without a parse.
-    :raises ValueError: If *grammar* is omitted or ``None`` but no session grammar was set with
-        :func:`~dynamicsyntax.set_grammar` (non-empty sentence, or any list item non-blank after strip).
+    :raises ValueError: If *grammar* is omitted or ``None`` while any non-blank input would require parsing.
     :raises FileNotFoundError: If *grammar* is unknown or not a directory.
 
     Packaged grammars: ``dynamicsyntax/grammars/`` in the library, and the project
@@ -220,34 +206,24 @@ def parse(
         sentences = sentence_or_sentences
         if not sentences:
             return []
-        if grammar is not None:
-            with resolved_grammar_path(grammar) as grammar_path:
-                parser = InteractiveContextParser(grammar_path)
-                return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
-        parser = session_parser()
-        if parser is None:
+        if grammar is None:
             if any(s.strip() for s in sentences):
-                raise ValueError(
-                    "no grammar set; call dynamicsyntax.set_grammar(...) first or pass grammar= to parse(...)",
-                )
+                raise ValueError(_GRAMMAR_REQUIRED_MSG)
             return [
                 ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=None)
                 for _ in sentences
             ]
-        return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
+        with resolved_grammar_path(grammar) as grammar_path:
+            parser = InteractiveContextParser(grammar_path)
+            return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
 
     sentence = sentence_or_sentences
     stripped = sentence.strip()
     if not stripped:
         return ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=None)
 
-    if grammar is not None:
-        with resolved_grammar_path(grammar) as grammar_path:
-            return _parse_at_path(grammar_path, stripped, speaker=speaker, trace=trace)
+    if grammar is None:
+        raise ValueError(_GRAMMAR_REQUIRED_MSG)
 
-    parser = session_parser()
-    if parser is None:
-        raise ValueError(
-            "no grammar set; call dynamicsyntax.set_grammar(...) first or pass grammar= to parse(...)",
-        )
-    return _run_parse_core(parser, stripped, speaker=speaker, trace=trace)
+    with resolved_grammar_path(grammar) as grammar_path:
+        return _parse_at_path(grammar_path, stripped, speaker=speaker, trace=trace)

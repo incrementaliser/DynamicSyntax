@@ -1,26 +1,17 @@
-"""Bundled grammar discovery, optional filesystem paths, and module-level parser session."""
+"""Bundled grammar discovery and filesystem resolution for grammar directories."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
-from typing import Any, TypeAlias
-
-from dylan.parser.interactive_context_parser import InteractiveContextParser
+from typing import Any
 
 # Public nicknames → directory name under ``dynamicsyntax/grammars/<name>``.
 _GRAMMAR_ALIASES: dict[str, str] = {
     "ttr": "2015-english-ttr",
 }
-
-_AsFileCtx: TypeAlias = AbstractContextManager[Path]
-
-# When a bundled grammar is loaded via :func:`set_grammar`, we keep ``as_file`` entered so
-# wheel extract paths stay valid until the next load.
-_bundled_as_file_cm: _AsFileCtx | None = None
-_session_parser: InteractiveContextParser | None = None
 
 
 def _is_grammar_dir(node: Any) -> bool:
@@ -79,79 +70,6 @@ def get_grammars() -> list[str]:
 def get_datasets() -> list[str]:
     """Return bundled dataset identifiers; empty until datasets ship with the package."""
     return []
-
-
-def _exit_bundled_context() -> None:
-    """Release any active ``resources.as_file`` context from a prior :func:`set_grammar`."""
-    global _bundled_as_file_cm
-    if _bundled_as_file_cm is not None:
-        _bundled_as_file_cm.__exit__(None, None, None)
-        _bundled_as_file_cm = None
-
-
-def set_grammar(grammar: str | Path, *, repairing: bool = False) -> None:
-    """Load grammar resources into the module-level session parser.
-
-    Reads the grammar directory (lexicon, computational and lexical actions, macros, etc.),
-    constructs an :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser`,
-    calls ``init()`` on it, and stores it for subsequent :func:`~dynamicsyntax.parse` calls that
-    omit the ``grammar`` argument. Replaces any previously set session grammar and releases any
-    prior bundled ``resources.as_file`` extract.
-
-    :param grammar: Bundled id or alias (e.g. ``\"2015-english-ttr\"``, ``\"ttr\"``) or a filesystem
-        directory path containing lexicon / grammar files.
-    :param repairing: Passed to :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser`.
-    :raises FileNotFoundError: If a bundled id is unknown or a path is not a directory.
-    """
-    global _session_parser, _bundled_as_file_cm
-    _exit_bundled_context()
-    _session_parser = None
-
-    if isinstance(grammar, Path):
-        path = grammar
-        if not path.is_dir():
-            raise FileNotFoundError(f"not a grammar directory: {path}")
-        parser = InteractiveContextParser(path, repairing=repairing)
-        parser.init()
-        _session_parser = parser
-        return
-
-    p = Path(grammar.strip())
-    if p.is_dir():
-        parser = InteractiveContextParser(p, repairing=repairing)
-        parser.init()
-        _session_parser = parser
-        return
-
-    canonical = _canonical_grammar_id(grammar.strip())
-    node = _bundled_package_grammar_traversable(canonical)
-    if node is None:
-        known = ", ".join(get_grammars()) or "(none)"
-        raise FileNotFoundError(
-            f"unknown grammar {grammar!r} (resolved {canonical!r}); known: {known}",
-        )
-    cm = resources.as_file(node)
-    path = cm.__enter__()
-    _bundled_as_file_cm = cm
-    try:
-        parser = InteractiveContextParser(path, repairing=repairing)
-        parser.init()
-        _session_parser = parser
-    except BaseException:
-        _exit_bundled_context()
-        raise
-
-
-def session_parser() -> InteractiveContextParser | None:
-    """Return the parser from the last successful :func:`set_grammar`, if any."""
-    return _session_parser
-
-
-def clear_grammar_session() -> None:
-    """Clear the module-level parser and any active bundled grammar extract (for tests or tooling)."""
-    global _session_parser
-    _exit_bundled_context()
-    _session_parser = None
 
 
 @contextmanager

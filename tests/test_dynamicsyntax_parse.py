@@ -66,15 +66,9 @@ def test_parse_empty_returns_failed_result() -> None:
 
 
 def test_parse_list_empty_returns_empty() -> None:
-    """Batch parse of an empty list returns ``[]`` and does not require a loaded grammar."""
-    from dynamicsyntax._session import clear_grammar_session
-
-    clear_grammar_session()
-    try:
-        assert ds.parse([], "ttr") == []
-        assert ds.parse([]) == []
-    finally:
-        ds.set_grammar("ttr")
+    """Batch parse of an empty list returns ``[]`` and does not require a grammar argument."""
+    assert ds.parse([], "ttr") == []
+    assert ds.parse([]) == []
 
 
 def test_parse_list_singleton_matches_single() -> None:
@@ -129,10 +123,11 @@ def test_parse_list_trace_matches_individual() -> None:
         assert len(got.action_steps) == len(ref.action_steps)
 
 
-def test_parse_list_session_grammar() -> None:
-    """List input works with session grammar from ``set_grammar``."""
-    ds.set_grammar("ttr")
-    batch = ds.parse(["a man arrives", "a man arrives"])
+def test_parse_list_repeated_via_icp() -> None:
+    """List input can be parsed by reusing one :func:`icp` parser and ``parse`` per item."""
+    parser = ds.icp()
+    parser.set_grammar("ttr")
+    batch = [parser.parse(s) for s in ["a man arrives", "a man arrives"]]
     assert len(batch) == 2
     assert all(r.ok for r in batch)
 
@@ -143,38 +138,34 @@ def test_parse_unknown_grammar_raises() -> None:
         ds.parse("hello", "not-a-backend")
 
 
-def test_set_grammar_then_parse() -> None:
-    """Session-style parse reuses grammar from ``set_grammar``."""
-    ds.set_grammar("ttr")
-    p = ds.parse("a man arrives")
+def test_icp_set_grammar_then_instance_parse() -> None:
+    """Instance ``parse`` reuses grammar from ``set_grammar``."""
+    parser = ds.icp()
+    parser.set_grammar("ttr")
+    p = parser.parse("a man arrives")
     assert p.ok
     assert isinstance(p.semantics, TTRRecordType)
     assert p.parser is not None
 
 
-def test_parse_without_grammar_and_without_set_raises() -> None:
-    """Calling ``parse(s)`` with no prior ``set_grammar`` is rejected."""
-    from dynamicsyntax._session import clear_grammar_session
-
-    clear_grammar_session()
-    try:
-        with pytest.raises(ValueError, match="no grammar set"):
-            ds.parse("hello")
-    finally:
-        ds.set_grammar("ttr")
+def test_icp_factory_with_grammar_arg() -> None:
+    """``icp(\"ttr\")`` loads grammar immediately."""
+    p = ds.icp("ttr").parse("a man arrives")
+    assert p.ok
+    assert isinstance(p.semantics, TTRRecordType)
 
 
-def test_parse_list_all_blank_without_session_no_raise() -> None:
-    """List of only blank strings does not require session grammar."""
-    from dynamicsyntax._session import clear_grammar_session
+def test_icp_parse_before_set_grammar_raises() -> None:
+    """Unloaded ``icp()`` rejects ``parse`` until ``set_grammar``."""
+    parser = ds.icp()
+    with pytest.raises(ValueError, match="grammar not loaded"):
+        parser.parse("hello")
 
-    clear_grammar_session()
-    try:
-        out = ds.parse(["   ", ""])
-        assert len(out) == 2
-        assert all(not r.ok and r.parser is None for r in out)
-    finally:
-        ds.set_grammar("ttr")
+
+def test_parse_without_grammar_raises() -> None:
+    """Module ``parse`` requires an explicit *grammar* for non-empty input."""
+    with pytest.raises(ValueError, match="grammar is required"):
+        ds.parse("hello")
 
 
 def test_vis_prints_address_order(capsys: pytest.CaptureFixture[str]) -> None:

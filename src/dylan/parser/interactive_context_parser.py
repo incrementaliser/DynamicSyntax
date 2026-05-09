@@ -19,7 +19,7 @@ from dylan.dag.word_level_context_dag import WordLevelContextDAG
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_formula import TTRFormula
 from dylan.formula.ttr_record_type import TTRRecordType
-from dylan.nlp.types import Dialogue, WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
+from dylan.nlp.types import DEFAULT_SPEAKER, Dialogue, WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
 from dylan.parser.dag_parser import DAGParser
 from dylan.tree.label.labels import Requirement, TypeLabel
 from dylan.tree.node_address import NodeAddress
@@ -87,27 +87,108 @@ class InteractiveContextParser(DAGParser):
 
     def __init__(
         self,
-        resource_dir: str | Path,
+        resource_dir: str | Path | None = None,
+        *,
         repairing: bool = False,
         top_n: int | tuple[str, ...] = 3,
         participants: tuple[str, ...] = (DEFAULT_NAME,),
     ) -> None:
-        p = Path(resource_dir)
+        """Construct a parser with optional *resource_dir* (filesystem directory or bundled grammar id)."""
+        participants_resolved = participants if participants else (DEFAULT_NAME,)
         if not isinstance(top_n, int):
-            participants = top_n
+            participants_resolved = top_n  # type: ignore[assignment]
             top_n = 3
-        super().__init__(Lexicon(p, top_n), Grammar(p), SpeechActInferenceGrammar(p))
+        self._top_n = top_n
+        self._participants = participants_resolved
+        self._default_repairing = repairing
+
+        if resource_dir is None:
+            self._init_shell_unloaded()
+            return
+
+        p = Path(resource_dir) if isinstance(resource_dir, str) else resource_dir
+        if p.is_dir():
+            self._apply_resource_dir(p, repairing=repairing)
+            return
+
+        self._init_shell_unloaded()
+        self.set_grammar(resource_dir, repairing=repairing)
+
+    def _init_shell_unloaded(self) -> None:
+        """Initialise placeholder lexicon/grammar with no dialogue ``context`` until :meth:`set_grammar`."""
+        DAGParser.__init__(
+            self,
+            Lexicon(None, self._top_n),
+            Grammar(None),
+            SpeechActInferenceGrammar(Path(".")),
+        )
+        self.context = None
+        self.forced_restart = False
+        self.forced_repair = False
+        self.right_edge_indicators = []
+        self.acks = ["uhu"]
+        self.repairanda = ["uhh", "errm", "err", "er", "uh", "erm", "uhm", "um", "oh"]
+        self.forced_repairanda = ["sorry", "oops", "wait", "erm"]
+        self.restarters = ["yeah"]
+
+    def _apply_resource_dir(self, path: Path, *, repairing: bool) -> None:
+        """Load lexicon and grammars from *path* and wire a fresh :class:`Context`."""
+        parts = self._participants if self._participants else (DEFAULT_NAME,)
+        DAGParser.__init__(
+            self,
+            Lexicon(path, self._top_n),
+            Grammar(path),
+            SpeechActInferenceGrammar(path),
+        )
         dag = WordLevelContextDAG()
-        parts = participants if participants else (DEFAULT_NAME,)
         self.context = Context(dag, self.sa_grammar, *parts)
         self.context.set_repair_processing(repairing)
         self.forced_restart = False
         self.forced_repair = False
-        self.right_edge_indicators: list[str] = []
-        self.acks: list[str] = ["uhu"]
-        self.repairanda: list[str] = ["uhh", "errm", "err", "er", "uh", "erm", "uhm", "um", "oh"]
-        self.forced_repairanda: list[str] = ["sorry", "oops", "wait", "erm"]
-        self.restarters: list[str] = ["yeah"]
+        self.right_edge_indicators = []
+        self.acks = ["uhu"]
+        self.repairanda = ["uhh", "errm", "err", "er", "uh", "erm", "uhm", "um", "oh"]
+        self.forced_repairanda = ["sorry", "oops", "wait", "erm"]
+        self.restarters = ["yeah"]
+        self.init()
+
+    def set_grammar(self, grammar: str | Path, *, repairing: bool | None = None) -> None:
+        """Load grammar files from a directory path or bundled grammar id/alias into this parser."""
+        from dynamicsyntax._session import resolved_grammar_path
+
+        rep = self._default_repairing if repairing is None else repairing
+        with resolved_grammar_path(grammar) as path:
+            self._apply_resource_dir(path, repairing=rep)
+
+    def parse(
+        self,
+        sentence_or_goal: str | Formula | None = None,
+        /,
+        *,
+        speaker: str = DEFAULT_SPEAKER,
+        trace: bool = False,
+    ) -> object:
+        """Parse a surface string into a :class:`~dynamicsyntax.parse_result.ParseResult`, or run ``parse_goal``.
+
+        Pass a ``str`` for high-level sentence parsing (requires :meth:`set_grammar` first unless
+        constructed with a grammar). Pass ``None`` or a :class:`~dylan.formula.formula.Formula`
+        for the internal ``parse_goal`` path (Java ``DAGParser.parse``).
+        """
+        if isinstance(sentence_or_goal, str):
+            return self._parse_surface(sentence_or_goal, speaker=speaker, trace=trace)
+        return self.parse_goal(sentence_or_goal)
+
+    def _parse_surface(self, sentence: str, *, speaker: str, trace: bool) -> object:
+        """Run :func:`~dynamicsyntax._parse._run_parse_core` for a non-goal surface string."""
+        if self.context is None:
+            raise ValueError("grammar not loaded; call set_grammar(...) first")
+        from dynamicsyntax._parse import _run_parse_core
+        from dynamicsyntax.parse_result import ParseResult
+
+        stripped = sentence.strip()
+        if not stripped:
+            return ParseResult(ok=False, semantics=None, tree=None, sentence="", parser=self)
+        return _run_parse_core(self, stripped, speaker=speaker, trace=trace)
 
     @classmethod
     def from_loaded(
@@ -125,6 +206,9 @@ class InteractiveContextParser(DAGParser):
         parts = participants if participants else (DEFAULT_NAME,)
         obj.context = Context(dag, obj.sa_grammar, *parts)
         obj.context.set_repair_processing(False)
+        obj._top_n = lexicon.top_n
+        obj._participants = parts
+        obj._default_repairing = False
         obj.forced_restart = False
         obj.forced_repair = False
         obj.right_edge_indicators = []
@@ -136,10 +220,14 @@ class InteractiveContextParser(DAGParser):
 
     def get_name(self) -> str:
         """Return this parser's context name."""
+        if self.context is None:
+            return DEFAULT_NAME
         return self.context.get_name()
 
     def repair_initiated(self) -> bool:
         """Return whether local repair has been initiated."""
+        if self.context is None:
+            return False
         return self.context.repair_initiated()
 
     def _adjust_once(self, goal: Formula | None) -> bool:
