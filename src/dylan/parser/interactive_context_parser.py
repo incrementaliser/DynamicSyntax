@@ -17,7 +17,6 @@ from dylan.dag.groundable_edge import GroundableEdge
 from dylan.dag.uttered_word import UtteredWord
 from dylan.dag.word_level_context_dag import WordLevelContextDAG
 from dylan.formula.formula import Formula
-from dylan.formula.ttr_formula import TTRFormula
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.nlp.types import DEFAULT_SPEAKER, Dialogue, WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
 from dylan.parser.dag_parser import DAGParser
@@ -517,6 +516,34 @@ class InteractiveContextParser(DAGParser):
         """Return up to *n* best final semantics candidates."""
         return self.get_n_best_final_semantics(n)
 
+    def derive_language(
+        self,
+        *,
+        max_len: int,
+        min_len: int = 1,
+        max_candidates: int | None = None,
+        max_successful: int | None = None,
+        out_dir: str | Path | None = None,
+        grammar_name: str | None = None,
+        max_workers: int | None = None,
+        speaker: str = DEFAULT_SPEAKER,
+        addressee: str = "you",
+    ) -> tuple[Path, Path]:
+        """Derive bounded language files; delegates to :class:`~dylan.parser.language_derivation.LanguageDerivation`."""
+        from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
+
+        return LanguageDerivation(self).run(
+            max_len=max_len,
+            min_len=min_len,
+            max_candidates=max_candidates,
+            max_successful=max_successful,
+            out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
+            grammar_name=grammar_name,
+            max_workers=max_workers,
+            speaker=speaker,
+            addressee=addressee,
+        )
+
     def replay_backtracked_actions(self, word: UtteredWord) -> bool:
         """Replay the current edge action sequence at a right-edge indicator."""
         dag = self.get_state()
@@ -611,6 +638,7 @@ InteractiveContextParser.parseUtterance = InteractiveContextParser.parse_utteran
 InteractiveContextParser.generateWord = InteractiveContextParser.generate_word  # type: ignore[attr-defined]
 InteractiveContextParser.parseDialogue = InteractiveContextParser.parse_dialogue  # type: ignore[attr-defined]
 InteractiveContextParser.getTopNPending = InteractiveContextParser.get_top_n_pending  # type: ignore[attr-defined]
+InteractiveContextParser.deriveLanguage = InteractiveContextParser.derive_language  # type: ignore[attr-defined]
 InteractiveContextParser.replayBacktrackedActions = InteractiveContextParser.replay_backtracked_actions  # type: ignore[attr-defined]
 InteractiveContextParser.backtrackAndParse = InteractiveContextParser.backtrack_and_parse  # type: ignore[attr-defined]
 InteractiveContextParser.leftAdjustAndApply = InteractiveContextParser.left_adjust_and_apply  # type: ignore[attr-defined]
