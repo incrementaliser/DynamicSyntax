@@ -514,6 +514,15 @@ def main() -> None:
             )
             _refresh_views(msg)
 
+        def do_step_through(_: ft.ControlEvent | None = None) -> None:
+            """Advance to the next interpretation from the current parser state."""
+            err, ok = session.run_step_through()
+            if err is not None:
+                append_log(err)
+                return
+            msg = "Stepped to next interpretation." if ok else "No further interpretation available."
+            _refresh_views(msg)
+
         def on_tree_canvas_resize(e: cv.CanvasResizeEvent) -> None:
             """Re-layout the parse tree when the canvas control receives its real size."""
             aw = float(e.width)
@@ -535,6 +544,11 @@ def main() -> None:
                 padding=_primary_btn_padding,
                 shape=_primary_btn_shape,
             ),
+        )
+        step_through_btn = ft.Button(
+            content="Step Through",
+            on_click=do_step_through,
+            tooltip="Advance to the next parse interpretation (Java Step Through)",
         )
         set_grammar_btn.on_click = pick_grammar_dir
 
@@ -611,6 +625,7 @@ def main() -> None:
                 [
                     sentence_box,
                     parse_btn,
+                    step_through_btn,
                 ],
                 spacing=8,
             ),

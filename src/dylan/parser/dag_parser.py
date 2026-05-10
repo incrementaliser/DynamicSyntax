@@ -180,10 +180,26 @@ class DAGParser:
         dag.add_child(tup, edge)
         return tup
 
+    def get_state_with_n_best_tuples(self, n: int) -> list[DAGTuple]:
+        """Return current tuple plus up to *n* further interpretations by stepping the parser."""
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        dag = self.get_state()
+        dag.reset_to_first_tuple_after_last_word()
+        result: list[DAGTuple] = [dag.get_current_tuple()]
+        try:
+            for _ in range(n):
+                if not self.parse_goal(None):
+                    break
+                result.append(dag.get_current_tuple())
+            return result
+        finally:
+            dag.reset_to_first_tuple_after_last_word()
+
     def get_n_best_final_semantics(self, n: int) -> list[TTRRecordType]:
-        """Return up to *n* final semantics from complete leaf tuples."""
+        """Return final semantics from Java-style N-best tuple stepping."""
         out: list[TTRRecordType] = []
-        for tup in self.get_state().get_n_best_final_tuples(n):
+        for tup in self.get_state_with_n_best_tuples(n):
             sem = tup.get_semantics(self.context)
             ev = sem.evaluate()
             if isinstance(ev, TTRRecordType):
@@ -212,4 +228,5 @@ DAGParser.completeOnce = DAGParser.complete_once  # type: ignore[attr-defined]
 DAGParser.completeTree = DAGParser.complete_tree  # type: ignore[attr-defined]
 DAGParser.getFinalSemantics = DAGParser.get_final_semantics  # type: ignore[attr-defined]
 DAGParser.newSentence = DAGParser.new_sentence  # type: ignore[attr-defined]
+DAGParser.getStateWithNBestTuples = DAGParser.get_state_with_n_best_tuples  # type: ignore[attr-defined]
 DAGParser.getNBestFinalSemantics = DAGParser.get_n_best_final_semantics  # type: ignore[attr-defined]

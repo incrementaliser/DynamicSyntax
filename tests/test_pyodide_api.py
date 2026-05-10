@@ -37,6 +37,11 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     assert isinstance(pv, dict)
     assert "man(" in pv.get("semantics", "") and "arrive" in pv.get("semantics", "")
 
+    step_out = pyodide_api.dispatch("step_through", {})
+    assert step_out.get("error") is None
+    assert "step_ok" in step_out
+    assert isinstance(step_out.get("views"), dict)
+
 
 def test_api_json_round_trip() -> None:
     """``api_json`` returns valid JSON and echoes dispatch results."""

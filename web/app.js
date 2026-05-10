@@ -159,6 +159,7 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     document.getElementById("btn-init").disabled = false;
     document.getElementById("btn-new-sentence").disabled = false;
     document.getElementById("btn-parse").disabled = false;
+    document.getElementById("btn-step-through").disabled = false;
   }
 
   async function loadGrammarFromVirtualPath() {
@@ -284,6 +285,18 @@ await micropip.install(${JSON.stringify(wheelUrl)})
         const sentence = document.getElementById("sentence").value || "";
         const resetBefore = document.getElementById("chk-reset-before").checked;
         const r = callApi("parse", { sentence, reset_before: resetBefore });
+        if (r.error) appendLog(r.error);
+        else {
+          applyViews(r.views);
+          if (r.log_message) appendLog(r.log_message);
+        }
+      } catch (err) {
+        appendLog(String(err));
+      }
+    });
+    document.getElementById("btn-step-through").addEventListener("click", () => {
+      try {
+        const r = callApi("step_through", {});
         if (r.error) appendLog(r.error);
         else {
           applyViews(r.views);

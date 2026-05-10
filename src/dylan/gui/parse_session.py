@@ -215,3 +215,10 @@ class ParseSession:
         utt = utterance_from_text(speaker, text)
         ok = self.parser.parse_utterance(utt)
         return (None, ok)
+
+    def run_step_through(self) -> tuple[str | None, bool | None]:
+        """Advance to the next parser interpretation, matching Java ``ParserPanel`` step-through."""
+        if self.parser is None:
+            return ("=== Step through ===\nLoad grammar first.", None)
+        ok = self.parser.parse_goal(None)
+        return (None, ok)

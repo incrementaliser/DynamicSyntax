@@ -77,6 +77,17 @@ def dispatch(action: str, payload: dict[str, Any]) -> dict[str, Any]:
             "log_message": format_parse_state_log(msg),
             "views": _view_dict(),
         }
+    if action == "step_through":
+        err, ok = _session.run_step_through()
+        if err is not None:
+            return {"error": err, "step_ok": None, "views": None, "log_message": None}
+        msg = "Stepped to next interpretation." if ok else "No further interpretation available."
+        return {
+            "error": None,
+            "step_ok": ok,
+            "log_message": format_parse_state_log(msg),
+            "views": _view_dict(),
+        }
     return {"error": f"unknown action: {action}"}
 
 

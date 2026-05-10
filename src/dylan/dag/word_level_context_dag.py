@@ -277,7 +277,25 @@ class WordLevelContextDAG:
     def reset_to_first_tuple_after_last_word(self) -> None:
         """Reset current tuple to the last post-word anchor and clear children."""
         anchor = self.first_tuple_after_last_word or self.root
-        self.set_current_tuple(anchor)
+        path: list[tuple[DAGTuple, GroundableEdge]] = []
+        node = anchor
+        while node != self.root:
+            inc = self._in.get(node)
+            if inc is None:
+                break
+            edge, parent = inc
+            path.append((parent, edge))
+            node = parent
+        path.reverse()
+
+        for parent, _edge in path:
+            for out_edge in self.get_out_edges(parent):
+                out_edge.set_seen(False)
+                out_edge.set_in_context(False)
+
+        self.set_current_tuple(path[0][0] if path else anchor)
+        for _parent, edge in path:
+            edge.traverse(self)
         self.word_stack.clear()
         self.remove_children(self.cur)
         self.exhausted = False
@@ -319,7 +337,7 @@ class WordLevelContextDAG:
         return sorted(self._nodes, key=lambda t: t.tuple_id)
 
     def get_n_best_final_tuples(self, n: int) -> list[DAGTuple]:
-        """Return up to *n* complete leaf tuples."""
+        """Return up to *n* complete leaf tuples in creation order, not parser step-through order."""
         leaves = [
             node for node in self.get_all_tuples()
             if self.out_degree(node) == 0 and node.is_complete()
