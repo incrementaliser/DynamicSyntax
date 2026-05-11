@@ -92,6 +92,22 @@ def test_derive_language_parallel_smoke_writes_incomplete_failure(tmp_path: Path
     assert failures_path.read_text(encoding="utf-8") == "<<incomplete>> | test\n"
 
 
+def test_derive_language_layered_parallel_matches_sequential(tmp_path: Path) -> None:
+    """Multi-process layered BFS matches single-process output on the minimal fixture."""
+    parser = InteractiveContextParser(FIXTURE)
+    out_seq = tmp_path / "seq"
+    out_par = tmp_path / "par"
+    out_seq.mkdir()
+    out_par.mkdir()
+    paths_seq = parser.derive_language_layered(max_len=2, out_dir=out_seq, max_workers=1)
+    paths_par = parser.derive_language_layered(max_len=2, out_dir=out_par, max_workers=2)
+    for layer in paths_seq:
+        lang_s, fail_s = paths_seq[layer]
+        lang_p, fail_p = paths_par[layer]
+        assert lang_s.read_text(encoding="utf-8") == lang_p.read_text(encoding="utf-8")
+        assert fail_s.read_text(encoding="utf-8") == fail_p.read_text(encoding="utf-8")
+
+
 def test_derive_language_layered_writes_per_layer_files(tmp_path: Path) -> None:
     """Layered derivation creates ``layer_i`` language and failure files."""
     parser = InteractiveContextParser(FIXTURE)

@@ -28,6 +28,7 @@ _INCOMPLETE_LANGUAGE_SENTINEL = "<<incomplete>>"
 _SEMANTICS_ERROR_LANGUAGE_SENTINEL = "<<semantics-error>>"
 _COMPLETION_ABORT_SENTINEL = "<<completion-aborted>>"
 _WORKER_PARSER: Any = None
+_LAYERED_WORKER_PARSER: Any = None
 
 
 @dataclass(frozen=True)
@@ -296,6 +297,110 @@ def _derive_language_worker(
     )
 
 
+def _init_layered_language_worker(
+    grammar_path: str,
+    participants: tuple[str, ...],
+    log_level: str,
+    log_output: str,
+    log_dir: str | None,
+) -> None:
+    """Initialise one forward-only ``top_n=1`` parser per process for layered BFS workers."""
+    global _LAYERED_WORKER_PARSER
+    from dylan.parser.interactive_context_parser import InteractiveContextParser
+
+    _LAYERED_WORKER_PARSER = InteractiveContextParser(
+        Path(grammar_path),
+        repairing=False,
+        top_n=1,
+        participants=participants,
+        log_level=log_level,
+        log_output=log_output,
+        log_dir=Path(log_dir) if log_dir is not None else None,
+    )
+
+
+def _layered_bfs_seed_group_worker(
+    task: tuple[int, tuple[str, ...], str, str, int],
+) -> tuple[int, bool, str | None, LanguageDerivationRecord | None, str | None]:
+    """Try one vocabulary group as a length-1 seed; return group index, success flag, and records."""
+    if _LAYERED_WORKER_PARSER is None:
+        raise RuntimeError("layered language worker parser is not initialised")
+    group_idx, group, speaker, addressee, min_len = task
+    wp = _LAYERED_WORKER_PARSER
+    for w in group:
+        wp.init()
+        try:
+            seed_result = wp.parse_word(UtteredWord(w, speaker, addressee))
+        except Exception:
+            logger.debug("_layered_bfs_seed_group_worker: parse_word raised for %r", w, exc_info=True)
+            seed_result = None
+        if seed_result is not None:
+            comp: LanguageDerivationRecord | None = None
+            if 1 >= min_len:
+                comp = _record_completion_from_current_state(wp, sentence=w)
+            return (group_idx, True, w, comp, None)
+    return (group_idx, False, None, None, group[0])
+
+
+def _layered_bfs_extension_group_worker(
+    task: tuple[tuple[str, ...], int, tuple[str, ...], str, str, int, int],
+) -> tuple[
+    tuple[str, ...],
+    int,
+    bool,
+    bool,
+    tuple[str, ...] | None,
+    LanguageDerivationRecord | None,
+    str | None,
+]:
+    """Extend *prefix* with one template group; mirrors sequential first-success group semantics."""
+    if _LAYERED_WORKER_PARSER is None:
+        raise RuntimeError("layered language worker parser is not initialised")
+    prefix, group_idx, group, speaker, addressee, min_len, max_len = task
+    wp = _LAYERED_WORKER_PARSER
+    replay_failed = False
+    group_success = False
+    for w in group:
+        if not _replay_prefix(wp, prefix, speaker=speaker, addressee=addressee):
+            replay_failed = True
+            break
+        try:
+            ext_result = wp.parse_word(UtteredWord(w, speaker, addressee))
+        except Exception:
+            logger.debug(
+                "_layered_bfs_extension_group_worker: parse_word raised for %r after %r",
+                w,
+                prefix,
+                exc_info=True,
+            )
+            ext_result = None
+        if ext_result is not None:
+            group_success = True
+            q = prefix + (w,)
+            comp_q: LanguageDerivationRecord | None = None
+            if len(q) >= min_len and len(q) <= max_len:
+                comp_q = _record_completion_from_current_state(wp, sentence=" ".join(q))
+            return (prefix, group_idx, replay_failed, group_success, q, comp_q, None)
+    if not replay_failed and not group_success:
+        return (prefix, group_idx, False, False, None, None, group[0])
+    return (prefix, group_idx, replay_failed, False, None, None, None)
+
+
+def _layered_bfs_maxlen_completion_worker(
+    task: tuple[tuple[str, ...], str, str, int, int],
+) -> LanguageDerivationRecord | None:
+    """Run completion on a max-length prefix in a worker; returns a record for the main process to filter."""
+    if _LAYERED_WORKER_PARSER is None:
+        raise RuntimeError("layered language worker parser is not initialised")
+    prefix, speaker, addressee, max_len, min_len = task
+    wp = _LAYERED_WORKER_PARSER
+    if len(prefix) != max_len or len(prefix) < min_len:
+        return None
+    if not _replay_prefix(wp, prefix, speaker=speaker, addressee=addressee):
+        return None
+    return _record_completion_from_current_state(wp, sentence=" ".join(prefix))
+
+
 class LanguageDerivation:
     """Brute-force bounded candidate sentences and write language / failure reports."""
 
@@ -315,6 +420,7 @@ class LanguageDerivation:
         max_successful: int | None = None,
         out_dir: str | Path = DEFAULT_LANGUAGE_OUTPUT_DIR,
         grammar_name: str | None = None,
+        max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
     ) -> dict[int, tuple[Path, Path]]:
@@ -324,6 +430,7 @@ class LanguageDerivation:
         including immediately after each successful ``parse_word`` on a prefix.
         Each failures file holds deduplicated ``WORD | PREFIX`` lines for ``parse_word`` extension
         failures only; ``complete_tree`` failures are not written there.
+        ``max_workers=1`` forces single-process traversal; ``None`` uses :func:`_default_language_workers`.
         """
         fw = _parser_for_layered_forward(self._parser)
         vocab = _derivable_vocab(fw)
@@ -341,6 +448,7 @@ class LanguageDerivation:
             grammar_name=grammar_name,
             speaker=speaker,
             addressee=addressee,
+            max_workers=max_workers,
         )
 
     def run_layered_category(
@@ -351,6 +459,7 @@ class LanguageDerivation:
         max_successful: int | None = None,
         out_dir: str | Path = DEFAULT_LANGUAGE_OUTPUT_DIR,
         grammar_name: str | None = None,
+        max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
     ) -> dict[int, tuple[Path, Path]]:
@@ -376,6 +485,7 @@ class LanguageDerivation:
             grammar_name=grammar_name,
             speaker=speaker,
             addressee=addressee,
+            max_workers=max_workers,
         )
 
     def run_layered_random(
@@ -436,6 +546,7 @@ class LanguageDerivation:
         grammar_name: str | None,
         speaker: str,
         addressee: str,
+        max_workers: int | None = None,
     ) -> dict[int, tuple[Path, Path]]:
         """Breadth-first layered derivation; writes deduplicated records per depth.
 
@@ -448,6 +559,10 @@ class LanguageDerivation:
         attempted immediately; successes are written to the matching layer language file.
         Extension failures (all words in a group fail) go to the layer failure file for the
         current prefix length.
+
+        When ``max_workers`` is not ``1`` (including the default from :func:`_default_language_workers`),
+        seed and extension work is distributed across processes like :meth:`run`; ``max_workers=1``
+        keeps a single-threaded traversal for deterministic debugging.
         """
         base = self._parser
         if base.context is None:
@@ -465,6 +580,18 @@ class LanguageDerivation:
         resolved_name = grammar_name or (Path(grammar_path).name if grammar_path else None)
         if not resolved_name:
             raise ValueError("grammar_name is required when the loaded lexicon has no resource dir")
+
+        workers = _default_language_workers() if max_workers is None else max_workers
+        if workers < 1:
+            raise ValueError("max_workers must be at least 1")
+        if workers > 1:
+            gpd = grammar_path
+            if gpd is None or not Path(gpd).is_dir():
+                raise ValueError("parallel layered derivation requires a filesystem grammar directory on the lexicon")
+        init_log_level = str(getattr(parser, "_log_level", "off"))
+        init_log_output = str(getattr(parser, "_log_output", "terminal"))
+        _raw_log_dir = getattr(parser, "_log_dir", None)
+        init_log_dir: str | None = str(_raw_log_dir) if _raw_log_dir is not None else None
 
         n_groups = len(vocab_groups)
         n_words = sum(len(g) for g in vocab_groups)
@@ -509,135 +636,278 @@ class LanguageDerivation:
             frontier: list[tuple[str, ...]] = []
             seed_fail_groups = 0
 
-            with _layered_console.status("[bold green]Layer 1 (seed) running...[/bold green]"):
-                for group in vocab_groups:
-                    if stop:
-                        break
-                    for w in group:
-                        parser.init()
-                        try:
-                            seed_result = parser.parse_word(UtteredWord(w, speaker, addressee))
-                        except Exception:
-                            logger.debug("_run_layered_bfs: seed parse_word raised for %r", w, exc_info=True)
-                            seed_result = None
-                        if seed_result is not None:
-                            frontier.append((w,))
-                            if 1 >= min_len:
-                                emit_completion_success_only(
-                                    1,
-                                    _record_completion_from_current_state(parser, sentence=w),
-                                )
-                            if max_successful is not None and success_total >= max_successful:
-                                stop = True
-                            break  # first success in group wins
-                        # else: word failed — try next word in same group
-                    else:
-                        # every word in this group failed for the seed
-                        seed_fail_groups += 1
-                        LanguageDerivation._write_extension_failure_deduped(
-                            handles[1][1],
-                            seen_fail_by_layer[1],
-                            word=group[0],
-                            prefix_words=(),
+            if workers > 1:
+                with ProcessPoolExecutor(
+                    max_workers=workers,
+                    initializer=_init_layered_language_worker,
+                    initargs=(
+                        str(Path(grammar_path)),
+                        parser._participants,
+                        init_log_level,
+                        init_log_output,
+                        init_log_dir,
+                    ),
+                ) as executor:
+                    batch_size = max(1, workers * 4)
+                    seed_tasks = [
+                        (i, vocab_groups[i], speaker, addressee, min_len)
+                        for i in range(len(vocab_groups))
+                    ]
+                    si = 0
+                    with _layered_console.status("[bold green]Layer 1 (seed) running...[/bold green]"):
+                        while si < len(seed_tasks) and not stop:
+                            chunk = seed_tasks[si : si + batch_size]
+                            for row in executor.map(_layered_bfs_seed_group_worker, chunk):
+                                if stop:
+                                    break
+                                _gi, ok, chosen, comp_rec, fail_rep = row
+                                if ok and chosen is not None:
+                                    frontier.append((chosen,))
+                                    if comp_rec is not None:
+                                        emit_completion_success_only(1, comp_rec)
+                                    if max_successful is not None and success_total >= max_successful:
+                                        stop = True
+                                else:
+                                    seed_fail_groups += 1
+                                    LanguageDerivation._write_extension_failure_deduped(
+                                        handles[1][1],
+                                        seen_fail_by_layer[1],
+                                        word=fail_rep or "",
+                                        prefix_words=(),
+                                    )
+                            si += len(chunk)
+
+                    _layered_console.print(
+                        f"  Layer 1 — "
+                        f"[green]{len(frontier)} seeds parseable[/green], "
+                        f"[red]{seed_fail_groups} group failures[/red], "
+                        f"[bold yellow]{len(seen_success_by_layer[1])} completions[/bold yellow]"
+                    )
+
+                    for depth in range(1, max_len):
+                        if stop or not frontier:
+                            break
+                        next_frontier_par: list[tuple[str, ...]] = []
+                        layer_ext_fail_groups = 0
+                        success_before_depth = success_total
+
+                        ext_tasks: list[
+                            tuple[tuple[str, ...], int, tuple[str, ...], str, str, int, int]
+                        ] = []
+                        for P in sorted(set(frontier)):
+                            for gi, group in enumerate(vocab_groups):
+                                ext_tasks.append((P, gi, group, speaker, addressee, min_len, max_len))
+
+                        prev_p: tuple[str, ...] | None = None
+                        had_failure_for_p = False
+
+                        def _finalize_prefix_completion(p_end: tuple[str, ...], had_f: bool) -> None:
+                            """Replay *p_end* in the main parser and emit completion after extension failures."""
+                            nonlocal stop
+                            if had_f and len(p_end) >= min_len:
+                                if _replay_prefix(parser, p_end, speaker=speaker, addressee=addressee):
+                                    emit_completion_success_only(
+                                        len(p_end),
+                                        _record_completion_from_current_state(
+                                            parser,
+                                            sentence=" ".join(p_end),
+                                        ),
+                                    )
+                                if max_successful is not None and success_total >= max_successful:
+                                    stop = True
+
+                        with _layered_console.status(
+                            f"[bold green]Layer {depth + 1} (extending {len(frontier)} prefixes)...[/bold green]"
+                        ):
+                            ei = 0
+                            while ei < len(ext_tasks) and not stop:
+                                chunk = ext_tasks[ei : ei + batch_size]
+                                for row in executor.map(_layered_bfs_extension_group_worker, chunk):
+                                    if stop:
+                                        break
+                                    P, _gi, replay_failed, group_success, q, comp_q, fail_word = row
+                                    if prev_p is not None and P != prev_p:
+                                        _finalize_prefix_completion(prev_p, had_failure_for_p)
+                                        had_failure_for_p = False
+                                    prev_p = P
+                                    if replay_failed:
+                                        continue
+                                    if group_success and q is not None:
+                                        if depth + 1 <= max_len:
+                                            next_frontier_par.append(q)
+                                        if comp_q is not None:
+                                            emit_completion_success_only(len(q), comp_q)
+                                        if max_successful is not None and success_total >= max_successful:
+                                            stop = True
+                                    elif not group_success:
+                                        had_failure_for_p = True
+                                        layer_ext_fail_groups += 1
+                                        LanguageDerivation._write_extension_failure_deduped(
+                                            handles[len(P)][1],
+                                            seen_fail_by_layer[len(P)],
+                                            word=fail_word or "",
+                                            prefix_words=P,
+                                        )
+                                ei += len(chunk)
+                        if prev_p is not None:
+                            _finalize_prefix_completion(prev_p, had_failure_for_p)
+
+                        frontier = sorted(set(next_frontier_par))
+                        new_successes = success_total - success_before_depth
+                        _layered_console.print(
+                            f"  Layer {depth + 1} — "
+                            f"[bold yellow]+{new_successes} new completions[/bold yellow], "
+                            f"[red]{layer_ext_fail_groups} group failures[/red], "
+                            f"[cyan]{len(frontier)} in fringe[/cyan]"
                         )
 
-            _layered_console.print(
-                f"  Layer 1 — "
-                f"[green]{len(frontier)} seeds parseable[/green], "
-                f"[red]{seed_fail_groups} group failures[/red], "
-                f"[bold yellow]{len(seen_success_by_layer[1])} completions[/bold yellow]"
-            )
+                    if not stop:
+                        maxlen_tasks = [
+                            (P, speaker, addressee, max_len, min_len)
+                            for P in sorted(set(frontier))
+                            if len(P) == max_len and len(P) >= min_len
+                        ]
+                        mi = 0
+                        while mi < len(maxlen_tasks) and not stop:
+                            chunk = maxlen_tasks[mi : mi + batch_size]
+                            for rec in executor.map(_layered_bfs_maxlen_completion_worker, chunk):
+                                if stop:
+                                    break
+                                if rec is not None:
+                                    emit_completion_success_only(max_len, rec)
+                                if max_successful is not None and success_total >= max_successful:
+                                    stop = True
+                            mi += len(chunk)
+            else:
+                with _layered_console.status("[bold green]Layer 1 (seed) running...[/bold green]"):
+                    for group in vocab_groups:
+                        if stop:
+                            break
+                        for w in group:
+                            parser.init()
+                            try:
+                                seed_result = parser.parse_word(UtteredWord(w, speaker, addressee))
+                            except Exception:
+                                logger.debug("_run_layered_bfs: seed parse_word raised for %r", w, exc_info=True)
+                                seed_result = None
+                            if seed_result is not None:
+                                frontier.append((w,))
+                                if 1 >= min_len:
+                                    emit_completion_success_only(
+                                        1,
+                                        _record_completion_from_current_state(parser, sentence=w),
+                                    )
+                                if max_successful is not None and success_total >= max_successful:
+                                    stop = True
+                                break  # first success in group wins
+                            # else: word failed — try next word in same group
+                        else:
+                            # every word in this group failed for the seed
+                            seed_fail_groups += 1
+                            LanguageDerivation._write_extension_failure_deduped(
+                                handles[1][1],
+                                seen_fail_by_layer[1],
+                                word=group[0],
+                                prefix_words=(),
+                            )
 
-            for depth in range(1, max_len):
-                if stop or not frontier:
-                    break
-                next_frontier: list[tuple[str, ...]] = []
-                layer_ext_fail_groups = 0
-                success_before_depth = success_total
+                _layered_console.print(
+                    f"  Layer 1 — "
+                    f"[green]{len(frontier)} seeds parseable[/green], "
+                    f"[red]{seed_fail_groups} group failures[/red], "
+                    f"[bold yellow]{len(seen_success_by_layer[1])} completions[/bold yellow]"
+                )
 
-                with _layered_console.status(
-                    f"[bold green]Layer {depth + 1} (extending {len(frontier)} prefixes)...[/bold green]"
-                ):
+                for depth in range(1, max_len):
+                    if stop or not frontier:
+                        break
+                    next_frontier: list[tuple[str, ...]] = []
+                    layer_ext_fail_groups = 0
+                    success_before_depth = success_total
+
+                    with _layered_console.status(
+                        f"[bold green]Layer {depth + 1} (extending {len(frontier)} prefixes)...[/bold green]"
+                    ):
+                        for P in sorted(set(frontier)):
+                            if stop:
+                                break
+                            had_failure = False
+                            for group in vocab_groups:
+                                if stop:
+                                    break
+                                replay_failed = False
+                                group_success = False
+                                for w in group:
+                                    if not _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
+                                        replay_failed = True
+                                        break
+                                    try:
+                                        ext_result = parser.parse_word(UtteredWord(w, speaker, addressee))
+                                    except Exception:
+                                        logger.debug(
+                                            "_run_layered_bfs: extension parse_word raised for %r after %r",
+                                            w,
+                                            P,
+                                            exc_info=True,
+                                        )
+                                        ext_result = None
+                                    if ext_result is not None:
+                                        group_success = True
+                                        q = P + (w,)
+                                        if depth + 1 <= max_len:
+                                            next_frontier.append(q)
+                                        if len(q) >= min_len and len(q) <= max_len:
+                                            emit_completion_success_only(
+                                                len(q),
+                                                _record_completion_from_current_state(
+                                                    parser,
+                                                    sentence=" ".join(q),
+                                                ),
+                                            )
+                                        if max_successful is not None and success_total >= max_successful:
+                                            stop = True
+                                        break  # first success in group wins
+                                    # else: word failed — try next word in same group
+                                if not replay_failed and not group_success:
+                                    # every word in this group failed to extend P
+                                    had_failure = True
+                                    layer_ext_fail_groups += 1
+                                    LanguageDerivation._write_extension_failure_deduped(
+                                        handles[len(P)][1],
+                                        seen_fail_by_layer[len(P)],
+                                        word=group[0],
+                                        prefix_words=P,
+                                    )
+                            if had_failure and len(P) >= min_len:
+                                if _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
+                                    emit_completion_success_only(
+                                        len(P),
+                                        _record_completion_from_current_state(parser, sentence=" ".join(P)),
+                                    )
+                                if max_successful is not None and success_total >= max_successful:
+                                    stop = True
+
+                    frontier = sorted(set(next_frontier))
+                    new_successes = success_total - success_before_depth
+                    _layered_console.print(
+                        f"  Layer {depth + 1} — "
+                        f"[bold yellow]+{new_successes} new completions[/bold yellow], "
+                        f"[red]{layer_ext_fail_groups} group failures[/red], "
+                        f"[cyan]{len(frontier)} in fringe[/cyan]"
+                    )
+
+                if not stop:
                     for P in sorted(set(frontier)):
                         if stop:
                             break
-                        had_failure = False
-                        for group in vocab_groups:
-                            if stop:
-                                break
-                            replay_failed = False
-                            group_success = False
-                            for w in group:
-                                if not _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
-                                    replay_failed = True
-                                    break
-                                try:
-                                    ext_result = parser.parse_word(UtteredWord(w, speaker, addressee))
-                                except Exception:
-                                    logger.debug(
-                                        "_run_layered_bfs: extension parse_word raised for %r after %r",
-                                        w,
-                                        P,
-                                        exc_info=True,
-                                    )
-                                    ext_result = None
-                                if ext_result is not None:
-                                    group_success = True
-                                    q = P + (w,)
-                                    if depth + 1 <= max_len:
-                                        next_frontier.append(q)
-                                    if len(q) >= min_len and len(q) <= max_len:
-                                        emit_completion_success_only(
-                                            len(q),
-                                            _record_completion_from_current_state(
-                                                parser,
-                                                sentence=" ".join(q),
-                                            ),
-                                        )
-                                    if max_successful is not None and success_total >= max_successful:
-                                        stop = True
-                                    break  # first success in group wins
-                                # else: word failed — try next word in same group
-                            if not replay_failed and not group_success:
-                                # every word in this group failed to extend P
-                                had_failure = True
-                                layer_ext_fail_groups += 1
-                                LanguageDerivation._write_extension_failure_deduped(
-                                    handles[len(P)][1],
-                                    seen_fail_by_layer[len(P)],
-                                    word=group[0],
-                                    prefix_words=P,
-                                )
-                        if had_failure and len(P) >= min_len:
+                        if len(P) == max_len and len(P) >= min_len:
                             if _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
                                 emit_completion_success_only(
-                                    len(P),
+                                    max_len,
                                     _record_completion_from_current_state(parser, sentence=" ".join(P)),
                                 )
                             if max_successful is not None and success_total >= max_successful:
                                 stop = True
-
-                frontier = sorted(set(next_frontier))
-                new_successes = success_total - success_before_depth
-                _layered_console.print(
-                    f"  Layer {depth + 1} — "
-                    f"[bold yellow]+{new_successes} new completions[/bold yellow], "
-                    f"[red]{layer_ext_fail_groups} group failures[/red], "
-                    f"[cyan]{len(frontier)} in fringe[/cyan]"
-                )
-
-            if not stop:
-                for P in sorted(set(frontier)):
-                    if stop:
-                        break
-                    if len(P) == max_len and len(P) >= min_len:
-                        if _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
-                            emit_completion_success_only(
-                                max_len,
-                                _record_completion_from_current_state(parser, sentence=" ".join(P)),
-                            )
-                        if max_successful is not None and success_total >= max_successful:
-                            stop = True
 
         total_successes = sum(len(ss) for ss in seen_success_by_layer.values())
         _layered_console.print(

@@ -660,10 +660,15 @@ class InteractiveContextParser(DAGParser):
         max_successful: int | None = None,
         out_dir: str | Path | None = None,
         grammar_name: str | None = None,
+        max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
     ) -> dict[int, tuple[Path, Path]]:
-        """Layered prefix derivation with per-depth ``layer_i`` output files (forward-only, ``top_n=1``)."""
+        """Layered prefix derivation with per-depth ``layer_i`` output files (forward-only, ``top_n=1``).
+
+        Uses multi-process BFS when ``max_workers`` is not ``1`` (default: one fewer than logical CPUs);
+        pass ``max_workers=1`` for a single-process run.
+        """
         from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
 
         return LanguageDerivation(self).run_layered(
@@ -672,6 +677,7 @@ class InteractiveContextParser(DAGParser):
             max_successful=max_successful,
             out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
             grammar_name=grammar_name,
+            max_workers=max_workers,
             speaker=speaker,
             addressee=addressee,
         )
@@ -684,10 +690,14 @@ class InteractiveContextParser(DAGParser):
         max_successful: int | None = None,
         out_dir: str | Path | None = None,
         grammar_name: str | None = None,
+        max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
     ) -> dict[int, tuple[Path, Path]]:
-        """Layered derivation using one representative word per lexical template."""
+        """Layered derivation using one representative word per lexical template.
+
+        Parallelism matches :meth:`derive_language_layered` (``max_workers``).
+        """
         from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
 
         return LanguageDerivation(self).run_layered_category(
@@ -696,6 +706,7 @@ class InteractiveContextParser(DAGParser):
             max_successful=max_successful,
             out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
             grammar_name=grammar_name,
+            max_workers=max_workers,
             speaker=speaker,
             addressee=addressee,
         )
