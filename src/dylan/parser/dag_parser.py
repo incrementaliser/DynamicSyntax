@@ -122,11 +122,15 @@ class DAGParser:
                     break
             if not progressed:
                 return (actions, res)
+        self._log_nonoptional_adjust_limit_exceeded()
+        return (actions, res)
+
+    def _log_nonoptional_adjust_limit_exceeded(self) -> None:
+        """Emit error when the non-optional adjustment loop exceeds its pass bound."""
         logger.error(
             "adjust_with_non_optional_grammar exceeded %s passes — possible runaway rule loop",
             _MAX_NONOPTIONAL_ADJUST_PASSES,
         )
-        return (actions, res)
 
     def complete_once(self, t: Tree) -> tuple[list[Action], Tree]:
         """Apply star grammar to fixpoint, then try one completion-grammar action (Java ``DAGParser.completeOnce``)."""

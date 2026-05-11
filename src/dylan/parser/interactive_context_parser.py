@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-import logging
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
+from uuid import uuid4
+
+from loguru import logger as loguru_logger
 
 from dylan.action.action import Action
 from dylan.action.lexical_action import LexicalAction
@@ -19,15 +23,19 @@ from dylan.dag.word_level_context_dag import WordLevelContextDAG
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.nlp.types import DEFAULT_SPEAKER, Dialogue, WAIT_TOKEN, RELEASE_TURN_TOKEN, Utterance
-from dylan.parser.dag_parser import DAGParser
+from dylan.parser.dag_parser import DAGParser, _MAX_NONOPTIONAL_ADJUST_PASSES
 from dylan.tree.label.labels import Requirement, TypeLabel
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
+from dylan.logging_config import ensure_library_loguru_stderr, sync_dylan_stdlib_level_for_icp
+from dylan.logging_context import icp_parser_formula_log_context
 
 if TYPE_CHECKING:
     pass
 
-logger = logging.getLogger(__name__)
+
+LogLevel = Literal["off", "error", "warning"]
+LogOutput = Literal["terminal", "terminal_and_file", "file"]
 
 
 def _repoint_for_verb_lexical(tree: Tree, la: LexicalAction) -> None:
@@ -91,8 +99,16 @@ class InteractiveContextParser(DAGParser):
         repairing: bool = False,
         top_n: int | tuple[str, ...] = 3,
         participants: tuple[str, ...] = (DEFAULT_NAME,),
+        log_level: LogLevel = "off",
+        log_output: LogOutput = "terminal",
+        log_dir: Path | None = None,
     ) -> None:
-        """Construct a parser with optional *resource_dir* (filesystem directory or bundled grammar id)."""
+        """Construct a parser with optional *resource_dir* (filesystem directory or bundled grammar id).
+
+        Parser-specific logs use *log_level*, *log_output*, and optional *log_dir* (see :meth:`_configure_icp_sinks`).
+        ``log_level`` also adjusts stdlib ``logging`` for the ``dylan`` package (lexicon load, DAG trace).
+        """
+        ensure_library_loguru_stderr()
         participants_resolved = participants if participants else (DEFAULT_NAME,)
         if not isinstance(top_n, int):
             participants_resolved = top_n  # type: ignore[assignment]
@@ -100,18 +116,90 @@ class InteractiveContextParser(DAGParser):
         self._top_n = top_n
         self._participants = participants_resolved
         self._default_repairing = repairing
+        self._init_icp_log_settings(log_level, log_output, log_dir)
 
         if resource_dir is None:
             self._init_shell_unloaded()
-            return
+        else:
+            p = Path(resource_dir) if isinstance(resource_dir, str) else resource_dir
+            if p.is_dir():
+                self._apply_resource_dir(p, repairing=repairing)
+            else:
+                self._init_shell_unloaded()
+                self.set_grammar(resource_dir, repairing=repairing)
+        self._configure_icp_sinks()
 
-        p = Path(resource_dir) if isinstance(resource_dir, str) else resource_dir
-        if p.is_dir():
-            self._apply_resource_dir(p, repairing=repairing)
-            return
+    def _init_icp_log_settings(
+        self,
+        log_level: LogLevel,
+        log_output: LogOutput,
+        log_dir: Path | None,
+    ) -> None:
+        """Assign per-parser loguru identity, levels, and output destinations (sinks added in :meth:`_configure_icp_sinks`)."""
+        self._icp_id = str(uuid4())
+        self._log_level = log_level
+        self._log_output = log_output
+        self._log_dir = log_dir
+        self._icp_log_handler_ids: list[int] = []
+        self._log = loguru_logger.bind(icp_id=self._icp_id)
+        sync_dylan_stdlib_level_for_icp(log_level)
 
-        self._init_shell_unloaded()
-        self.set_grammar(resource_dir, repairing=repairing)
+    def _configure_icp_sinks(self) -> None:
+        """Register loguru sinks filtered to this parser's ``icp_id`` (or remove prior registrations)."""
+        for hid in self._icp_log_handler_ids:
+            try:
+                loguru_logger.remove(hid)
+            except ValueError:
+                pass
+        self._icp_log_handler_ids.clear()
+        if self._log_level == "off":
+            return
+        lu_level = "ERROR" if self._log_level == "error" else "WARNING"
+
+        def icp_only(record: dict) -> bool:
+            return record["extra"].get("icp_id") == self._icp_id
+
+        fmt_stderr = "<level>{level}</level> | {message}\n"
+        out = self._log_output
+        if out in ("terminal", "terminal_and_file"):
+            hid = loguru_logger.add(
+                sys.stderr,
+                level=lu_level,
+                filter=icp_only,
+                format=fmt_stderr,
+            )
+            self._icp_log_handler_ids.append(hid)
+        if out in ("terminal_and_file", "file"):
+            base = self._log_dir if self._log_dir is not None else Path.cwd() / "logs"
+            base.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            path = base / f"icp_{ts}_{self._icp_id[:8]}.log"
+            hid = loguru_logger.add(
+                str(path),
+                level=lu_level,
+                filter=icp_only,
+                format="{time} | <level>{level}</level> | {message}\n",
+                rotation="10 MB",
+            )
+            self._icp_log_handler_ids.append(hid)
+
+    def __del__(self) -> None:
+        """Best-effort removal of this parser's loguru sinks."""
+        try:
+            for hid in list(getattr(self, "_icp_log_handler_ids", ())):
+                try:
+                    loguru_logger.remove(hid)
+                except ValueError:
+                    pass
+        except Exception:
+            pass
+
+    def _log_nonoptional_adjust_limit_exceeded(self) -> None:
+        """Emit error when the non-optional adjustment loop exceeds its pass bound."""
+        self._log.error(
+            "adjust_with_non_optional_grammar exceeded {} passes — possible runaway rule loop",
+            _MAX_NONOPTIONAL_ADJUST_PASSES,
+        )
 
     def _init_shell_unloaded(self) -> None:
         """Initialise placeholder lexicon/grammar with no dialogue ``context`` until :meth:`set_grammar`."""
@@ -197,8 +285,15 @@ class InteractiveContextParser(DAGParser):
         *,
         sa: SpeechActInferenceGrammar | None = None,
         participants: tuple[str, ...] = (DEFAULT_NAME,),
+        log_level: LogLevel = "off",
+        log_output: LogOutput = "terminal",
+        log_dir: Path | None = None,
     ) -> InteractiveContextParser:
-        """Build parser from in-memory `Lexicon` / `Grammar` (Java `Lexicon, Grammar` ctor)."""
+        """Build parser from in-memory `Lexicon` / `Grammar` (Java `Lexicon, Grammar` ctor).
+
+        Parser-bound logging uses *log_level*, *log_output*, and *log_dir* like :meth:`__init__`.
+        """
+        ensure_library_loguru_stderr()
         obj = cls.__new__(cls)
         DAGParser.__init__(obj, lexicon, grammar, sa or SpeechActInferenceGrammar(Path(".")))
         dag = WordLevelContextDAG()
@@ -215,6 +310,8 @@ class InteractiveContextParser(DAGParser):
         obj.repairanda = ["uhh", "errm", "err", "er", "uh", "erm", "uhm", "um", "oh"]
         obj.forced_repairanda = ["sorry", "oops", "wait", "erm"]
         obj.restarters = ["yeah"]
+        obj._init_icp_log_settings(log_level, log_output, log_dir)
+        obj._configure_icp_sinks()
         return obj
 
     def get_name(self) -> str:
@@ -232,7 +329,7 @@ class InteractiveContextParser(DAGParser):
     def _adjust_once(self, goal: Formula | None) -> bool:
         dag = self.get_state()
         if self.context.repair_initiated():
-            logger.info("Repair initiated")
+            self._log.info("Repair initiated")
             repair_word = dag.word_stack_ref().pop()
             if not dag.word_stack:
                 return False
@@ -256,19 +353,30 @@ class InteractiveContextParser(DAGParser):
 
     def parse_goal(self, goal: Formula | None) -> bool:
         """Parse until the DAG word stack is empty, optionally enforcing *goal*."""
-        dag = self.get_state()
-        if dag.is_exhausted():
-            logger.debug("state exhausted")
-            return False
-        while True:
-            if not self._adjust_once(goal):
-                logger.debug("wordstack: %s", dag.word_stack_ref())
-                logger.debug("depth: %s", dag.get_depth())
-                dag.set_exhausted(True)
+        with icp_parser_formula_log_context(self._log_level):
+            dag = self.get_state()
+            if dag.is_exhausted():
+                self._log.debug("state exhausted")
                 return False
-            if not dag.word_stack:
-                break
-        return True
+            while True:
+                if not self._adjust_once(goal):
+                    self._log.debug("wordstack: {}", dag.word_stack_ref())
+                    self._log.debug("depth: {}", dag.get_depth())
+                    dag.set_exhausted(True)
+                    return False
+                if not dag.word_stack:
+                    break
+            return True
+
+    def complete_tree(self, res: Tree) -> tuple[list[Action], Tree]:
+        """Run ``complete_once`` until quiescence or ``Tree.is_complete`` (Java ``DAGParser.complete``)."""
+        with icp_parser_formula_log_context(self._log_level):
+            return super().complete_tree(res)
+
+    def get_final_semantics(self) -> TTRRecordType:
+        """Semantics at the current tuple after ``evaluate`` (Java ``getFinalSemantics``)."""
+        with icp_parser_formula_log_context(self._log_level):
+            return super().get_final_semantics()
 
     def _apply_all_permutations(self, goal: Formula | None) -> None:
         """Apply every compatible lexical/grammar permutation for the top stack word."""
@@ -293,7 +401,7 @@ class InteractiveContextParser(DAGParser):
             if la.requires_left_adjustment():
                 left_adjust.append(la)
                 continue
-            logger.debug("applying %s without left adjustment", la)
+            self._log.debug("applying {} without left adjustment", la)
             ct = current_tree.clone()
             _repoint_for_verb_lexical(ct, la)
             res = la.exec(ct, self.context)
@@ -317,8 +425,8 @@ class InteractiveContextParser(DAGParser):
         idx = 0
         while idx < len(global_pairs):
             if len(global_pairs) > _MAX_LEXICAL_ADJUSTMENT_PAIRS:
-                logger.warning(
-                    "Lexical optional-grammar expansion exceeded %s pairs — stopping (avoid hang)",
+                self._log.warning(
+                    "Lexical optional-grammar expansion exceeded {} pairs — stopping (avoid hang)",
                     _MAX_LEXICAL_ADJUSTMENT_PAIRS,
                 )
                 break
@@ -419,13 +527,13 @@ class InteractiveContextParser(DAGParser):
             word = UtteredWord(w.word, w.speaker, other)
         else:
             word = UtteredWord(w.word, w.speaker, w.addressee)
-        logger.info("Parsing word: %s", word)
+        self._log.info("Parsing word: {}", word)
 
         if word.word == self.WAIT:
             return self.get_state()
 
         if self.forced_restart or self.forced_repair:
-            logger.info("restart/repair path")
+            self._log.info("restart/repair path")
             self.get_state().word_stack_ref().append(word)
             self.get_state().initiate_local_repair()
             ok = self.parse_goal(None)
@@ -453,12 +561,12 @@ class InteractiveContextParser(DAGParser):
 
         actions = self.lexicon.lookup(word.word)
         if not actions:
-            logger.error("Word not in Lexicon: %s", word)
+            self._log.error("Word not in Lexicon: {}", word)
             return None
 
         self.get_state().word_stack_ref().append(word)
         if not self.parse_goal(None):
-            logger.error("Cannot parse: %s — resetting", word.word)
+            self._log.error("Cannot parse: {} — resetting", word.word)
             self.get_state().reset_to_first_tuple_after_last_word()
             if not self.get_state().repair_processing_enabled():
                 return None
@@ -476,7 +584,7 @@ class InteractiveContextParser(DAGParser):
         self.get_state().this_is_first_tuple_after_last_word()
         self.get_state().set_repair_processing(False)
         self.context.append_word(word)
-        logger.info("Parsed: %s", word)
+        self._log.info("Parsed: {}", word)
         return self.get_state()
 
     def parse_utterance(self, utt: Utterance) -> bool:
@@ -484,7 +592,7 @@ class InteractiveContextParser(DAGParser):
         ok = True
         for uw in utt.words:
             if self.parse_word(uw) is None:
-                logger.error("Failed to parse %s", uw)
+                self._log.error("Failed to parse {}", uw)
                 ok = False
         return ok
 
@@ -542,6 +650,86 @@ class InteractiveContextParser(DAGParser):
             max_workers=max_workers,
             speaker=speaker,
             addressee=addressee,
+        )
+
+    def derive_language_layered(
+        self,
+        *,
+        max_len: int,
+        min_len: int = 1,
+        max_successful: int | None = None,
+        out_dir: str | Path | None = None,
+        grammar_name: str | None = None,
+        speaker: str = DEFAULT_SPEAKER,
+        addressee: str = "you",
+    ) -> dict[int, tuple[Path, Path]]:
+        """Layered prefix derivation with per-depth ``layer_i`` output files (forward-only, ``top_n=1``)."""
+        from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
+
+        return LanguageDerivation(self).run_layered(
+            max_len=max_len,
+            min_len=min_len,
+            max_successful=max_successful,
+            out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
+            grammar_name=grammar_name,
+            speaker=speaker,
+            addressee=addressee,
+        )
+
+    def derive_language_layered_category(
+        self,
+        *,
+        max_len: int,
+        min_len: int = 1,
+        max_successful: int | None = None,
+        out_dir: str | Path | None = None,
+        grammar_name: str | None = None,
+        speaker: str = DEFAULT_SPEAKER,
+        addressee: str = "you",
+    ) -> dict[int, tuple[Path, Path]]:
+        """Layered derivation using one representative word per lexical template."""
+        from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
+
+        return LanguageDerivation(self).run_layered_category(
+            max_len=max_len,
+            min_len=min_len,
+            max_successful=max_successful,
+            out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
+            grammar_name=grammar_name,
+            speaker=speaker,
+            addressee=addressee,
+        )
+
+    def derive_language_layered_random(
+        self,
+        *,
+        max_len: int,
+        max_paths: int,
+        max_steps: int | None = None,
+        seed: int | None = None,
+        min_len: int = 1,
+        max_successful: int | None = None,
+        out_dir: str | Path | None = None,
+        grammar_name: str | None = None,
+        speaker: str = DEFAULT_SPEAKER,
+        addressee: str = "you",
+        use_category_vocab: bool = False,
+    ) -> dict[int, tuple[Path, Path]]:
+        """Random-walk layered derivation with the same completion rules as :meth:`derive_language_layered`."""
+        from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
+
+        return LanguageDerivation(self).run_layered_random(
+            max_len=max_len,
+            max_paths=max_paths,
+            max_steps=max_steps,
+            seed=seed,
+            min_len=min_len,
+            max_successful=max_successful,
+            out_dir=out_dir if out_dir is not None else DEFAULT_LANGUAGE_OUTPUT_DIR,
+            grammar_name=grammar_name,
+            speaker=speaker,
+            addressee=addressee,
+            use_category_vocab=use_category_vocab,
         )
 
     def replay_backtracked_actions(self, word: UtteredWord) -> bool:
@@ -639,6 +827,11 @@ InteractiveContextParser.generateWord = InteractiveContextParser.generate_word  
 InteractiveContextParser.parseDialogue = InteractiveContextParser.parse_dialogue  # type: ignore[attr-defined]
 InteractiveContextParser.getTopNPending = InteractiveContextParser.get_top_n_pending  # type: ignore[attr-defined]
 InteractiveContextParser.deriveLanguage = InteractiveContextParser.derive_language  # type: ignore[attr-defined]
+InteractiveContextParser.deriveLanguageLayered = InteractiveContextParser.derive_language_layered  # type: ignore[attr-defined]
+InteractiveContextParser.deriveLanguageLayeredCategory = (  # type: ignore[attr-defined]
+    InteractiveContextParser.derive_language_layered_category
+)
+InteractiveContextParser.deriveLanguageLayeredRandom = InteractiveContextParser.derive_language_layered_random  # type: ignore[attr-defined]
 InteractiveContextParser.replayBacktrackedActions = InteractiveContextParser.replay_backtracked_actions  # type: ignore[attr-defined]
 InteractiveContextParser.backtrackAndParse = InteractiveContextParser.backtrack_and_parse  # type: ignore[attr-defined]
 InteractiveContextParser.leftAdjustAndApply = InteractiveContextParser.left_adjust_and_apply  # type: ignore[attr-defined]

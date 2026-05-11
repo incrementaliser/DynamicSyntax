@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from abc import ABC
 from dataclasses import dataclass, field
 
+from loguru import logger
+
 from dylan.formula.formula import Formula
 from dylan.formula.ttr_label import TTRLabel
 from dylan.formula.variable import Variable
-
-logger = logging.getLogger(__name__)
+from dylan.logging_context import (
+    parser_emits_formula_debug,
+    parser_emits_formula_error,
+    parser_emits_formula_warning,
+)
 
 REC_TYPE_NAME_PATTERN = re.compile(r"^R\d*$", re.IGNORECASE)
 
@@ -79,10 +83,12 @@ class TTRAbsolutePath(TTRPath):
 
     def evaluate(self) -> Formula:
         if self.domain is None:
-            logger.debug("TTRAbsolutePath evaluate: no domain for %s", self)
+            if parser_emits_formula_debug():
+                logger.debug("TTRAbsolutePath evaluate: no domain for {}", self)
             return self
         if not self.evaluate_against(self.domain):
-            logger.error("bad absolute path: %s for domain %s", self, self.domain)
+            if parser_emits_formula_error():
+                logger.error("bad absolute path: {} for domain {}", self, self.domain)
             return self
         assert self.domain is not None
         w = self._walk_to_container(self.domain)
@@ -142,7 +148,8 @@ class TTRRelativePath(TTRPath):
         while cur is not None and not self.evaluate_against(cur):
             cur = cur.parent_rec_type  # type: ignore[assignment]
         if cur is None:
-            logger.warning("bad relative TTR path %s", self)
+            if parser_emits_formula_warning():
+                logger.warning("bad relative TTR path {}", self)
             return self
         w = self._walk_to_container(cur)
         if w is None:

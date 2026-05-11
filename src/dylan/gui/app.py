@@ -6,7 +6,6 @@ Targets Flet >= 0.80 (async ``FilePicker`` methods, ``Tabs`` uses
 
 from __future__ import annotations
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -18,6 +17,10 @@ _pkg_root = Path(__file__).resolve().parent.parent.parent
 if str(_pkg_root) not in sys.path:
     sys.path.insert(0, str(_pkg_root))
 
+from loguru import logger
+
+from dylan.logging_config import configure_logging
+
 from dylan.gui.parse_session import (
     GUI_INFO_HELP_TEXT,
     ParseSession,
@@ -27,7 +30,6 @@ from dylan.gui.tree_viz import build_canvas_shapes, compute_tree_layout
 from dylan.nlp.types import DEFAULT_SPEAKER
 from dylan.tree.tree import Tree
 
-logger = logging.getLogger(__name__)
 
 def _estimate_wrapped_line_count(text: str, chars_per_line: int = 44) -> int:
     """Approximate how many display lines *text* needs when wrapped in a narrow panel."""
@@ -39,19 +41,6 @@ def _estimate_wrapped_line_count(text: str, chars_per_line: int = 44) -> int:
             continue
         total += max(1, (len(s) + chars_per_line - 1) // chars_per_line)
     return max(total, 2)
-
-
-def _ensure_dylan_stderr_logging() -> None:
-    """Attach a stderr handler on ``dylan`` so loader/parser logs appear in the terminal."""
-    lg = logging.getLogger("dylan")
-    for h in lg.handlers:
-        if isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr:
-            return
-    sh = logging.StreamHandler(sys.stderr)
-    sh.setLevel(logging.DEBUG)
-    sh.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-    lg.addHandler(sh)
-    lg.propagate = False
 
 
 def main() -> None:
@@ -69,20 +58,13 @@ def main() -> None:
 
     def build(page: ft.Page) -> None:
         """Lay out controls mirroring the Java parser frame."""
-        if not logging.root.handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format="%(levelname)s %(name)s: %(message)s",
-                stream=sys.stderr,
-                force=False,
-            )
-        _ensure_dylan_stderr_logging()
+        configure_logging("INFO")
 
         page.title = "DyLan - The Dynamic Syntax Parser"
 
         def on_page_error(e: ft.ControlEvent) -> None:
             """Log Flet client errors (red banner text is often mirrored here)."""
-            logger.warning("Flet page error: %s", getattr(e, "data", e))
+            logger.warning("Flet page error: {}", getattr(e, "data", e))
 
         page.on_error = on_page_error
 

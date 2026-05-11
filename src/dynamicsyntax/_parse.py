@@ -9,7 +9,11 @@ from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.dag.dag_tuple import DAGTuple
 from dylan.dag.groundable_edge import GroundableEdge
 from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
-from dylan.parser.interactive_context_parser import InteractiveContextParser
+from dylan.parser.interactive_context_parser import (
+    InteractiveContextParser,
+    LogLevel,
+    LogOutput,
+)
 from dylan.tree.tree import Tree
 
 from dynamicsyntax._session import resolved_grammar_path
@@ -136,9 +140,23 @@ def _parse_one(
     return _run_parse_core(parser, stripped, speaker=speaker, trace=trace)
 
 
-def _parse_at_path(grammar_path: Path, sentence: str, *, speaker: str, trace: bool) -> ParseResult:
+def _parse_at_path(
+    grammar_path: Path,
+    sentence: str,
+    *,
+    speaker: str,
+    trace: bool,
+    log_level: LogLevel = "off",
+    log_output: LogOutput = "terminal",
+    log_dir: Path | None = None,
+) -> ParseResult:
     """Run parse at *grammar_path* and build a :class:`ParseResult`."""
-    parser = InteractiveContextParser(grammar_path)
+    parser = InteractiveContextParser(
+        grammar_path,
+        log_level=log_level,
+        log_output=log_output,
+        log_dir=log_dir,
+    )
     return _parse_one(parser, sentence, speaker=speaker, trace=trace)
 
 
@@ -156,6 +174,9 @@ def parse(
     *,
     speaker: str = ...,
     trace: bool = ...,
+    log_level: LogLevel = ...,
+    log_output: LogOutput = ...,
+    log_dir: Path | None = ...,
 ) -> ParseResult: ...
 
 
@@ -167,6 +188,9 @@ def parse(
     *,
     speaker: str = ...,
     trace: bool = ...,
+    log_level: LogLevel = ...,
+    log_output: LogOutput = ...,
+    log_dir: Path | None = ...,
 ) -> list[ParseResult]: ...
 
 
@@ -177,6 +201,9 @@ def parse(
     *,
     speaker: str = DEFAULT_SPEAKER,
     trace: bool = False,
+    log_level: LogLevel = "off",
+    log_output: LogOutput = "terminal",
+    log_dir: Path | None = None,
 ) -> ParseResult | list[ParseResult]:
     """Parse one or many sentences and return :class:`~dynamicsyntax.parse_result.ParseResult` objects.
 
@@ -189,6 +216,9 @@ def parse(
     :param speaker: Dialogue participant id passed to the parser (default matches ``dylan``).
     :param trace: If ``True``, record one DS tree after ``new_sentence`` and after each word
         (for :meth:`~dynamicsyntax.parse_result.ParseResult.to_latex` ``incremental``).
+    :param log_level: Per-parser log verbosity passed to :class:`~dylan.parser.interactive_context_parser.InteractiveContextParser`.
+    :param log_output: Where parser-bound logs go (terminal, file, or both).
+    :param log_dir: Directory for parser log files when *log_output* includes file output.
     :returns: One :class:`~dynamicsyntax.parse_result.ParseResult`, or a list of them in input
         order; ``semantics`` is ``None`` on failure or blank input for that item.
         Each result may include ``parser`` (the
@@ -214,7 +244,12 @@ def parse(
                 for _ in sentences
             ]
         with resolved_grammar_path(grammar) as grammar_path:
-            parser = InteractiveContextParser(grammar_path)
+            parser = InteractiveContextParser(
+                grammar_path,
+                log_level=log_level,
+                log_output=log_output,
+                log_dir=log_dir,
+            )
             return [_parse_one(parser, s, speaker=speaker, trace=trace) for s in sentences]
 
     sentence = sentence_or_sentences
@@ -226,4 +261,12 @@ def parse(
         raise ValueError(_GRAMMAR_REQUIRED_MSG)
 
     with resolved_grammar_path(grammar) as grammar_path:
-        return _parse_at_path(grammar_path, stripped, speaker=speaker, trace=trace)
+        return _parse_at_path(
+            grammar_path,
+            stripped,
+            speaker=speaker,
+            trace=trace,
+            log_level=log_level,
+            log_output=log_output,
+            log_dir=log_dir,
+        )
