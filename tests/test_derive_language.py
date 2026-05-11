@@ -90,3 +90,64 @@ def test_derive_language_parallel_smoke_writes_incomplete_failure(tmp_path: Path
 
     assert language_path.read_text(encoding="utf-8") == ""
     assert failures_path.read_text(encoding="utf-8") == "<<incomplete>> | test\n"
+
+
+def test_derive_language_layered_writes_per_layer_files(tmp_path: Path) -> None:
+    """Layered derivation creates ``layer_i`` language and failure files."""
+    parser = InteractiveContextParser(FIXTURE)
+    name = Path(FIXTURE).name
+
+    paths = parser.derive_language_layered(max_len=1, out_dir=tmp_path)
+
+    assert paths[1][0] == tmp_path / f"{name}_layer_1_language.txt"
+    assert paths[1][1] == tmp_path / f"{name}_layer_1_language_failures.txt"
+    assert paths[1][0].read_text(encoding="utf-8") == ""
+    assert paths[1][1].read_text(encoding="utf-8") == ""
+
+
+def test_derive_language_layered_category_matches_single_template_fixture(tmp_path: Path) -> None:
+    """Category mode still derives when the fixture uses one lexical template."""
+    parser = InteractiveContextParser(FIXTURE)
+    name = Path(FIXTURE).name
+
+    paths = parser.derive_language_layered_category(max_len=1, out_dir=tmp_path)
+
+    assert paths[1][0].name == f"{name}_layer_1_language.txt"
+    assert paths[1][1].read_text(encoding="utf-8") == ""
+
+
+def test_derive_language_layered_random_reproducible_with_seed(tmp_path: Path) -> None:
+    """Random layered derivation is deterministic for a fixed seed and grammar."""
+    parser = InteractiveContextParser(FIXTURE)
+    name = Path(FIXTURE).name
+
+    out_a = parser.derive_language_layered_random(
+        max_len=1,
+        max_paths=3,
+        seed=12345,
+        out_dir=tmp_path / "a",
+    )
+    out_b = parser.derive_language_layered_random(
+        max_len=1,
+        max_paths=3,
+        seed=12345,
+        out_dir=tmp_path / "b",
+    )
+
+    assert out_a[1][1].read_text(encoding="utf-8") == out_b[1][1].read_text(encoding="utf-8")
+    assert out_a[1][1].name == f"{name}_layer_1_language_failures.txt"
+
+
+def test_derive_language_layered_output_suffix_when_layer_files_exist(tmp_path: Path) -> None:
+    """Layered run bumps numeric suffix when any layer output path collides."""
+    name = Path(FIXTURE).name
+    (tmp_path / f"{name}_layer_1_language.txt").write_text("x", encoding="utf-8")
+    (tmp_path / f"{name}_layer_1_language_failures.txt").write_text("y", encoding="utf-8")
+    (tmp_path / f"{name}_layer_2_language.txt").write_text("x", encoding="utf-8")
+    (tmp_path / f"{name}_layer_2_language_failures.txt").write_text("y", encoding="utf-8")
+
+    parser = InteractiveContextParser(FIXTURE)
+    paths = parser.derive_language_layered(max_len=2, out_dir=tmp_path)
+
+    assert paths[1][0] == tmp_path / f"{name}_layer_1_language_1.txt"
+    assert paths[2][0] == tmp_path / f"{name}_layer_2_language_1.txt"
