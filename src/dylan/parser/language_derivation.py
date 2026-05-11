@@ -932,7 +932,10 @@ class LanguageDerivation:
         language_file: TextIO,
         seen_success: set[str],
     ) -> int:
-        """Write a successful ``Sent:``/``Sem:`` block if unseen; discard non-success records."""
+        """Write a successful ``Sent:``/``Sem:`` block if unseen; discard non-success records.
+
+        Flushes the handle after writing so layered runs show incremental output on disk.
+        """
         if record.kind != "success":
             return 0
         key = record.sentence
@@ -941,6 +944,7 @@ class LanguageDerivation:
         seen_success.add(key)
         language_file.write(f"Sent: {record.sentence}\n")
         language_file.write(f"Sem: {record.semantics}\n\n")
+        language_file.flush()
         return 1
 
     @staticmethod
@@ -951,13 +955,17 @@ class LanguageDerivation:
         word: str,
         prefix_words: tuple[str, ...],
     ) -> int:
-        """Write one ``WORD | PREFIX`` extension-failure line when that line has not been written; return 1 if new."""
+        """Write one ``WORD | PREFIX`` extension-failure line when that line has not been written; return 1 if new.
+
+        Flushes the handle after writing so layered runs show incremental output on disk.
+        """
         so_far = " ".join(prefix_words)
         line = f"{word} | {so_far}"
         if line in seen_failure:
             return 0
         seen_failure.add(line)
         failures_file.write(f"{line}\n")
+        failures_file.flush()
         return 1
 
     @staticmethod
