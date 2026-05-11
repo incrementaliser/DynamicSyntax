@@ -11,7 +11,7 @@ from concurrent.futures import ProcessPoolExecutor
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Literal, TextIO
+from typing import Any, Iterable, Iterator, Literal, TextIO
 
 from rich.console import Console as _RichConsole
 
@@ -88,27 +88,30 @@ def _next_layered_run_paths(
     resolved_name: str,
     *,
     max_layer: int,
-) -> tuple[int, dict[int, tuple[Path, Path]]]:
-    """Return ``(run_suffix, layer -> (language_path, failures_path))`` for an unused layered run.
+) -> tuple[int, dict[int, tuple[Path, Path, Path]]]:
+    """Return ``(run_suffix, layer -> (language_path, failures_path, fringe_path))`` for an unused layered run.
 
-    Chooses the smallest numeric suffix *n* such that every layer file pair is absent on disk.
+    Chooses the smallest numeric suffix *n* such that every layer's language, failure, and fringe
+    paths are absent on disk.
     """
     if max_layer < 1:
         raise ValueError("max_layer must be at least 1")
     for n in range(0, 1_000_000):
-        paths: dict[int, tuple[Path, Path]] = {}
+        paths: dict[int, tuple[Path, Path, Path]] = {}
         collision = False
         for i in range(1, max_layer + 1):
             if n == 0:
                 lang_p = target_dir / f"{resolved_name}_layer_{i}_language.txt"
                 fail_p = target_dir / f"{resolved_name}_layer_{i}_language_failures.txt"
+                fringe_p = target_dir / f"{resolved_name}_layer_{i}_fringe.txt"
             else:
                 lang_p = target_dir / f"{resolved_name}_layer_{i}_language_{n}.txt"
                 fail_p = target_dir / f"{resolved_name}_layer_{i}_language_failures_{n}.txt"
-            if lang_p.exists() or fail_p.exists():
+                fringe_p = target_dir / f"{resolved_name}_layer_{i}_fringe_{n}.txt"
+            if lang_p.exists() or fail_p.exists() or fringe_p.exists():
                 collision = True
                 break
-            paths[i] = (lang_p, fail_p)
+            paths[i] = (lang_p, fail_p, fringe_p)
         if not collision:
             return (n, paths)
     msg = "exhausted layered language output path suffixes under"
@@ -423,13 +426,14 @@ class LanguageDerivation:
         max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Layered prefix expansion with completion on failed extensions (forward-only ``top_n=1`` parser).
 
         Each ``layer_i`` language file holds ``Sent:``/``Sem:`` when ``complete_tree`` succeeds,
         including immediately after each successful ``parse_word`` on a prefix.
         Each failures file holds deduplicated ``WORD | PREFIX`` lines for ``parse_word`` extension
         failures only; ``complete_tree`` failures are not written there.
+        Each fringe file lists one feasible prefix (space-joined words) per line after that layer's BFS fringe is known.
         ``max_workers=1`` forces single-process traversal; ``None`` uses :func:`_default_language_workers`.
         """
         fw = _parser_for_layered_forward(self._parser)
@@ -462,7 +466,7 @@ class LanguageDerivation:
         max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Same as :meth:`run_layered` but groups words by lexical template.
 
         For each template group the BFS uses first-success semantics: all words in the group
@@ -502,11 +506,12 @@ class LanguageDerivation:
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
         use_category_vocab: bool = False,
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Random walks over feasible prefixes; completion uses the same layer files as :meth:`run_layered`.
 
         When ``use_category_vocab=True`` the vocabulary groups words by lexical template and
         the walk picks a random group at each step, trying all forms until one parses.
+        Fringe files are created alongside language/failure files but are left empty (no per-layer BFS fringe).
         """
         fw = _parser_for_layered_forward(self._parser)
         vocab_groups: tuple[tuple[str, ...], ...]
@@ -547,7 +552,7 @@ class LanguageDerivation:
         speaker: str,
         addressee: str,
         max_workers: int | None = None,
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Breadth-first layered derivation; writes deduplicated records per depth.
 
         ``vocab_groups`` is a tuple of word groups sharing a lexical template.  For each
@@ -563,6 +568,8 @@ class LanguageDerivation:
         When ``max_workers`` is not ``1`` (including the default from :func:`_default_language_workers`),
         seed and extension work is distributed across processes like :meth:`run`; ``max_workers=1``
         keeps a single-threaded traversal for deterministic debugging.
+
+        Each layer's ``*_fringe.txt`` lists feasible prefixes (one sentence per line) after that layer's fringe is built.
         """
         base = self._parser
         if base.context is None:
@@ -611,12 +618,13 @@ class LanguageDerivation:
         seen_fail_by_layer: dict[int, set[str]] = {i: set() for i in range(1, max_len + 1)}
 
         with ExitStack() as stack:
-            handles: dict[int, tuple[TextIO, TextIO]] = {}
+            handles: dict[int, tuple[TextIO, TextIO, TextIO]] = {}
             for i in range(1, max_len + 1):
-                lp, fp = paths_by_layer[i]
+                lp, fp, gfp = paths_by_layer[i]
                 handles[i] = (
                     stack.enter_context(lp.open("w", encoding="utf-8")),
                     stack.enter_context(fp.open("w", encoding="utf-8")),
+                    stack.enter_context(gfp.open("w", encoding="utf-8")),
                 )
 
             def emit_completion_success_only(layer_idx: int, record: LanguageDerivationRecord) -> None:
@@ -676,6 +684,8 @@ class LanguageDerivation:
                                         prefix_words=(),
                                     )
                             si += len(chunk)
+
+                    LanguageDerivation._write_layered_fringe(handles[1][2], frontier)
 
                     _layered_console.print(
                         f"  Layer 1 — "
@@ -753,6 +763,7 @@ class LanguageDerivation:
                             _finalize_prefix_completion(prev_p, had_failure_for_p)
 
                         frontier = sorted(set(next_frontier_par))
+                        LanguageDerivation._write_layered_fringe(handles[depth + 1][2], frontier)
                         new_successes = success_total - success_before_depth
                         _layered_console.print(
                             f"  Layer {depth + 1} — "
@@ -810,6 +821,8 @@ class LanguageDerivation:
                                 word=group[0],
                                 prefix_words=(),
                             )
+
+                LanguageDerivation._write_layered_fringe(handles[1][2], frontier)
 
                 _layered_console.print(
                     f"  Layer 1 — "
@@ -888,6 +901,7 @@ class LanguageDerivation:
                                     stop = True
 
                     frontier = sorted(set(next_frontier))
+                    LanguageDerivation._write_layered_fringe(handles[depth + 1][2], frontier)
                     new_successes = success_total - success_before_depth
                     _layered_console.print(
                         f"  Layer {depth + 1} — "
@@ -931,13 +945,14 @@ class LanguageDerivation:
         grammar_name: str | None,
         speaker: str,
         addressee: str,
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Random walks over feasible prefixes; same layer output format as :meth:`_run_layered_bfs`.
 
         At each step a random group is chosen.  All words in the group are tried in order;
         the first that parses advances the prefix.  If no word in the group parses, a failure
         is recorded and the walk restarts.  After each successful ``parse_word``,
         ``complete_tree`` is attempted immediately.
+        Layer ``*_fringe.txt`` files are reserved next to language/failure outputs but are not populated.
         """
         base = self._parser
         if base.context is None:
@@ -971,12 +986,13 @@ class LanguageDerivation:
         seen_fail_by_layer: dict[int, set[str]] = {i: set() for i in range(1, max_len + 1)}
 
         with ExitStack() as stack:
-            handles: dict[int, tuple[TextIO, TextIO]] = {}
+            handles: dict[int, tuple[TextIO, TextIO, TextIO]] = {}
             for i in range(1, max_len + 1):
-                lp, fp = paths_by_layer[i]
+                lp, fp, gfp = paths_by_layer[i]
                 handles[i] = (
                     stack.enter_context(lp.open("w", encoding="utf-8")),
                     stack.enter_context(fp.open("w", encoding="utf-8")),
+                    stack.enter_context(gfp.open("w", encoding="utf-8")),
                 )
 
             def emit_completion_success_only(layer_idx: int, record: LanguageDerivationRecord) -> None:
@@ -1194,6 +1210,13 @@ class LanguageDerivation:
                         if max_successful is not None and success_count >= max_successful:
                             return (language_path, failures_path)
         return (language_path, failures_path)
+
+    @staticmethod
+    def _write_layered_fringe(fringe_file: TextIO, prefixes: Iterable[tuple[str, ...]]) -> None:
+        """Write sorted unique *prefixes* as one space-joined sentence per line, then flush."""
+        for line in sorted({" ".join(p) for p in prefixes}):
+            fringe_file.write(f"{line}\n")
+        fringe_file.flush()
 
     @staticmethod
     def _write_layered_deduped(

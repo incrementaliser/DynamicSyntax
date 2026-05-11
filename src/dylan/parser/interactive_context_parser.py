@@ -663,11 +663,12 @@ class InteractiveContextParser(DAGParser):
         max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Layered prefix derivation with per-depth ``layer_i`` output files (forward-only, ``top_n=1``).
 
         Uses multi-process BFS when ``max_workers`` is not ``1`` (default: one fewer than logical CPUs);
         pass ``max_workers=1`` for a single-process run.
+        Each layer also writes ``*_fringe.txt`` (one feasible prefix per line after that layer's fringe is fixed).
         """
         from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
 
@@ -693,10 +694,10 @@ class InteractiveContextParser(DAGParser):
         max_workers: int | None = None,
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
-    ) -> dict[int, tuple[Path, Path]]:
+    ) -> dict[int, tuple[Path, Path, Path]]:
         """Layered derivation using one representative word per lexical template.
 
-        Parallelism matches :meth:`derive_language_layered` (``max_workers``).
+        Parallelism and fringe output files match :meth:`derive_language_layered` (``max_workers``).
         """
         from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
 
@@ -725,8 +726,11 @@ class InteractiveContextParser(DAGParser):
         speaker: str = DEFAULT_SPEAKER,
         addressee: str = "you",
         use_category_vocab: bool = False,
-    ) -> dict[int, tuple[Path, Path]]:
-        """Random-walk layered derivation with the same completion rules as :meth:`derive_language_layered`."""
+    ) -> dict[int, tuple[Path, Path, Path]]:
+        """Random-walk layered derivation with the same completion rules as :meth:`derive_language_layered`.
+
+        Fringe paths are included in the returned map; those files stay empty for this mode.
+        """
         from dylan.parser.language_derivation import DEFAULT_LANGUAGE_OUTPUT_DIR, LanguageDerivation
 
         return LanguageDerivation(self).run_layered_random(

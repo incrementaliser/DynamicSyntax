@@ -102,10 +102,11 @@ def test_derive_language_layered_parallel_matches_sequential(tmp_path: Path) -> 
     paths_seq = parser.derive_language_layered(max_len=2, out_dir=out_seq, max_workers=1)
     paths_par = parser.derive_language_layered(max_len=2, out_dir=out_par, max_workers=2)
     for layer in paths_seq:
-        lang_s, fail_s = paths_seq[layer]
-        lang_p, fail_p = paths_par[layer]
+        lang_s, fail_s, fr_s = paths_seq[layer]
+        lang_p, fail_p, fr_p = paths_par[layer]
         assert lang_s.read_text(encoding="utf-8") == lang_p.read_text(encoding="utf-8")
         assert fail_s.read_text(encoding="utf-8") == fail_p.read_text(encoding="utf-8")
+        assert fr_s.read_text(encoding="utf-8") == fr_p.read_text(encoding="utf-8")
 
 
 def test_derive_language_layered_writes_per_layer_files(tmp_path: Path) -> None:
@@ -117,8 +118,10 @@ def test_derive_language_layered_writes_per_layer_files(tmp_path: Path) -> None:
 
     assert paths[1][0] == tmp_path / f"{name}_layer_1_language.txt"
     assert paths[1][1] == tmp_path / f"{name}_layer_1_language_failures.txt"
+    assert paths[1][2] == tmp_path / f"{name}_layer_1_fringe.txt"
     assert paths[1][0].read_text(encoding="utf-8") == ""
     assert paths[1][1].read_text(encoding="utf-8") == ""
+    assert paths[1][2].read_text(encoding="utf-8") == "test\n"
 
 
 def test_derive_language_layered_category_matches_single_template_fixture(tmp_path: Path) -> None:
@@ -130,6 +133,8 @@ def test_derive_language_layered_category_matches_single_template_fixture(tmp_pa
 
     assert paths[1][0].name == f"{name}_layer_1_language.txt"
     assert paths[1][1].read_text(encoding="utf-8") == ""
+    assert paths[1][2].name == f"{name}_layer_1_fringe.txt"
+    assert paths[1][2].read_text(encoding="utf-8") == "test\n"
 
 
 def test_derive_language_layered_random_reproducible_with_seed(tmp_path: Path) -> None:
@@ -152,6 +157,8 @@ def test_derive_language_layered_random_reproducible_with_seed(tmp_path: Path) -
 
     assert out_a[1][1].read_text(encoding="utf-8") == out_b[1][1].read_text(encoding="utf-8")
     assert out_a[1][1].name == f"{name}_layer_1_language_failures.txt"
+    assert out_a[1][2].read_text(encoding="utf-8") == ""
+    assert out_b[1][2].read_text(encoding="utf-8") == ""
 
 
 def test_derive_language_layered_output_suffix_when_layer_files_exist(tmp_path: Path) -> None:
@@ -159,11 +166,14 @@ def test_derive_language_layered_output_suffix_when_layer_files_exist(tmp_path: 
     name = Path(FIXTURE).name
     (tmp_path / f"{name}_layer_1_language.txt").write_text("x", encoding="utf-8")
     (tmp_path / f"{name}_layer_1_language_failures.txt").write_text("y", encoding="utf-8")
+    (tmp_path / f"{name}_layer_1_fringe.txt").write_text("z", encoding="utf-8")
     (tmp_path / f"{name}_layer_2_language.txt").write_text("x", encoding="utf-8")
     (tmp_path / f"{name}_layer_2_language_failures.txt").write_text("y", encoding="utf-8")
+    (tmp_path / f"{name}_layer_2_fringe.txt").write_text("z", encoding="utf-8")
 
     parser = InteractiveContextParser(FIXTURE)
     paths = parser.derive_language_layered(max_len=2, out_dir=tmp_path)
 
     assert paths[1][0] == tmp_path / f"{name}_layer_1_language_1.txt"
+    assert paths[1][2] == tmp_path / f"{name}_layer_1_fringe_1.txt"
     assert paths[2][0] == tmp_path / f"{name}_layer_2_language_1.txt"
