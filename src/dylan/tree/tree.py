@@ -75,6 +75,12 @@ class Tree(dict[NodeAddress, Node]):
         """Deep copy nodes, pointer, and variable pools (Java ``Tree.clone`` sketch)."""
         return Tree(self)
 
+    def vis(self) -> None:
+        """Print this tree in address order (same plain-text view as :meth:`~dynamicsyntax.parse_result.ParseResult.vis`)."""
+        from dylan.gui.formatting import format_ds_tree
+
+        print(format_ds_tree(self))
+
     def set_pointer(self, addr: NodeAddress) -> None:
         """Set the pointer address (Java ``setPointer``)."""
         self.pointer = addr

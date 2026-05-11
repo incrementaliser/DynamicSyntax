@@ -176,6 +176,17 @@ def test_vis_prints_address_order(capsys: pytest.CaptureFixture[str]) -> None:
     assert "00" in out and "man" in out.lower()
 
 
+def test_tree_vis_matches_parse_result_vis(capsys: pytest.CaptureFixture[str]) -> None:
+    """``Tree.vis`` prints the same address-order text as ``ParseResult.vis`` (e.g. after ``complete_tree``)."""
+    p = ds.parse("a man arrives", "ttr")
+    assert p.tree is not None
+    p.vis()
+    from_parse_result = capsys.readouterr().out
+    p.tree.vis()
+    from_tree = capsys.readouterr().out
+    assert from_parse_result == from_tree
+
+
 def test_parse_trace_snapshots() -> None:
     """``trace=True`` records one tree per word plus the initial state."""
     p = ds.parse("a man arrives", "ttr", trace=True)

@@ -48,7 +48,7 @@ class ParseResult:
         if self.tree is None:
             print("(no parse tree)")
             return
-        print(format_ds_tree(self.tree))
+        self.tree.vis()
 
     def get_vocab(
         self,
