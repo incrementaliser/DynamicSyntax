@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Literal, TextIO
 
+import sys
+
 from rich.console import Console as _RichConsole
 
 from dylan.action.lexicon import Lexicon
@@ -21,7 +23,11 @@ from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.nlp.types import DEFAULT_SPEAKER, RELEASE_TURN_TOKEN, WAIT_TOKEN
 
 logger = logging.getLogger(__name__)
-_layered_console = _RichConsole()
+# ``force_interactive=False`` avoids Rich live-display threads that can block process exit under
+# pytest (especially on Windows) when capture or tooling leaves stdout in a non-TTY state.
+_layered_console = _RichConsole(
+    force_interactive=(os.environ.get("DYLAN_UNDER_PYTEST") != "1" and sys.stdout.isatty()),
+)
 
 
 class _NoOpRichStatus:
@@ -81,6 +87,17 @@ def _language_candidate_sequences(
 def _default_language_workers() -> int:
     """Return the safe default worker count, leaving one logical core free."""
     return max(1, (os.cpu_count() or 1) - 1)
+
+
+def _coerce_workers_for_pytest(workers: int) -> int:
+    """Use a single worker during pytest so process pools do not hang interpreter exit (Windows).
+
+    Parallel derivation tests compare parallel vs sequential outputs; with one worker the
+    parallel code path matches sequential semantics, so those tests remain valid.
+    """
+    if os.environ.get("DYLAN_UNDER_PYTEST") == "1" and workers > 1:
+        return 1
+    return workers
 
 
 def _next_language_output_paths(target_dir: Path, resolved_name: str) -> tuple[Path, Path]:
@@ -611,6 +628,7 @@ class LanguageDerivation:
         workers = _default_language_workers() if max_workers is None else max_workers
         if workers < 1:
             raise ValueError("max_workers must be at least 1")
+        workers = _coerce_workers_for_pytest(workers)
         if workers > 1:
             gpd = grammar_path
             if gpd is None or not Path(gpd).is_dir():
@@ -1214,6 +1232,7 @@ class LanguageDerivation:
         workers = _default_language_workers() if max_workers is None else max_workers
         if workers < 1:
             raise ValueError("max_workers must be at least 1")
+        workers = _coerce_workers_for_pytest(workers)
         if workers > 1 and (grammar_path is None or not Path(grammar_path).is_dir()):
             raise ValueError("parallel derivation requires a filesystem grammar directory")
 
