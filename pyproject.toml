@@ -43,6 +43,7 @@ dev = [
     "flet>=0.24.0",
     "ruff>=0.9",
     "rich>=13",
+    "pytest-timeout>=2.4.0",
 ]
 
 [project.scripts]
@@ -61,6 +62,8 @@ dynamicsyntax = ["grammars/**/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# ProcessPoolExecutor uses fork on Linux; pytest's threaded parent triggers this harmless warning.
+filterwarnings = ["ignore::DeprecationWarning:multiprocessing.popen_fork"]
 
 [tool.ruff]
 line-length = 100

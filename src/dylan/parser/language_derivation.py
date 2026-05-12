@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import itertools
 import logging
-import multiprocessing as mp
 import os
 import random
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
-from contextlib import ExitStack
+from contextlib import AbstractContextManager, ExitStack, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Literal, TextIO
@@ -24,21 +23,32 @@ from dylan.nlp.types import DEFAULT_SPEAKER, RELEASE_TURN_TOKEN, WAIT_TOKEN
 logger = logging.getLogger(__name__)
 _layered_console = _RichConsole()
 
+
+class _NoOpRichStatus:
+    """Stand-in for Rich ``Status`` when ``DYLAN_UNDER_PYTEST`` disables live spinners."""
+
+    def update(self, *_args: object, **_kwargs: object) -> None:
+        """Ignore Rich status updates (no live display under pytest)."""
+        return None
+
+
+def _layered_run_status(renderable: str) -> AbstractContextManager[Any]:
+    """Return ``Console.status(renderable)`` except under pytest, where live status is skipped.
+
+    Rich ``status`` uses a background refresh thread that can remain non-daemon; that blocks
+    interpreter shutdown after pytest prints ``passed`` even when tests are green.
+    """
+    if os.environ.get("DYLAN_UNDER_PYTEST") == "1":
+        return nullcontext(_NoOpRichStatus())
+    return _layered_console.status(renderable)
+
+
 DEFAULT_LANGUAGE_OUTPUT_DIR = Path("data/languages_output")
 _INCOMPLETE_LANGUAGE_SENTINEL = "<<incomplete>>"
 _SEMANTICS_ERROR_LANGUAGE_SENTINEL = "<<semantics-error>>"
 _COMPLETION_ABORT_SENTINEL = "<<completion-aborted>>"
 _WORKER_PARSER: Any = None
 _LAYERED_WORKER_PARSER: Any = None
-
-
-def _language_derivation_mp_context() -> mp.context.BaseContext:
-    """Return a multiprocessing context that starts workers with ``spawn`` (not ``fork``).
-
-    Avoids ``fork()`` from a multi-threaded parent (e.g. under pytest on Linux), which
-    triggers deprecation warnings and can deadlock child processes.
-    """
-    return mp.get_context("spawn")
 
 
 @dataclass(frozen=True)
@@ -657,7 +667,6 @@ class LanguageDerivation:
             if workers > 1:
                 with ProcessPoolExecutor(
                     max_workers=workers,
-                    mp_context=_language_derivation_mp_context(),
                     initializer=_init_layered_language_worker,
                     initargs=(
                         str(Path(grammar_path)),
@@ -674,7 +683,7 @@ class LanguageDerivation:
                     ]
                     si = 0
                     n_seed_tasks = len(seed_tasks)
-                    with _layered_console.status(
+                    with _layered_run_status(
                         f"[bold green]Layer 1 (seed)...[/bold green] "
                         f"[cyan]0/{n_seed_tasks}[/cyan] groups"
                     ) as seed_status:
@@ -747,7 +756,7 @@ class LanguageDerivation:
 
                         n_ext_tasks = len(ext_tasks)
                         n_frontier_here = len(set(frontier))
-                        with _layered_console.status(
+                        with _layered_run_status(
                             f"[bold green]Layer {depth + 1}[/bold green] "
                             f"(extending {n_frontier_here} prefixes)... "
                             f"[cyan]0/{n_ext_tasks}[/cyan] tasks"
@@ -809,7 +818,7 @@ class LanguageDerivation:
                         n_maxlen_tasks = len(maxlen_tasks)
                         mi = 0
                         if n_maxlen_tasks > 0:
-                            with _layered_console.status(
+                            with _layered_run_status(
                                 f"[bold green]Max-length completions[/bold green] "
                                 f"[cyan]0/{n_maxlen_tasks}[/cyan] prefixes"
                             ) as maxlen_status:
@@ -828,7 +837,7 @@ class LanguageDerivation:
                                         f"[cyan]{min(mi, n_maxlen_tasks)}/{n_maxlen_tasks}[/cyan] prefixes"
                                     )
             else:
-                with _layered_console.status(
+                with _layered_run_status(
                     f"[bold green]Layer 1 (seed)...[/bold green] "
                     f"[cyan]0/{n_groups}[/cyan] groups"
                 ) as seed_status:
@@ -885,7 +894,7 @@ class LanguageDerivation:
 
                     frontier_sorted = sorted(set(frontier))
                     n_prefixes_here = len(frontier_sorted)
-                    with _layered_console.status(
+                    with _layered_run_status(
                         f"[bold green]Layer {depth + 1}[/bold green] "
                         f"(extending {n_prefixes_here} prefixes)... "
                         f"[cyan]0/{n_prefixes_here}[/cyan] prefixes"
@@ -973,7 +982,7 @@ class LanguageDerivation:
                     ]
                     n_maxlen_px = len(maxlen_prefixes)
                     if n_maxlen_px > 0:
-                        with _layered_console.status(
+                        with _layered_run_status(
                             f"[bold green]Max-length completions[/bold green] "
                             f"[cyan]0/{n_maxlen_px}[/cyan] prefixes"
                         ) as maxlen_status:
@@ -1258,7 +1267,6 @@ class LanguageDerivation:
             tasks_iter = ((words, speaker, addressee) for words in candidates)
             with ProcessPoolExecutor(
                 max_workers=workers,
-                mp_context=_language_derivation_mp_context(),
                 initializer=_init_language_worker,
                 initargs=(
                     str(Path(grammar_path)),
