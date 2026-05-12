@@ -662,7 +662,11 @@ class LanguageDerivation:
                         for i in range(len(vocab_groups))
                     ]
                     si = 0
-                    with _layered_console.status("[bold green]Layer 1 (seed) running...[/bold green]"):
+                    n_seed_tasks = len(seed_tasks)
+                    with _layered_console.status(
+                        f"[bold green]Layer 1 (seed)...[/bold green] "
+                        f"[cyan]0/{n_seed_tasks}[/cyan] groups"
+                    ) as seed_status:
                         while si < len(seed_tasks) and not stop:
                             chunk = seed_tasks[si : si + batch_size]
                             for row in executor.map(_layered_bfs_seed_group_worker, chunk):
@@ -684,6 +688,10 @@ class LanguageDerivation:
                                         prefix_words=(),
                                     )
                             si += len(chunk)
+                            seed_status.update(
+                                f"[bold green]Layer 1 (seed)...[/bold green] "
+                                f"[cyan]{min(si, n_seed_tasks)}/{n_seed_tasks}[/cyan] groups"
+                            )
 
                     LanguageDerivation._write_layered_fringe(handles[1][2], frontier)
 
@@ -726,9 +734,13 @@ class LanguageDerivation:
                                 if max_successful is not None and success_total >= max_successful:
                                     stop = True
 
+                        n_ext_tasks = len(ext_tasks)
+                        n_frontier_here = len(set(frontier))
                         with _layered_console.status(
-                            f"[bold green]Layer {depth + 1} (extending {len(frontier)} prefixes)...[/bold green]"
-                        ):
+                            f"[bold green]Layer {depth + 1}[/bold green] "
+                            f"(extending {n_frontier_here} prefixes)... "
+                            f"[cyan]0/{n_ext_tasks}[/cyan] tasks"
+                        ) as ext_status:
                             ei = 0
                             while ei < len(ext_tasks) and not stop:
                                 chunk = ext_tasks[ei : ei + batch_size]
@@ -759,6 +771,11 @@ class LanguageDerivation:
                                             prefix_words=P,
                                         )
                                 ei += len(chunk)
+                                ext_status.update(
+                                    f"[bold green]Layer {depth + 1}[/bold green] "
+                                    f"(extending {n_frontier_here} prefixes)... "
+                                    f"[cyan]{min(ei, n_ext_tasks)}/{n_ext_tasks}[/cyan] tasks"
+                                )
                         if prev_p is not None:
                             _finalize_prefix_completion(prev_p, had_failure_for_p)
 
@@ -778,20 +795,33 @@ class LanguageDerivation:
                             for P in sorted(set(frontier))
                             if len(P) == max_len and len(P) >= min_len
                         ]
+                        n_maxlen_tasks = len(maxlen_tasks)
                         mi = 0
-                        while mi < len(maxlen_tasks) and not stop:
-                            chunk = maxlen_tasks[mi : mi + batch_size]
-                            for rec in executor.map(_layered_bfs_maxlen_completion_worker, chunk):
-                                if stop:
-                                    break
-                                if rec is not None:
-                                    emit_completion_success_only(max_len, rec)
-                                if max_successful is not None and success_total >= max_successful:
-                                    stop = True
-                            mi += len(chunk)
+                        if n_maxlen_tasks > 0:
+                            with _layered_console.status(
+                                f"[bold green]Max-length completions[/bold green] "
+                                f"[cyan]0/{n_maxlen_tasks}[/cyan] prefixes"
+                            ) as maxlen_status:
+                                while mi < len(maxlen_tasks) and not stop:
+                                    chunk = maxlen_tasks[mi : mi + batch_size]
+                                    for rec in executor.map(_layered_bfs_maxlen_completion_worker, chunk):
+                                        if stop:
+                                            break
+                                        if rec is not None:
+                                            emit_completion_success_only(max_len, rec)
+                                        if max_successful is not None and success_total >= max_successful:
+                                            stop = True
+                                    mi += len(chunk)
+                                    maxlen_status.update(
+                                        f"[bold green]Max-length completions[/bold green] "
+                                        f"[cyan]{min(mi, n_maxlen_tasks)}/{n_maxlen_tasks}[/cyan] prefixes"
+                                    )
             else:
-                with _layered_console.status("[bold green]Layer 1 (seed) running...[/bold green]"):
-                    for group in vocab_groups:
+                with _layered_console.status(
+                    f"[bold green]Layer 1 (seed)...[/bold green] "
+                    f"[cyan]0/{n_groups}[/cyan] groups"
+                ) as seed_status:
+                    for gi, group in enumerate(vocab_groups, start=1):
                         if stop:
                             break
                         for w in group:
@@ -821,6 +851,10 @@ class LanguageDerivation:
                                 word=group[0],
                                 prefix_words=(),
                             )
+                        seed_status.update(
+                            f"[bold green]Layer 1 (seed)...[/bold green] "
+                            f"[cyan]{gi}/{n_groups}[/cyan] groups"
+                        )
 
                 LanguageDerivation._write_layered_fringe(handles[1][2], frontier)
 
@@ -838,10 +872,14 @@ class LanguageDerivation:
                     layer_ext_fail_groups = 0
                     success_before_depth = success_total
 
+                    frontier_sorted = sorted(set(frontier))
+                    n_prefixes_here = len(frontier_sorted)
                     with _layered_console.status(
-                        f"[bold green]Layer {depth + 1} (extending {len(frontier)} prefixes)...[/bold green]"
-                    ):
-                        for P in sorted(set(frontier)):
+                        f"[bold green]Layer {depth + 1}[/bold green] "
+                        f"(extending {n_prefixes_here} prefixes)... "
+                        f"[cyan]0/{n_prefixes_here}[/cyan] prefixes"
+                    ) as ext_status:
+                        for pi, P in enumerate(frontier_sorted, start=1):
                             if stop:
                                 break
                             had_failure = False
@@ -900,6 +938,12 @@ class LanguageDerivation:
                                 if max_successful is not None and success_total >= max_successful:
                                     stop = True
 
+                            ext_status.update(
+                                f"[bold green]Layer {depth + 1}[/bold green] "
+                                f"(extending {n_prefixes_here} prefixes)... "
+                                f"[cyan]{pi}/{n_prefixes_here}[/cyan] prefixes"
+                            )
+
                     frontier = sorted(set(next_frontier))
                     LanguageDerivation._write_layered_fringe(handles[depth + 1][2], frontier)
                     new_successes = success_total - success_before_depth
@@ -911,17 +955,31 @@ class LanguageDerivation:
                     )
 
                 if not stop:
-                    for P in sorted(set(frontier)):
-                        if stop:
-                            break
-                        if len(P) == max_len and len(P) >= min_len:
-                            if _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
-                                emit_completion_success_only(
-                                    max_len,
-                                    _record_completion_from_current_state(parser, sentence=" ".join(P)),
+                    maxlen_prefixes = [
+                        P
+                        for P in sorted(set(frontier))
+                        if len(P) == max_len and len(P) >= min_len
+                    ]
+                    n_maxlen_px = len(maxlen_prefixes)
+                    if n_maxlen_px > 0:
+                        with _layered_console.status(
+                            f"[bold green]Max-length completions[/bold green] "
+                            f"[cyan]0/{n_maxlen_px}[/cyan] prefixes"
+                        ) as maxlen_status:
+                            for mi, P in enumerate(maxlen_prefixes, start=1):
+                                if stop:
+                                    break
+                                if _replay_prefix(parser, P, speaker=speaker, addressee=addressee):
+                                    emit_completion_success_only(
+                                        max_len,
+                                        _record_completion_from_current_state(parser, sentence=" ".join(P)),
+                                    )
+                                if max_successful is not None and success_total >= max_successful:
+                                    stop = True
+                                maxlen_status.update(
+                                    f"[bold green]Max-length completions[/bold green] "
+                                    f"[cyan]{mi}/{n_maxlen_px}[/cyan] prefixes"
                                 )
-                            if max_successful is not None and success_total >= max_successful:
-                                stop = True
 
         total_successes = sum(len(ss) for ss in seen_success_by_layer.values())
         _layered_console.print(
