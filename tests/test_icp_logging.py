@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from loguru import logger
 
 from dylan.dag.uttered_word import UtteredWord
