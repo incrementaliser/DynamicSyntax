@@ -63,6 +63,16 @@ def test_log_level_warning_suppresses_info() -> None:
     assert not any("Parsed" in msg for _, msg in captured)
 
 
+def test_icp_logging_suite_exits_after_multiple_terminal_parsers() -> None:
+    """Regression: two terminal-log parsers must not deadlock loguru sink removal at GC."""
+    parsers = [
+        InteractiveContextParser(FIXTURE, log_level="error", log_output="terminal"),
+        InteractiveContextParser(FIXTURE, log_level="warning", log_output="terminal"),
+    ]
+    for parser in parsers:
+        parser.close()
+
+
 def test_log_output_file_writes_under_log_dir(tmp_path: Path) -> None:
     """``log_output=file`` with *log_dir* creates a log file and does not require a terminal sink."""
     log_dir = tmp_path / "logs"

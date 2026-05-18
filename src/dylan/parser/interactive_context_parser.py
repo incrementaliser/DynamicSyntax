@@ -144,14 +144,27 @@ class InteractiveContextParser(DAGParser):
         self._log = loguru_logger.bind(icp_id=self._icp_id)
         sync_dylan_stdlib_level_for_icp(log_level)
 
-    def _configure_icp_sinks(self) -> None:
-        """Register loguru sinks filtered to this parser's ``icp_id`` (or remove prior registrations)."""
+    def _remove_icp_log_sinks(self) -> None:
+        """Remove loguru sinks registered for this parser's ``icp_id``."""
         for hid in self._icp_log_handler_ids:
             try:
                 loguru_logger.remove(hid)
             except ValueError:
                 pass
         self._icp_log_handler_ids.clear()
+
+    def close(self) -> None:
+        """Remove per-parser loguru sinks.
+
+        Call when a parser instance is no longer needed. Do not rely on ``__del__`` for cleanup:
+        removing loguru handlers during interpreter shutdown can deadlock on loguru's internal lock
+        when several parsers are collected together (e.g. after pytest).
+        """
+        self._remove_icp_log_sinks()
+
+    def _configure_icp_sinks(self) -> None:
+        """Register loguru sinks filtered to this parser's ``icp_id`` (or remove prior registrations)."""
+        self._remove_icp_log_sinks()
         if self._log_level == "off":
             return
         lu_level = "ERROR" if self._log_level == "error" else "WARNING"
@@ -182,17 +195,6 @@ class InteractiveContextParser(DAGParser):
                 rotation="10 MB",
             )
             self._icp_log_handler_ids.append(hid)
-
-    def __del__(self) -> None:
-        """Best-effort removal of this parser's loguru sinks."""
-        try:
-            for hid in list(getattr(self, "_icp_log_handler_ids", ())):
-                try:
-                    loguru_logger.remove(hid)
-                except ValueError:
-                    pass
-        except Exception:
-            pass
 
     def _log_nonoptional_adjust_limit_exceeded(self) -> None:
         """Emit error when the non-optional adjustment loop exceeds its pass bound."""
