@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import multiprocessing as mp
 import os
 import random
 from collections import defaultdict
@@ -55,6 +56,15 @@ _SEMANTICS_ERROR_LANGUAGE_SENTINEL = "<<semantics-error>>"
 _COMPLETION_ABORT_SENTINEL = "<<completion-aborted>>"
 _WORKER_PARSER: Any = None
 _LAYERED_WORKER_PARSER: Any = None
+
+
+def _language_derivation_mp_context() -> mp.context.BaseContext:
+    """Return a ``spawn`` multiprocessing context for language-derivation worker pools.
+
+    Avoids ``fork()`` from a multi-threaded parent (e.g. pytest on Linux), which can deadlock
+    worker processes and trigger deprecation warnings.
+    """
+    return mp.get_context("spawn")
 
 
 @dataclass(frozen=True)
@@ -685,6 +695,7 @@ class LanguageDerivation:
             if workers > 1:
                 with ProcessPoolExecutor(
                     max_workers=workers,
+                    mp_context=_language_derivation_mp_context(),
                     initializer=_init_layered_language_worker,
                     initargs=(
                         str(Path(grammar_path)),
@@ -1286,6 +1297,7 @@ class LanguageDerivation:
             tasks_iter = ((words, speaker, addressee) for words in candidates)
             with ProcessPoolExecutor(
                 max_workers=workers,
+                mp_context=_language_derivation_mp_context(),
                 initializer=_init_language_worker,
                 initargs=(
                     str(Path(grammar_path)),
