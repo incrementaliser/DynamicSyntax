@@ -43,7 +43,8 @@ def _question_record() -> "TTRRecordType":
 class Tree(dict[NodeAddress, Node]):
     """Maps node addresses to nodes (Java extends TreeMap)."""
 
-    def __init__(self, other: Tree | None = None) -> None:
+    def __init__(self, other: Tree | NodeAddress | None = None) -> None:
+        """Create a fresh tree, copy *other*, or root a tree at the given address."""
         super().__init__()
         if other is None:
             self.root_addr = NodeAddress()
@@ -56,6 +57,15 @@ class Tree(dict[NodeAddress, Node]):
             root = Node(self.root_addr)
             root.add_label(Requirement(TypeLabel.t))
             self[self.root_addr] = root
+        elif isinstance(other, NodeAddress):
+            self.root_addr = other
+            self.pointer = other
+            self._entity_pool = []
+            self._event_pool = []
+            self._proposition_pool = []
+            self._record_type_pool = []
+            self._predicate_pool = []
+            self[self.root_addr] = Node(self.root_addr)
         else:
             self.root_addr = other.root_addr
             self.pointer = other.pointer
@@ -69,7 +79,50 @@ class Tree(dict[NodeAddress, Node]):
 
     @property
     def pointed_node(self) -> Node:
+        """Return the node at the current pointer."""
         return self[self.pointer]
+
+    def get_pointed_node(self) -> Node:
+        """Return the node at the current pointer (Java ``Tree.getPointedNode``)."""
+        return self[self.pointer]
+
+    def get_pointer(self) -> NodeAddress:
+        """Return the current pointer address (Java ``Tree.getPointer``)."""
+        return self.pointer
+
+    def get_root(self) -> NodeAddress:
+        """Return the root address (Java ``Tree.getRoot``)."""
+        return self.root_addr
+
+    def key_set(self) -> set[NodeAddress]:
+        """Address keys (Java ``Tree.keySet``)."""
+        return set(self.keys())
+
+    def get_nodes(self) -> list[Node]:
+        """Return all nodes in this tree (Java ``Tree.getNodes``)."""
+        return list(self.values())
+
+    def get_depth(self) -> int:
+        """Return the maximum address length minus the root length (Java ``Tree.getDepth``)."""
+        if not self:
+            return 0
+        root_len = len(self.root_addr.address)
+        return max(0, max(len(addr.address) - root_len for addr in self.keys()))
+
+    def get_num_nodes(self) -> int:
+        """Return the number of nodes (Java ``Tree.getNumNodes``)."""
+        return len(self)
+
+    def subsumes_tree(self, other: Tree) -> bool:
+        """True when every node here matches a node in *other* (Java ``Tree.subsumes(Tree)``)."""
+        for addr, node in self.items():
+            other_node = other.get(addr)
+            if other_node is None:
+                return False
+            for lab in node.labels:
+                if not any(lab == ol or ol == lab for ol in other_node.labels):
+                    return False
+        return True
 
     def clone(self) -> Tree:
         """Deep copy nodes, pointer, and variable pools (Java ``Tree.clone`` sketch)."""
@@ -175,14 +228,39 @@ class Tree(dict[NodeAddress, Node]):
             self[new_addr] = new_node
             del self[dtr.address]
 
-    def merge(self, modality: Modality) -> None:
-        """Merge the node at *modality* into the pointed node (Java ``Tree.merge``)."""
+    def merge(self, other: "Modality | Tree") -> "None | Tree":
+        """Java ``Tree.merge`` overload: ``Modality`` mutates self; ``Tree`` returns a copy with overlay."""
+        if isinstance(other, Tree):
+            return self.merge_tree(other)
+        return self.merge_modality(other)
+
+    def merge_modality(self, modality: Modality) -> None:
+        """Merge the node at *modality* into the pointed node (Java ``Tree.merge(Modality)``)."""
         other = self.get_node(modality)
         if other is None:
             raise RuntimeError("merge: no node at modality")
         self._move_daughters(self.get_daughters(other), other.address, self.pointer)
         self.pointed_node.merge_from(other)
         del self[other.address]
+
+    def merge_tree(self, other: Tree) -> Tree:
+        """Merge labels per node (parser overlay). For induction targets use :meth:`merge_tree_put_all`."""
+        copy = Tree(self)
+        for k, v in other.items():
+            existing = copy.get(k)
+            if existing is None:
+                copy[k] = Node(v.address, list(v.labels))
+            else:
+                for lab in v.labels:
+                    existing.add_label(lab)
+        return copy
+
+    def merge_tree_put_all(self, other: Tree) -> Tree:
+        """Java ``Tree.merge`` / ``putAll`` — replace whole nodes at shared addresses."""
+        copy = Tree(self)
+        for k, v in other.items():
+            copy[k] = Node(v.address, list(v.labels))
+        return copy
 
     def merge_node(self, node: Node) -> None:
         """Merge *node* into the pointed node (Java ``Tree.merge(Node)``)."""
@@ -226,6 +304,10 @@ class Tree(dict[NodeAddress, Node]):
             return [result]
         return [original]
 
+    def _add_underspecified_formulae_induction(self, context: Any) -> None:
+        """During EM induction, bind metavar domains only (skip static ``typeMap`` templates)."""
+        self._bind_induction_metavar_domains_from_target(context)
+
     def _add_underspecified_formulae(self, context: Any) -> None:
         """Attach underspecified ``Fo`` from static ``typeMap`` (Java ``addUnderspecifiedFormulae(Context)``)."""
         type_map = get_static_type_map()
@@ -247,7 +329,50 @@ class Tree(dict[NodeAddress, Node]):
             tmpl = type_map[ds_type]
             fresh = tmpl.freshen_vars(self)
             n.add_label(FormulaLabel(fresh))
+        self._bind_induction_metavar_domains_from_target(context)
         logger.debug("After adding underspec formulae: %s", self)
+
+    def _bind_induction_metavar_domains_from_target(self, context: Any) -> None:
+        """When *context* is an induction tuple, bind ``r0.head`` paths using the gold target record if present."""
+        from dylan.formula.ttr_record_type import TTRRecordType
+        from dylan.induction.em_learner.induction_semantics import bind_metavar_path_domains
+
+        gold: TTRRecordType | None = None
+        gg = getattr(context, "get_gold_target_type", None)
+        if callable(gg):
+            g = gg()
+            if isinstance(g, TTRRecordType):
+                gold = g
+        if gold is None:
+            gt = getattr(context, "get_target_tree", None)
+            if not callable(gt):
+                return
+            tgt_tree = gt()
+            if tgt_tree is None or not len(tgt_tree):
+                return
+            try:
+                amb = tgt_tree.get_maximal_semantics(None)
+            except Exception:  # noqa: BLE001
+                return
+            if isinstance(amb, TTRRecordType):
+                gold = amb
+        if gold is None:
+            return
+        for n in self.values():
+            fl = n.get_formula_label()
+            if fl is None:
+                continue
+            fo = fl.get_formula()
+            if fo is None:
+                continue
+            try:
+                new_fo = bind_metavar_path_domains(fo, gold)
+            except Exception:  # noqa: BLE001
+                continue
+            if new_fo == fo:
+                continue
+            n.remove_formula_label()
+            n.add_label(FormulaLabel(new_fo))
 
     def _add_underspecified_formulae_no_context(self) -> None:
         """Java no-arg ``addUnderspecifiedFormulae`` — use static map plus ``e>t`` / ``?Ex.fo`` special case."""
@@ -328,11 +453,14 @@ class Tree(dict[NodeAddress, Node]):
             assert d0 is not None and d1 is not None
             arg_max = self._max_sem_at(d0, context)
             funct_max = self._max_sem_at(d1, context)
-            if not isinstance(funct_max, TTRLambdaAbstract):
+            if isinstance(funct_max, TTRLambdaAbstract):
+                logger.debug("beta-reducing functor %s arg %s", funct_max, arg_max)
+                root_reduced = funct_max.beta_reduce(arg_max)
+                logger.debug("beta result %s", root_reduced)
+            elif isinstance(funct_max, TTRRecordType) and isinstance(arg_max, TTRFormula):
+                root_reduced = root_reduced.conjoin(funct_max).conjoin(arg_max)
+            else:
                 raise TypeError(f"expected TTR lambda at functor, got {type(funct_max).__name__}")
-            logger.debug("beta-reducing functor %s arg %s", funct_max, arg_max)
-            root_reduced = funct_max.beta_reduce(arg_max)
-            logger.debug("beta result %s", root_reduced)
             if unfixed_reduced is not None:
                 root_reduced = root_reduced.conjoin(unfixed_reduced.remove_head())
             if local_unfixed_reduced is not None:
@@ -368,7 +496,12 @@ class Tree(dict[NodeAddress, Node]):
 
         return root_reduced
 
-    def get_maximal_semantics(self, context: Any = None) -> "TTRFormula":
+    def get_maximal_semantics(
+        self,
+        context: Any = None,
+        *,
+        induction_mode: bool = False,
+    ) -> "TTRFormula":
         """Compute maximal TTR semantics (Java ``getMaximalSemantics(Context)``)."""
         from dylan.formula.disjunctive_type import DisjunctiveType
         from dylan.formula.ttr_formula import TTRFormula
@@ -382,7 +515,10 @@ class Tree(dict[NodeAddress, Node]):
 
         first = merged_list[0]
         if context is not None:
-            first._add_underspecified_formulae(context)
+            if induction_mode:
+                first._add_underspecified_formulae_induction(context)
+            else:
+                first._add_underspecified_formulae(context)
         else:
             first._add_underspecified_formulae_no_context()
 
@@ -438,8 +574,18 @@ class Tree(dict[NodeAddress, Node]):
     put = put_label
 
     def delete_label(self, label: Label) -> None:
-        """Remove a label from the pointed node (Java ``Tree.delete``)."""
-        self.pointed_node.remove_label(label)
+        """Remove a label from the pointed node (Java ``Tree.delete`` with HashSet fallback)."""
+        if self.pointed_node.remove_label(label):
+            return
+        kept: list[Label] = []
+        for lab in self.pointed_node.labels:
+            if lab == label and label == lab and lab.__hash__() == label.__hash__():
+                continue
+            kept.append(lab)
+        if len(kept) != len(self.pointed_node.labels):
+            self.pointed_node.labels = kept
+            return
+        logger.warning("Failed to delete: %s on %s", label, self.pointed_node)
 
     def is_complete(self) -> bool:
         """True when pointer is at root and no node carries a :class:`Requirement` (Java ``Tree.isComplete``)."""
@@ -453,7 +599,42 @@ class Tree(dict[NodeAddress, Node]):
                     return False
         return True
 
+    def count_incomplete_nodes(self) -> int:
+        """Count nodes that still carry type requirements (Java ``countIncompleteNodes``)."""
+        return sum(1 for node in self.values() if not node.is_complete())
 
+    def get_incompleteness_measure(self) -> float:
+        """Fraction of nodes that are incomplete; 0 for a complete tree, ~1 for the axiom (Java ``getIncompletenessMeasure``)."""
+        n_nodes = len(self.values())
+        if n_nodes == 0:
+            return 1.0
+        return float(self.count_incomplete_nodes()) / float(n_nodes)
+
+    def __eq__(self, other: object) -> bool:
+        """Match Java ``Tree.equals``: pointer plus node map equality."""
+        if self is other:
+            return True
+        if not isinstance(other, Tree):
+            return NotImplemented
+        if self.get_pointer() != other.get_pointer():
+            return False
+        if set(self.keys()) != set(other.keys()):
+            return False
+        return all(self[addr] == other[addr] for addr in self.keys())
+
+    def __hash__(self) -> int:
+        """Hash aligned with Java ``Tree.hashCode`` (pointer + map entries)."""
+        return hash((self.pointer, frozenset((addr, self[addr]) for addr in self.keys())))
+
+
+Tree.getPointedNode = Tree.get_pointed_node  # type: ignore[attr-defined]
+Tree.getPointer = Tree.get_pointer  # type: ignore[attr-defined]
+Tree.getRoot = Tree.get_root  # type: ignore[attr-defined]
+Tree.keySet = Tree.key_set  # type: ignore[attr-defined]
+Tree.getNodes = Tree.get_nodes  # type: ignore[attr-defined]
+Tree.getDepth = Tree.get_depth  # type: ignore[attr-defined]
+Tree.getNumNodes = Tree.get_num_nodes  # type: ignore[attr-defined]
+Tree.subsumes = Tree.subsumes_tree  # type: ignore[attr-defined]
 Tree.setPointer = Tree.set_pointer  # type: ignore[attr-defined]
 Tree.getFreshEntityVariable = Tree.get_fresh_entity_variable  # type: ignore[attr-defined]
 Tree.getFreshEventVariable = Tree.get_fresh_event_variable  # type: ignore[attr-defined]
@@ -473,3 +654,5 @@ Tree.goOp = Tree.go_op  # type: ignore[attr-defined]
 Tree.putLabel = Tree.put_label  # type: ignore[attr-defined]
 Tree.deleteLabel = Tree.delete_label  # type: ignore[attr-defined]
 Tree.isComplete = Tree.is_complete  # type: ignore[attr-defined]
+Tree.countIncompleteNodes = Tree.count_incomplete_nodes  # type: ignore[attr-defined]
+Tree.getIncompletenessMeasure = Tree.get_incompleteness_measure  # type: ignore[attr-defined]

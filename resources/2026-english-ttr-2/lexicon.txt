@@ -28,11 +28,11 @@ arrives                       v_pp_for_fin                  arrive              
 arriving                      v_pp_for_ing                  arrive                        ing                           per
 arrived                       v_pp_for_fin                  arrive                        past                          per
 arrived                       v_pp_for_pas                  arrive                        inf                           per
-know						  v_tran_fin					know						  pres							per
+know						  v_tran_fin					know						  pres							nons3
 knows						  v_tran_fin					know						  pres							s3
 knew						  v_tran_fin					know						  past							per
 know						  v_tran_inf					know						  inf							per
-cook						  v_tran_fin					cook						  pres							per
+cook						  v_tran_fin					cook						  pres							nons3
 cooked						  v_tran_fin					cook						  past							per
 cooks						  v_tran_fin					cook						  pres							s3
 be                            v_be_inf                      be                            inf                           per
@@ -121,8 +121,8 @@ disliked                      v_tran_pas                    dislike             
 meet                  	     v_tran_inf                    meet                       inf                           per
 meet                 	      v_tran_fin                    meet                       pres                          nons3
 meets               	       v_tran_fin                    meet                       pres                          s3
-meeting             	       v_tran_ing                    dislike                       ing                           per
-met                   		  v_tran_fin                    dislike                       past                          per
+meeting             	       v_tran_ing                    meet                       ing                           per
+met                   		  v_tran_fin                    meet                       past                          per
 buy		                      v_tran_inf                    buy                       inf                           per
 buy		                      v_tran_fin                    buy                       pres                          nons3
 buys  	                      v_tran_fin                    buy                       pres                          s3
@@ -376,7 +376,7 @@ wants                         v_tran_fin                    want                
 //want                          v_subjcon_inf                 want                          inf                           per
 want                            v_subjcon_fin                 want                          pres                          nons3
 wants                           v_subjcon_fin                 want                          pres                          s3
-want                            v_subjcon_inf                 want                          inf                          nons3
+want                            v_subjcon_inf                 want                          inf                          per
 //wanting                       v_subjcon_ing                 want                          ing                           per
 looking						    v_subjcon_ing				  look							ing 						  per
 lookingfor					    v_tran_ing				      look							ing							  per
@@ -424,12 +424,12 @@ wondered                      v_pp_for_pas                  wonder              
 //would                         v_tran_fin                    would                         pres                          s3
 //would                         v_tran_fin                    would                         past                          per
 //would                         v_aux_inf                     would                         inf                           per
-would                         v_aux_inf                     would                         pres                          nons3
+would                         v_aux_inf                     would                         past                          nons3
 //would                         v_aux_fin                     would                         pres                          s3
 //would                         v_aux_fin                     would                         past                          per
 bill                          proper                        bill                          s3                            male
 john                          proper                        john                          s3                            male
-ruth						  proper						ruth						  s3							male
+ruth						  proper						ruth						  s3							female
 arash						  proper						arash						  s3							male
 stergios					  proper						stergios					  s3							male
 mary                          proper                        mary                          s3                            female
@@ -439,9 +439,9 @@ samsung						  proper						samsung						  s3							obj
 apple						  proper						apple						  s3							obj
 //aeroplane                     mass                          aeroplane                     s3                            trans
 //aeroplanes                    mass                          aeroplane                     plur                          trans
-//my							 my								s1							  
+my							 my								s1							  
 your						 your							s2							 
-cousin                    count                         cousin                     s3                            trans
+cousin                    count                         cousin                     s3                            per
 phone					  count							phone					   s3							obj
 product					  count							product					   s3							obj
 guy						  count							guy						   s3							male
@@ -536,9 +536,11 @@ big							  adj_be						big
 massive						  adj							massive
 massive						  adj_be						massive
 fat							  adj							fat
+fat							  adj_be							fat
+thin						  adj							thin
+thin						  adj_be							thin
 nice						  adj							nice
 nice						  adj_be						nice
-thin						  adj							thin
 with						  prep_es						with
 with						  prep_e						with
 to 							  prep_es						to
@@ -564,8 +566,8 @@ April					      proper						april						  s3                            temp
 london                        proper                   	    london                        s3                            loc
 paris                         proper                        paris                         s3                            loc
 Tuesday						  proper						tuesday						  s3                            temp
-casserole					  proper						casserole					  s3
-stew						  proper						stew						  s3
+casserole					  proper						casserole					  s3                            food
+stew						  proper						stew						  s3                            food
 i                             i				                nons3							per
 you							  you   						nons3							per
 he                            pron_nom                      s3                            male
@@ -598,12 +600,10 @@ a                             det_indef_postcop				eps
 an                            det_indef_postcop				eps
 the                           det_quant                     iota
 the                           det_def_postcop               iota
-the                           the			                iota
 this						  det_demonst					here						  s3
 that						  det_demonst					there					      s3
 this						  demonst  						this						  s3
 that						  demonst						that						  s3
-every                         det_quant                     tau
 some                          det_indef                     eps
 .							  assert						A
 ?							  question						Q
@@ -620,3 +620,4 @@ no							  reject						not
 //what                          pron_whq_cop                  s3							  obj
 //london                        proper                        london                        s3                            dest
 //paris                         proper                        paris                         s3                            dest
+//every                         det_quant                     tau

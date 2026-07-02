@@ -1,21 +1,53 @@
-"""Display pair for a word hypothesis probability."""
+"""Word/log-probability pair (Java ``qmul.ds.learn.WordLogProb``)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 
-@dataclass(order=True, frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class WordLogProb:
-    """Word/log-probability pair sorted by log probability."""
+    """Java ``WordLogProb`` (extends ``Pair<String, Double>``); compares descending by ``prob``."""
 
     word: str
-    log_prob: float
+    prob: float
+
+    def get_word(self) -> str:
+        """Return the word string (Java ``getWord``)."""
+        return self.word
+
+    def get_prob(self) -> float:
+        """Return the probability (Java ``getProb``)."""
+        return self.prob
 
     def first(self) -> str:
-        """Return the word."""
+        """Return the first element of the underlying pair (Java ``first``)."""
         return self.word
 
     def second(self) -> float:
-        """Return the log probability."""
-        return self.log_prob
+        """Return the second element of the underlying pair (Java ``second``)."""
+        return self.prob
+
+    def __lt__(self, other: "WordLogProb") -> bool:
+        """Java ``compareTo``: descending probability ordering."""
+        return self.prob > other.prob
+
+    def __le__(self, other: "WordLogProb") -> bool:
+        """Java ``compareTo``: descending probability ordering (<=)."""
+        return self.prob >= other.prob
+
+    def __gt__(self, other: "WordLogProb") -> bool:
+        """Java ``compareTo``: descending probability ordering (>)."""
+        return self.prob < other.prob
+
+    def __ge__(self, other: "WordLogProb") -> bool:
+        """Java ``compareTo``: descending probability ordering (>=)."""
+        return self.prob <= other.prob
+
+    def __str__(self) -> str:
+        """Java ``toString`` -> ``<word> <prob>``."""
+        return f"{self.word} {self.prob}"
+
+
+WordLogProb.getWord = WordLogProb.get_word  # type: ignore[attr-defined]
+WordLogProb.getProb = WordLogProb.get_prob  # type: ignore[attr-defined]

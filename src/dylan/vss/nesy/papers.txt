@@ -1,0 +1,11 @@
+Title: To Neuro-Symbolic Classification and Beyond by Compiling Description Logic Ontologies to Probabilistic Circuits
+Paper link: https://arxiv.org/pdf/2601.14894
+Code link: https://github.com/n28div/descriptionlogic
+
+Title: Semantic Probabilistic Layers for Neuro-Symbolic Learning
+Paper link: https://proceedings.neurips.cc/paper_files/paper/2022/file/c182ec594f38926b7fcb827635b9a8f4-Paper-Conference.pdf
+Code link: https://github.com/KareemYousrii/SPL
+
+Title: Tractable Representation Learning with Probabilistic Circuits
+Paper link: https://openreview.net/pdf?id=h8D75pVKja
+Code link: https://github.com/ml-research/autoencoding-probabilistic-circuits

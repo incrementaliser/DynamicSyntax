@@ -10,7 +10,7 @@ class UtteredWord:
     """Surface word plus dialogue participant (and addressee for dyadic parsing)."""
 
     word: str | None
-    speaker: str
+    speaker: str = "Self"
     addressee: str = "you"
 
     def __post_init__(self) -> None:

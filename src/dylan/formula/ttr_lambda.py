@@ -33,9 +33,13 @@ class TTRLambdaAbstract(TTRFormula):
     def evaluate(self) -> TTRFormula:
         return TTRLambdaAbstract(self.variable, self.body.evaluate())
 
-    def freshen_vars(self, tree: Any) -> TTRFormula:
+    def freshen_vars_tree(self, tree: Any) -> TTRFormula:
         """Freshen only the core body, keeping lambda binders fixed (Java ``TTRLambdaAbstract.freshenVars``)."""
-        return self.replace_core(self.get_core().freshen_vars(tree))
+        return self.replace_core(self.get_core().freshen_vars_tree(tree))
+
+    def freshen_vars_mapped(self, gold: Any, var_map: dict[Any, Any]) -> TTRFormula:
+        """Freshen the core body relative to gold record *gold* (Java ``TTRLambdaAbstract.freshenVars(TTRRecordType, Map)``)."""
+        return self.replace_core(self.get_core().freshen_vars_mapped(gold, var_map))
 
     def beta_reduce(self, argument: Formula) -> TTRFormula:
         """Apply *argument* and evaluate (Java ``TTRLambdaAbstract.betaReduce``)."""
@@ -75,5 +79,33 @@ class TTRLambdaAbstract(TTRFormula):
         merged = self.get_core().asymmetric_merge(rt)
         return self.replace_core(merged)
 
+    def get_variable(self) -> Variable:
+        """Return the bound metavariable (Java ``getVariable``)."""
+        return self.variable
+
+    def get_body(self) -> TTRFormula:
+        """Return the immediate body — possibly another lambda (Java ``getBody``)."""
+        return self.body
+
+    def get_variables(self) -> set[Variable]:
+        """Return body variables minus the binder (Java ``getVariables``)."""
+        body_vars = self.body.get_variables() if hasattr(self.body, "get_variables") else set()
+        return {v for v in body_vars if v != self.variable}
+
+    def get_abstractions_basic(self, basic: Any, new_var_suffix: int = 1) -> list[Any]:
+        """Delegate basic abstractions to the body (Java ``TTRLambdaAbstract.getAbstractions(BasicType, int)``)."""
+        return self.body.get_abstractions_basic(basic, new_var_suffix) if hasattr(
+            self.body, "get_abstractions_basic",
+        ) else []
+
     def __str__(self) -> str:
+        """Render ``R^body`` in Java style."""
         return f"{self.variable}^{self.body}"
+
+
+TTRLambdaAbstract.getCore = TTRLambdaAbstract.get_core  # type: ignore[attr-defined]
+TTRLambdaAbstract.replaceCore = TTRLambdaAbstract.replace_core  # type: ignore[attr-defined]
+TTRLambdaAbstract.getVariable = TTRLambdaAbstract.get_variable  # type: ignore[attr-defined]
+TTRLambdaAbstract.getBody = TTRLambdaAbstract.get_body  # type: ignore[attr-defined]
+TTRLambdaAbstract.getVariables = TTRLambdaAbstract.get_variables  # type: ignore[attr-defined]
+TTRLambdaAbstract.betaReduce = TTRLambdaAbstract.beta_reduce  # type: ignore[attr-defined]

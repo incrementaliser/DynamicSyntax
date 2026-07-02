@@ -50,7 +50,22 @@ def resolve_path(path: str | Path) -> Path:
 
 
 def action_key(action: Any) -> str:
-    """Stable action comparison key matching Java name/effect equality loosely."""
+    """Stable per-action key for candidate dedup / intersection (includes lexical payload).
+
+    :class:`~dylan.induction.em_learner.lexical_hypothesis.LexicalHypothesis` overrides
+    ``__str__`` to the surface name only, so the generic ``str(action)`` suffix would
+    collapse distinct induced effects into one key and wrongly treat sequences as duplicates.
+    """
+    from dylan.action.lexical_action import LexicalAction
+    from dylan.induction.em_learner.lexical_hypothesis import LexicalHypothesis
+
+    if isinstance(action, LexicalHypothesis):
+        eff = getattr(action, "effect", None)
+        eff_s = str(eff) if eff is not None else "None"
+        return f"LexicalHypothesis:{action.get_name()}:{eff_s}"
+    if isinstance(action, LexicalAction):
+        lines = tuple(getattr(action, "_source_lines", None) or ())
+        return f"LexicalAction:{action.word}:{lines!r}"
     name_fn = getattr(action, "get_name", None)
     if callable(name_fn):
         return f"{type(action).__name__}:{name_fn()}:{action}"

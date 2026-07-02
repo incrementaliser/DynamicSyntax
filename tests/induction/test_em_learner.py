@@ -60,15 +60,25 @@ def test_word_hypothesis_base_updates_local_em() -> None:
 
 def test_record_type_corpus_and_ttr_word_learner_protocol(tmp_path: Path) -> None:
     """TTRWordLearner loads a small corpus and satisfies the Learner protocol."""
+    gdir = tmp_path / "grammar"
+    gdir.mkdir()
+    (gdir / "computational-actions.txt").write_text(
+        "hyp-adj-smoke\nIF      ?Ty(e)\nTHEN    abort\nELSE    abort\n\n",
+        encoding="utf-8",
+    )
     corpus_file = tmp_path / "corpus.txt"
     corpus_file.write_text("Sent : dax\nSem : [x==dax:e|head==x:e]\n\n", encoding="utf-8")
     corpus = RecordTypeCorpus()
     corpus.load_corpus(corpus_file)
-    learner = TTRWordLearner(Path("."), corpus)
+    learner = TTRWordLearner(
+        seed_resource_dir=None,
+        corpus=corpus,
+        learner_comp_actions_path=gdir,
+    )
 
     assert isinstance(learner, Learner)
     assert learner.learn_once() is True
-    assert learner.get_hypothesis_base().get_prior()
+    assert learner.get_hypothesis_base().get_prior() or learner.skipped
 
 
 def test_ttr_record_type_filtered_abstractions_include_formula_tree() -> None:

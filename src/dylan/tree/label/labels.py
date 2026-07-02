@@ -115,6 +115,25 @@ class Requirement(Label):
         """Copy with inner label metavariables resolved (Java ``Requirement.instantiate``)."""
         return Requirement(self.inner.instantiate())
 
+    def check(self, node: Any) -> bool:
+        """True when the node carries this requirement (Java ``Node.hasLabel`` / ``equals``)."""
+        if isinstance(self.inner, ArbitraryLabel) and self.inner.name == "x":
+            return any(isinstance(lab, Requirement) for lab in node.labels)
+        for lab in node.labels:
+            if self == lab or lab == self:
+                return True
+        return False
+
+    def subsumes(self, other: Label) -> bool:
+        """Requirement subsumption via the inner label (Java ``Requirement.subsumes``)."""
+        if self == other:
+            return True
+        if isinstance(self.inner, ModalLabel):
+            return True
+        if hasattr(self.inner, "subsumes"):
+            return self.inner.subsumes(other)
+        return False
+
 
 class UnaryPredicateLabel(Label):
     """Unary DS predicates ``person(s3)``, ``class(obj)``, etc. (Java ``UnaryPredicateLabel``)."""
@@ -391,14 +410,29 @@ class MetaLabel(Label):
             return self
         return v.instantiate()
 
+    def check(self, node: Any) -> bool:
+        """Delegate to the bound label when set; else scan the node (thinning ``?X`` / ``X``)."""
+        v = self._meta.get_value()
+        if v is None:
+            return super().check(node)
+        if v.check(node):
+            return True
+        return super().check(node)
+
+    def check_with_tuple_as_context(self, tree: Any, context: Any) -> bool:
+        """Use :meth:`check` on the pointed node (bound-meta thinning needs requirement-inner match)."""
+        del context
+        return self.check(tree.pointed_node)
+
     def __eq__(self, other: object) -> bool:
+        """Match Java ``MetaLabel.equals`` (binding via :class:`MetaElement`)."""
         if self is other:
             return True
         if other is None:
             return False
         if isinstance(other, MetaLabel):
-            return self._meta == other._meta.get_value()
-        return self._meta == other
+            return bool(self._meta == other._meta.get_value())
+        return bool(self._meta == other)
 
     def __hash__(self) -> int:
         return hash((MetaLabel, self._meta.name))
@@ -590,7 +624,12 @@ def label_factory_create(
 
     if s.startswith(Requirement.PREFIX):
         inner_s = s[len(Requirement.PREFIX) :].strip()
-        inner = label_factory_create(inner_s, ite, in_existential=in_existential)
+        if inner_s == "x":
+            inner: Label = ArbitraryLabel("x")
+        elif inner_s == "X" or _METALABEL_PATTERN.fullmatch(inner_s):
+            inner = MetaLabel.get(inner_s)
+        else:
+            inner = label_factory_create(inner_s, ite, in_existential=in_existential)
         return Requirement(inner)
 
     low = s.lower()
@@ -631,6 +670,9 @@ def label_factory_create(
         return modal
 
     if _METALABEL_PATTERN.fullmatch(s):
+        return MetaLabel.get(s)
+
+    if len(s) == 1 and s.isupper():
         return MetaLabel.get(s)
 
     return GenericLabel(s)

@@ -7,7 +7,7 @@ import re
 
 from dylan.action.atomic.effect import Effect
 from typing import Any
-from dylan.tree.label.labels import Label, label_factory_create
+from dylan.tree.label.labels import Label, MetaLabel, Requirement, TypeLabel, label_factory_create
 from dylan.tree.tree import Tree
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,22 @@ class Delete(Effect):
         lab = label_factory_create(m.group(1).strip())
         return cls(lab)
 
+    def _resolve_delete_target(self, tree: Tree) -> Label:
+        """Resolve ``delete(?X)`` to the bound node label (avoids ``??Ty(t)`` double-wrap)."""
+        if isinstance(self.label, Requirement) and isinstance(self.label.inner, MetaLabel):
+            bound = self.label.inner._meta.get_value()
+            if bound is not None:
+                if isinstance(bound, TypeLabel):
+                    for lab in tree.pointed_node.labels:
+                        if isinstance(lab, Requirement) and lab.inner == bound:
+                            return lab
+                return bound.instantiate() if hasattr(bound, "instantiate") else bound
+        return self.label.instantiate()
+
     def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
-        tree.delete_label(self.label)
+        """Remove the label from the pointed node (Java ``Delete.execTupleContext``)."""
+        target = self._resolve_delete_target(tree)
+        tree.delete_label(target)
         return tree
 
     def instantiate(self) -> Effect:

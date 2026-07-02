@@ -1,4 +1,4 @@
-﻿"""TTR record paths R1.head (Java TTRPath)."""
+"""TTR record paths R1.head (Java TTRPath)."""
 
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ class TTRPath(Formula, ABC):
         return cur, self.labels[-1]
 
     def evaluate_against(self, domain: "TTRRecordType") -> bool:
+        """Return true if this path resolves to an existing label in *domain*."""
         if domain is None or not self.labels:
             return False
         w = self._walk_to_container(domain)
@@ -51,6 +52,24 @@ class TTRPath(Formula, ABC):
             return False
         cur, last = w
         return cur.has_label(last)
+
+    def get_variables(self) -> set[Variable]:
+        """Treat the head label of an absolute path as a Variable (Java ``getVariables``)."""
+        return set()
+
+    def get_labels(self) -> list[TTRLabel]:
+        """Return the address labels (Java ``TTRPath.getLabels``)."""
+        return list(self.labels)
+
+    def get_first_label(self) -> TTRLabel | None:
+        """Return the first path label (Java ``TTRPath.getFirstLabel``)."""
+        return self.labels[0] if self.labels else None
+
+    def remove_first(self) -> "TTRPath":
+        """Return a path with the first label removed (Java ``TTRPath.removeFirst``)."""
+        from dylan.formula.ttr_path import TTRRelativePath
+
+        return TTRRelativePath(list(self.labels[1:]))
 
 
 @dataclass
@@ -76,10 +95,39 @@ class TTRAbsolutePath(TTRPath):
             self.name is not None
             and isinstance(var, Variable)
             and var.name == self.name.label
-            and isinstance(arg, TTRRecordType)
         ):
-            return TTRAbsolutePath(list(self.labels), name=self.name, domain=arg)
+            if isinstance(arg, TTRRecordType):
+                return TTRAbsolutePath(list(self.labels), name=self.name, domain=arg)
+            if isinstance(arg, Variable):
+                return TTRAbsolutePath(list(self.labels), name=TTRLabel(arg.name), domain=None)
         return self
+
+    def _record_metavar_equivalent(self, other: "TTRAbsolutePath") -> bool:
+        """Return true when both path roots are record metavar labels (``r0`` / ``R1``)."""
+        if self.name is None or other.name is None:
+            return False
+        if self.labels != other.labels:
+            return False
+        if self.name == other.name:
+            return True
+        a, b = self.name.label, other.name.label
+        return bool(REC_TYPE_NAME_PATTERN.match(a)) and bool(REC_TYPE_NAME_PATTERN.match(b))
+
+    def subsumes(self, other: object) -> bool:
+        """Return whether this path is no more specific than *other* (missing domain matches any refinement)."""
+        if not isinstance(other, TTRAbsolutePath):
+            return False
+        if self.labels != other.labels:
+            return False
+        if self.name == other.name:
+            if self.domain is None or other.domain is None:
+                return True
+            return self.domain.subsumes(other.domain)
+        if self._record_metavar_equivalent(other):
+            if self.domain is None or other.domain is None:
+                return True
+            return self.domain.subsumes(other.domain) and other.domain.subsumes(self.domain)
+        return False
 
     def evaluate(self) -> Formula:
         if self.domain is None:
@@ -196,3 +244,10 @@ def parse_ttr_path(string: str) -> TTRPath | None:
     if rt_name is not None:
         return TTRAbsolutePath(labels, name=TTRLabel(rt_name), domain=None)
     return TTRRelativePath(labels)
+
+
+TTRPath.parse = staticmethod(parse_ttr_path)  # type: ignore[method-assign]
+TTRPath.getLabels = TTRPath.get_labels  # type: ignore[attr-defined]
+TTRPath.getVariables = TTRPath.get_variables  # type: ignore[attr-defined]
+TTRPath.getFirstLabel = TTRPath.get_first_label  # type: ignore[attr-defined]
+TTRPath.removeFirst = TTRPath.remove_first  # type: ignore[attr-defined]

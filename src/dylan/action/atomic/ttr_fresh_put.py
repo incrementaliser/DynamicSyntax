@@ -39,13 +39,13 @@ class TTRFreshPut(Effect):
         return cls(OpaqueTTRSpec(inner))
 
     def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
+        """Execute on *tree* with freshening from gold or the parse tree (Java ``TTRFreshPut``)."""
         node = tree.pointed_node
         if node.get_formula_label() is not None:
             logger.warning("ttrput: node already has Fo; leaving tree")
             return tree
-        fresh = self.ttr.freshen_vars(tree)
-        inst = fresh.instantiate().evaluate()
-        node.add_label(FormulaLabel(inst))
+        fresh = self.ttr.freshen_vars(context if context is not None else tree)
+        node.add_label(FormulaLabel(fresh.instantiate()))
         return tree
 
     def instantiate(self) -> Effect:

@@ -34,3 +34,7 @@ class EpsilonTerm(PredicateArgumentFormula):
     def restrictor(self) -> Formula:
         """Return the restrictor record argument."""
         return self.arguments[1]
+
+    def evaluate(self) -> Formula:
+        """Keep restrictor paths unevaluated (Java maximal semantics / induction extraction)."""
+        return self.clone()

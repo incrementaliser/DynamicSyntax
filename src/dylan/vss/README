@@ -1,0 +1,48 @@
+Python scripts:
+ * jolli.py - recreates the experiments from the paper (legacy Python 2)
+ * fix.py - converts the format of the early Grefenstette & Sadrzadeh datasets to match that of the Kartsaklis et al dataset (run this prior to jolli.py)
+ * reproduce_paper_experiments.py - Python 3 reproduction with loguru logging and saved analysis reports
+
+Reproduction (Python 3, library + script):
+
+    uv sync --extra vss
+    uv run python -m dylan.vss.reproduce_paper_experiments
+
+By default each run writes to ``output/runs/<timestamp>/``:
+
+ * run.log - full loguru log
+ * results.json - structured accuracies and metadata
+ * accuracy_table.csv - flat table for spreadsheets
+ * analysis_report.md - Markdown summary (best methods, compositional vs additive, incremental trends)
+ * plots/ - optional PNG curves with ``--plot``
+
+Use ``--no-save`` for stderr-only logging without files. Use ``--log-level DEBUG`` for verbose output.
+
+Programmatic use::
+
+    from dylan.vss import ExperimentRunContext, evaluate_gs2013, save_run_artifacts, embedding_store_from_config
+
+    ctx = ExperimentRunContext.create()
+    ctx.setup_logging()
+    store = embedding_store_from_config()
+    result = evaluate_gs2013(store)
+    save_run_artifacts(ctx, {"tensor_only": result})
+
+Datasets available from:
+ * G&S 2011: http://compling.eecs.qmul.ac.uk/wp-content/uploads/2015/07/GS2011data.txt
+ * G&S 2012 (original - not used in these experiments): http://compling.eecs.qmul.ac.uk/wp-content/uploads/2015/07/GS2012data.txt
+ * G&S 2012 (extended & re-annotated by G&S 2015): http://www.cs.ox.ac.uk/activities/compdistmeaning/GS2013data.txt
+ * KSP 2013: http://compling.eecs.qmul.ac.uk/wp-content/uploads/2015/07/KS2013-CoNLL.txt
+
+Bundled embeddings:
+
+ * word2vec_trained.zip - noun vectors (300-dim)
+ * word2vec_tensors_trained.zip - verb tensors (300x300)
+
+These zip archives are currently unavailable in the repository (excluded due to size limits).
+Tests and demos use DemoEmbeddingStore / demo_tensors.pt instead.
+
+External shelve spaces (optional, for jolli parity):
+
+ * Set DYLAN_VSS_VECTOR_SHELVE and DYLAN_VSS_TENSOR_SHELVE, or pass --vector-shelve / --tensor-shelve to the reproduction script
+ * See https://github.com/gijswijnholds/compdisteval-ellipsis for more options

@@ -75,6 +75,16 @@ class BasicOperator:
 
 
 DOWN_0 = BasicOperator(ARROW_DOWN, PATH_0)
+DOWN_1 = BasicOperator(ARROW_DOWN, PATH_1)
+DOWN_LINK = BasicOperator(ARROW_DOWN, PATH_LINK)
+DOWN_STAR = BasicOperator(ARROW_DOWN, PATH_UNFIXED)
+DOWN_LOCAL_UNFIXED = BasicOperator(ARROW_DOWN, PATH_LOCAL_UNFIXED)
+UP_0 = BasicOperator(ARROW_UP, PATH_0)
+UP_1 = BasicOperator(ARROW_UP, PATH_1)
+UP_LINK = BasicOperator(ARROW_UP, PATH_LINK)
+UP_STAR = BasicOperator(ARROW_UP, PATH_UNFIXED)
+UP_LOCAL_UNFIXED = BasicOperator(ARROW_UP, PATH_LOCAL_UNFIXED)
+UP_PARENT = BasicOperator(ARROW_UP, "")
 
 BasicOperator.isDown = BasicOperator.is_down  # type: ignore[attr-defined]
 BasicOperator.isUp = BasicOperator.is_up  # type: ignore[attr-defined]
@@ -83,3 +93,15 @@ BasicOperator.isFixed = BasicOperator.is_fixed  # type: ignore[attr-defined]
 BasicOperator.isStar = BasicOperator.is_star  # type: ignore[attr-defined]
 BasicOperator.isU = BasicOperator.is_u  # type: ignore[attr-defined]
 BasicOperator.create = BasicOperator.create_many  # type: ignore[attr-defined]
+
+BasicOperator.DOWN_0 = DOWN_0  # type: ignore[attr-defined]
+BasicOperator.DOWN_1 = DOWN_1  # type: ignore[attr-defined]
+BasicOperator.DOWN_LINK = DOWN_LINK  # type: ignore[attr-defined]
+BasicOperator.DOWN_STAR = DOWN_STAR  # type: ignore[attr-defined]
+BasicOperator.DOWN_LOCAL_UNFIXED = DOWN_LOCAL_UNFIXED  # type: ignore[attr-defined]
+BasicOperator.UP_0 = UP_0  # type: ignore[attr-defined]
+BasicOperator.UP_1 = UP_1  # type: ignore[attr-defined]
+BasicOperator.UP_LINK = UP_LINK  # type: ignore[attr-defined]
+BasicOperator.UP_STAR = UP_STAR  # type: ignore[attr-defined]
+BasicOperator.UP_LOCAL_UNFIXED = UP_LOCAL_UNFIXED  # type: ignore[attr-defined]
+BasicOperator.UP_PARENT = UP_PARENT  # type: ignore[attr-defined]

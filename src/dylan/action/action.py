@@ -39,6 +39,12 @@ class Action:
             return None
         return self.effect.exec(tree, context)
 
+    def exec_tuple_context(self, tree: Tree, context: ParserTuple | None = None) -> Tree | None:
+        """Apply the wrapped effect via :meth:`Effect.exec_tuple_context` (Java ``execTupleContext``)."""
+        if self.effect is None:
+            return None
+        return self.effect.exec_tuple_context(tree, context)
+
     def instantiate(self) -> Action:
         """Return an instantiated copy of this action."""
         if self.effect is None:
@@ -56,4 +62,5 @@ class Action:
 
 Action.getName = Action.get_name  # type: ignore[attr-defined]
 Action.getEffect = Action.get_effect  # type: ignore[attr-defined]
+Action.execTupleContext = Action.exec_tuple_context  # type: ignore[attr-defined]
 Action.backtracksOnSuccess = Action.backtracks_on_success  # type: ignore[attr-defined]

@@ -1,0 +1,73 @@
+name: Deploy web GUI to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+      - name: Install build deps and test
+        run: |
+          uv sync --group dev
+          uv run pytest -q
+      - name: Build wheel and web bundle
+        run: |
+          uv build
+          uv run python scripts/sync_web_wheel.py
+      - name: Assemble docs/ for Pages
+        run: |
+          rm -rf docs
+          mkdir -p docs/dist docs/public/grammars
+          cp web/index.html web/styles.css web/app.js docs/
+          cp web/dist/package.whl docs/dist/
+          cp -r web/public/grammars/* docs/public/grammars/
+      - name: Set base path for GitHub Pages
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python << 'PY'
+          import os
+          from pathlib import Path
+
+          owner, name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
+          if name.lower() == f"{owner.lower()}.github.io":
+              content = ""
+          else:
+              content = f"/{name}/"
+          path = Path("docs/index.html")
+          text = path.read_text(encoding="utf-8")
+          old = '<meta name="dylan-base-path" content="" />'
+          new = f'<meta name="dylan-base-path" content="{content}" />'
+          if old not in text:
+              raise SystemExit("expected dylan-base-path meta not found in docs/index.html")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

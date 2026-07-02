@@ -70,3 +70,8 @@ Thumbs.db
 
 # JetBrains / PyCharm
 .idea/
+src/dylan/vss/paper.tex
+
+# VSS embedding archives (excluded — too large for GitHub)
+src/dylan/vss/word2vec_trained.zip
+src/dylan/vss/word2vec_tensors_trained.zip

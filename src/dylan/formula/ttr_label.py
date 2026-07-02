@@ -31,6 +31,24 @@ class TTRLabel:
     def __eq__(self, other: object) -> bool:
         return isinstance(other, TTRLabel) and self.label == other.label
 
+    def subsumes_basic(self, other: object) -> bool:
+        """Label basic subsumption is equality (Java ``TTRLabel`` via ``Variable``)."""
+        from dylan.formula.formula import Formula
+
+        if isinstance(other, TTRLabel):
+            return self.label == other.label
+        if isinstance(other, Formula):
+            return self.subsumes(other)
+        return False
+
+    def subsumes_mapped(self, other: object, map_: dict) -> bool:
+        """Map record labels across freshened names (Java ``Variable.subsumesMapped``)."""
+        from dylan.formula.variable import Variable
+
+        if isinstance(other, TTRLabel):
+            return Variable(self.label).subsumes_mapped(Variable(other.label), map_)
+        return False
+
 
 HEAD = TTRLabel("head")
 REF_TIME = TTRLabel("reftime")

@@ -36,6 +36,8 @@ nlp = ["nltk>=3.9", "spacy>=3.8"]
 viz = ["plotly>=5", "pandas>=2"]
 video = ["manim>=0.20"]
 rich = ["rich>=13"]
+vss = ["torch>=2.0", "numpy>=1.26", "scipy>=1.11"]
+nesy = ["libcirkit>=0.1", "torch>=2.3"]
 
 [dependency-groups]
 dev = [
@@ -58,6 +60,7 @@ dynamicsyntax-serve-web = "dylan.web_dev:main"
 dynamicsyntax = ["grammars/**/*"]
 "dynamicsyntax.resources" = ["**/*.txt", "**/__init__.py"]
 "dylan.formula.latex" = ["*.sty", "*.txt"]
+"dylan.vss" = ["**/*.txt", "resources/**/*", "embeddings/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -72,3 +75,6 @@ target-version = "py311"
 # Skip uploading dist files that already exist on PyPI (avoids 400 file name reuse).
 [tool.uv]
 check-url = "https://pypi.org/simple"
+conflicts = [
+    [{ extra = "nesy" }, { extra = "video" }],
+]
