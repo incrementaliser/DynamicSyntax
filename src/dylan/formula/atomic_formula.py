@@ -33,6 +33,11 @@ class AtomicFormula(Formula):
     def conjoin(self, other: Formula) -> Formula:
         raise TypeError(f"Cannot conjoin AtomicFormula with {type(other).__name__}")
 
+    def subsumes_mapped(self, other: Formula, map_: dict) -> bool:
+        """Atomic formulae subsume only basic-equal formulae (Java ``AtomicFormula.subsumesMapped``)."""
+        _ = map_
+        return self.subsumes_basic(other)
+
     def __str__(self) -> str:
         return self.name
 

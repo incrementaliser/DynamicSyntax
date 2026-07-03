@@ -1,4 +1,4 @@
-"""Log-probability distribution over word hypotheses."""
+"""Log-probability distribution over word hypotheses (Java ``qmul.ds.learn.WordLogProbDistribution``)."""
 
 from __future__ import annotations
 
@@ -10,117 +10,200 @@ from dylan.induction.em_learner.word_hypothesis import WordHypothesis
 
 
 class WordLogProbDistribution(dict[WordHypothesis, float]):
-    """Java ``WordLogProbDistribution`` using log probabilities."""
+    """Java ``WordLogProbDistribution extends HashMap<WordHypothesis, Double>``.
 
-    def __init__(self, word: str | Word | Any, weight: float = 0.0, max_id: int = 0) -> None:
-        """Create an empty distribution for *word*."""
+    Stores log-probabilities; positive values represent ``prob == 0`` (Java
+    convention used to mark untrained hypotheses).
+    """
+
+    def __init__(self, word: "str | Word | Any", weight: float = 0.0, max_id: int = 0) -> None:
+        """Construct a distribution for *word* with optional initial *weight* and ``max_id``."""
         super().__init__()
-        self.word = as_word(word)
-        self.weight = float(weight)
-        self.max_id = int(max_id)
+        self.word: Word = as_word(word)
+        self.weight: float = float(weight)
+        self.max_id: int = int(max_id)
+
+    # ---------------- size / Java collection helpers ----------------
+
+    def size(self) -> int:
+        """Return ``len(self)`` (Java ``size``)."""
+        return len(self)
+
+    def is_empty(self) -> bool:
+        """Java ``isEmpty``."""
+        return len(self) == 0
+
+    def contains_key(self, key: WordHypothesis) -> bool:
+        """Java ``containsKey``."""
+        return key in self
+
+    def put_all(self, other: dict[WordHypothesis, float]) -> None:
+        """Java ``putAll``: bulk update."""
+        self.update(other)
+
+    # ---------------- weight bookkeeping ----------------
 
     def increment_weight(self, value: float) -> None:
-        """Increment distribution weight."""
+        """Add *value* to the running weight (Java ``incrementWeight``)."""
         self.weight += value
 
     def get_word(self) -> Word:
-        """Return distribution word."""
+        """Return the distribution word (Java ``getWord``)."""
         return self.word
 
     def get_weight(self) -> float:
-        """Return distribution weight."""
+        """Return the distribution weight (Java ``getWeight``)."""
         return self.weight
 
     def set_weight(self, value: float) -> None:
-        """Set distribution weight."""
+        """Set the distribution weight (Java ``setWeight``)."""
         self.weight = value
 
+    # ---------------- hypothesis management ----------------
+
     def load_log_probs(self) -> None:
-        """Copy log probabilities into contained hypotheses."""
-        for hypothesis, log_prob in self.items():
-            hypothesis.set_log_prob(log_prob)
+        """Push log-probabilities into the contained hypotheses (Java ``loadLogProbs``)."""
+        for hyp, log_prob in self.items():
+            if hasattr(hyp, "set_log_prob"):
+                hyp.set_log_prob(log_prob)
 
     def get_all_hyps(self) -> set[WordHypothesis]:
-        """Return all hypotheses."""
+        """Return the set of hypotheses (Java ``getAllHyps``)."""
         return set(self.keys())
 
-    def add_hyp(self, hypothesis: WordHypothesis) -> None:
-        """Add *hypothesis* with zero probability marker."""
-        self[hypothesis] = 1.0
+    def add_hyp(self, hyp: WordHypothesis) -> None:
+        """Insert *hyp* with placeholder ``1.0`` (positive => prob 0; Java ``addHyp``)."""
+        self[hyp] = 1.0
 
-    def get_prob(self, hypothesis: WordHypothesis) -> float | None:
-        """Return hypothesis probability in normal space."""
-        if hypothesis not in self:
-            return None
-        log_prob = self[hypothesis]
-        return 0.0 if log_prob > 0 else math.exp(log_prob)
-
-    def make_uniform(self) -> None:
-        """Distribute remaining mass uniformly over zero-probability hypotheses."""
-        prob_mass = sum(self.get_prob(h) or 0.0 for h in self)
-        zero_hyps = [h for h in self if (self.get_prob(h) or 0.0) == 0.0]
-        if not zero_hyps or prob_mass >= 1.0:
-            return
-        log_prob = math.log((1.0 - prob_mass) / len(zero_hyps))
-        for hypothesis in zero_hyps:
-            self[hypothesis] = log_prob
-
-    def weighted_aggregate(self, other: WordLogProbDistribution) -> WordLogProbDistribution:
-        """Return weighted aggregate of this and *other* distributions."""
-        if self.word != other.word:
-            raise ValueError("Cannot aggregate distributions for different words")
-        aggregate = WordLogProbDistribution(self.word, 0.0, max(self.max_id, other.max_id))
-        denom = self.weight + other.weight
-        if denom <= 0:
-            denom = 1.0
-        for hypothesis in set(self) | set(other):
-            p_self = self.get_prob(hypothesis) if hypothesis in self else 0.0
-            p_other = other.get_prob(hypothesis) if hypothesis in other else 0.0
-            prob = (self.weight * (p_self or 0.0) + other.weight * (p_other or 0.0)) / denom
-            aggregate[hypothesis] = math.log(prob) if prob > 0 else 1.0
-        return aggregate
+    def get_prob(self, hyp: WordHypothesis) -> float:
+        """Return ``hyp``'s probability in normal space (Java ``getProb``)."""
+        if hyp not in self:
+            return 0.0
+        log_prob = self[hyp]
+        if log_prob > 0:
+            return 0.0
+        return math.exp(log_prob)
 
     def get_fresh_hyp_id(self) -> int:
-        """Return a fresh hypothesis id."""
+        """Return a fresh hypothesis id (Java ``getFreshHypID``)."""
         self.max_id += 1
         return self.max_id
 
     def get_sort_all_hyps(self) -> list[WordHypothesis]:
-        """Return hypotheses sorted from most to least probable."""
-        return sorted(self.keys(), key=lambda hyp: hyp.get_prob(), reverse=True)
+        """Return hypotheses sorted by descending probability (Java ``getSortAllHyps``)."""
+        return sorted(self.keys(), key=lambda h: h.get_prob() if hasattr(h, "get_prob") else 0.0, reverse=True)
 
-    def prune(self, limit_or_top_n: int | float) -> None:
-        """Prune by top-N integer or probability threshold."""
-        if isinstance(limit_or_top_n, int):
-            if len(self) <= limit_or_top_n:
-                return
-            keep = set(self.get_sort_all_hyps()[:limit_or_top_n])
-        else:
-            keep = {hyp for hyp in self if (self.get_prob(hyp) or 0.0) >= limit_or_top_n}
-        pruned_mass = sum((self.get_prob(hyp) or 0.0) for hyp in set(self) - keep)
-        old = {hyp: self.get_prob(hyp) or 0.0 for hyp in keep}
-        self.clear()
-        scale = 1.0 / (1.0 - pruned_mass) if pruned_mass < 1.0 else 1.0
-        for hyp, prob in old.items():
-            new_prob = prob * scale
-            self[hyp] = math.log(new_prob) if new_prob > 0 else 1.0
-        self.load_log_probs()
+    # ---------------- normalisation ----------------
+
+    def make_uniform(self) -> None:
+        """Spread remaining mass uniformly over zero-probability hypotheses (Java ``makeUniform``)."""
+        prob_mass = 0.0
+        zeros = 0
+        for hyp in self.keys():
+            p = self.get_prob(hyp)
+            prob_mass += p
+            if p == 0:
+                zeros += 1
+        if zeros == 0 or prob_mass >= 1:
+            return
+        log_prob = math.log((1 - prob_mass) / zeros)
+        for hyp in list(self.keys()):
+            if self.get_prob(hyp) == 0:
+                self[hyp] = log_prob
 
     def discount(self, discount_factor: float) -> None:
-        """Discount assigned probability mass by *discount_factor*."""
-        for hyp in list(self):
-            prob = self.get_prob(hyp) or 0.0
-            if prob >= 0:
-                self[hyp] = math.log(discount_factor * prob) if prob > 0 else 1.0
+        """Scale probabilities by ``discount_factor`` (Java ``discount``)."""
+        for hyp in list(self.keys()):
+            p = self.get_prob(hyp)
+            if p >= 0 and self[hyp] <= 0:
+                if p > 0:
+                    self[hyp] = math.log(discount_factor * p)
 
     def fill_zeros_uniform(self, discount_factor: float) -> None:
-        """Assign discounted mass uniformly to zero-probability hypotheses."""
-        zeros = [hyp for hyp in self if (self.get_prob(hyp) or 0.0) == 0.0]
+        """Distribute ``discount_factor`` uniformly over zero-prob entries (Java ``fillZerosUniform``)."""
+        zeros = [hyp for hyp in self.keys() if self.get_prob(hyp) == 0]
         if not zeros:
             return
         log_prob = math.log(discount_factor / len(zeros))
         for hyp in zeros:
             self[hyp] = log_prob
+
+    def weighted_aggregate(self, other: WordLogProbDistribution) -> WordLogProbDistribution:
+        """Return ``(this, other)``'s weighted-average distribution (Java ``weightedAggregate``)."""
+        if self.word != other.word:
+            raise ValueError("Cannot aggregate different word distributions")
+        aggregate = WordLogProbDistribution(other.get_word())
+        aggregate.max_id = max(self.max_id, other.max_id)
+        all_hyps: set[WordHypothesis] = set(self.keys()) | set(other.keys())
+        denom = self.weight + other.weight
+        if denom <= 0:
+            denom = 1.0
+        for wh in all_hyps:
+            this_prob = self.get_prob(wh) if wh in self else 0.0
+            other_prob = other.get_prob(wh) if wh in other else 0.0
+            agg = (self.weight * this_prob + other.weight * other_prob) / denom
+            aggregate[wh] = math.log(agg) if agg > 0 else 1.0
+        return aggregate
+
+    # ---------------- pruning ----------------
+
+    def prune(self, limit_or_top_n: "int | float") -> None:
+        """Prune by top-N (int) or probability threshold (float) — Java ``prune``."""
+        if isinstance(limit_or_top_n, int) and not isinstance(limit_or_top_n, bool):
+            self._prune_top_n(limit_or_top_n)
+        else:
+            self._prune_threshold(float(limit_or_top_n))
+
+    def _prune_top_n(self, top_n: int) -> None:
+        if len(self) <= top_n:
+            return
+        all_sorted = self.get_sort_all_hyps()
+        pruned_mass = 0.0
+        for i in range(len(all_sorted) - 1, top_n, -1):
+            wh = all_sorted[i]
+            pruned_mass += self.get_prob(wh)
+            del self[wh]
+        for wh in list(self.keys()):
+            old_prob = self.get_prob(wh)
+            if pruned_mass < 1.0:
+                new_prob = old_prob * (1 + pruned_mass / (1 - pruned_mass))
+            else:
+                new_prob = old_prob
+            self[wh] = math.log(new_prob) if new_prob > 0 else 1.0
+        self.load_log_probs()
+
+    def _prune_threshold(self, limit: float) -> None:
+        new_map: dict[WordHypothesis, float] = {}
+        pruned_mass = 0.0
+        for wh in self.keys():
+            if self.get_prob(wh) < limit:
+                pruned_mass += self.get_prob(wh)
+        for wh in self.keys():
+            old_prob = self.get_prob(wh)
+            if old_prob > limit:
+                if pruned_mass < 1.0:
+                    new_prob = old_prob * (1 + pruned_mass / (1 - pruned_mass))
+                else:
+                    new_prob = old_prob
+                new_map[wh] = math.log(new_prob) if new_prob > 0 else 1.0
+        self.clear()
+        self.update(new_map)
+
+    # ---------------- pretty printing ----------------
+
+    def __str__(self) -> str:
+        """Java ``toString`` rendering (word -> hypothesis prob list)."""
+        lines = [f"{self.word}:"]
+        total = 0.0
+        for wh in self.keys():
+            p = self.get_prob(wh)
+            name = wh.get_name() if hasattr(wh, "get_name") else str(wh)
+            lines.append(f"{name}-->{p:.6f}")
+            total += p
+        lines.append(f"SUM-->{total}")
+        lines.append(f"Total Hyps -->{len(self)}")
+        lines.append(f"MaxID -->{self.max_id}")
+        return "\n".join(lines)
 
 
 WordLogProbDistribution.incrementWeight = WordLogProbDistribution.increment_weight  # type: ignore[attr-defined]
@@ -136,3 +219,6 @@ WordLogProbDistribution.weightedAggregate = WordLogProbDistribution.weighted_agg
 WordLogProbDistribution.getFreshHypID = WordLogProbDistribution.get_fresh_hyp_id  # type: ignore[attr-defined]
 WordLogProbDistribution.getSortAllHyps = WordLogProbDistribution.get_sort_all_hyps  # type: ignore[attr-defined]
 WordLogProbDistribution.fillZerosUniform = WordLogProbDistribution.fill_zeros_uniform  # type: ignore[attr-defined]
+WordLogProbDistribution.containsKey = WordLogProbDistribution.contains_key  # type: ignore[attr-defined]
+WordLogProbDistribution.putAll = WordLogProbDistribution.put_all  # type: ignore[attr-defined]
+WordLogProbDistribution.isEmpty = WordLogProbDistribution.is_empty  # type: ignore[attr-defined]

@@ -37,9 +37,31 @@ class BacktrackingEdge(GroundableEdge):
 
     repair_init_prefix = "init-repair"
 
+    def __init__(
+        self,
+        actions: list | None = None,
+        word: object | None = None,
+        edge_id: int = 0,
+        overarching_repairing_edge: "VirtualRepairingEdge | None" = None,
+    ) -> None:
+        """Optionally attach the virtual repair edge used for traversal ordering (Java field)."""
+        super().__init__(actions, word, edge_id)  # type: ignore[arg-type]
+        self.overarching_repairing_edge = overarching_repairing_edge
+
 
 class VirtualRepairingEdge(GroundableEdge):
     """Virtual edge connecting repaired context to a recomputed parse tuple."""
+
+    def __init__(
+        self,
+        actions: list | None = None,
+        word: object | None = None,
+        edge_id: int = 0,
+        length: int = 0,
+    ) -> None:
+        """Record backtrack distance for edge ordering (Java ``VirtualRepairingEdge.length``)."""
+        super().__init__(actions, word, edge_id)  # type: ignore[arg-type]
+        self.length = length
 
 
 class ActionReplayEdge(GroundableEdge):

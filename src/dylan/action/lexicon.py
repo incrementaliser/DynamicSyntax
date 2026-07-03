@@ -255,6 +255,39 @@ class Lexicon(dict[str, list[LexicalAction]]):
         """Clear memoised `get_vocab` output (needed after mutating entries post-load)."""
         self._vocab_cache.clear()
 
+    @staticmethod
+    def _export_lines_for_action(act: object) -> list[str]:
+        """Return reloadable IF/THEN lines for *act*, or a single-line fallback when no effect is present."""
+        src = getattr(act, "_source_lines", None)
+        if isinstance(src, list) and src:
+            return [str(line) for line in src]
+        get_eff = getattr(act, "get_effect", None)
+        eff = get_eff() if callable(get_eff) else None
+        if eff is not None:
+            from dylan.induction.em_learner.lexicon_export import effect_to_lexical_lines
+
+            return effect_to_lexical_lines(eff)
+        return [str(act)]
+
+    def write_to_text_file(self, path: str | Path, *, encoding: str = "utf-8") -> None:
+        """Write learnt entries like Java ``Lexicon.writeToTextFile``: ``[prob,rank]``, word line, then body (``_source_lines`` for reloadable IF/THEN text)."""
+        out = Path(path)
+        chunks: list[str] = []
+        for word in sorted(self.keys()):
+            entries = [a for a in self[word] if a is not None]
+            entries.sort(key=lambda la: float(getattr(la, "prob", 0.0)), reverse=True)
+            for act in entries:
+                prob = getattr(act, "prob", 1.0)
+                rank = getattr(act, "rank", 0)
+                chunks.append(f"[{prob},{rank}]")
+                chunks.append(word)
+                chunks.extend(self._export_lines_for_action(act))
+                chunks.append("")
+        text = "\n".join(chunks)
+        if text:
+            text += "\n"
+        out.write_text(text, encoding=encoding)
+
     def get_vocab(
         self,
         groupby: Literal["category", "alpha"] = "category",

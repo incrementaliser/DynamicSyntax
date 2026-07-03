@@ -90,6 +90,17 @@ class Node:
                 return lab.inner.type
         return None
 
+    def get_type_requirement(self) -> Requirement | None:
+        """First type :class:`Requirement` on this node (Java ``getTypeRequirement``)."""
+        for lab in self.labels:
+            if isinstance(lab, Requirement) and isinstance(lab.inner, TypeLabel):
+                return lab
+        return None
+
+    def is_complete(self) -> bool:
+        """Return whether this node has no outstanding :class:`Requirement` labels (Java ``isComplete``)."""
+        return not any(isinstance(lab, Requirement) for lab in self.labels)
+
     def get_required_formula(self) -> Formula | None:
         """Formula inside ``?Fo(…)`` requirement, if any (Java ``getRequiredFormula``)."""
         for lab in self.labels:
@@ -119,6 +130,35 @@ class Node:
                 return False
         return True
 
+    def _labels_equal_set(self, other: "Node") -> bool:
+        """Whether label multisets match (Java ``Node`` extends ``TreeSet``)."""
+        if len(self.labels) != len(other.labels):
+            return False
+        remaining = list(other.labels)
+        for lab in self.labels:
+            for i, olab in enumerate(remaining):
+                if lab == olab or olab == lab:
+                    remaining.pop(i)
+                    break
+            else:
+                return False
+        return True
+
+    def __eq__(self, other: object) -> bool:
+        """Match Java ``Node.equals``: address plus label-set equality."""
+        if self is other:
+            return True
+        if not isinstance(other, Node):
+            return NotImplemented
+        return self.address == other.address and self._labels_equal_set(other)
+
+    def __hash__(self) -> int:
+        """Hash consistent with Java ``Node.hashCode`` (address + label set)."""
+        label_key = frozenset(
+            (type(lab), lab) for lab in self.labels
+        )  # best-effort; labels should implement stable equality
+        return hash((self.address, label_key))
+
     def __repr__(self) -> str:
         """Return a debug representation."""
         return f"Node({self.address!s},{self.labels!r})"
@@ -135,5 +175,7 @@ Node.getFormula = Node.get_formula  # type: ignore[attr-defined]
 Node.hasType = Node.has_type  # type: ignore[attr-defined]
 Node.getRequiredType = Node.get_required_type  # type: ignore[attr-defined]
 Node.getRequiredFormula = Node.get_required_formula  # type: ignore[attr-defined]
+Node.getTypeRequirement = Node.get_type_requirement  # type: ignore[attr-defined]
+Node.isComplete = Node.is_complete  # type: ignore[attr-defined]
 Node.removeFormulaLabel = Node.remove_formula_label  # type: ignore[attr-defined]
 Node.isUnifiable = Node.is_unifiable  # type: ignore[attr-defined]

@@ -61,6 +61,11 @@ class NodeAddress:
         a = self.address
         return not (a.endswith(PATH_UNFIXED) or a.endswith(PATH_LOCAL_UNFIXED))
 
+    def is_fixed(self) -> bool:
+        """True when the address is not within an unfixed subtree (Java ``isFixed``)."""
+        a = self.address
+        return PATH_LOCAL_UNFIXED not in a and PATH_UNFIXED not in a
+
     def up(self, path: str | None = None) -> NodeAddress | None:
         """Go up (Java ``NodeAddress.up``).
 
@@ -138,5 +143,6 @@ NodeAddress.downStar = NodeAddress.down_star  # type: ignore[attr-defined]
 NodeAddress.downLocalUnfixed = NodeAddress.down_local_unfixed  # type: ignore[attr-defined]
 NodeAddress.downChar = NodeAddress.down_char  # type: ignore[attr-defined]
 NodeAddress.isLocallyFixed = NodeAddress.is_locally_fixed  # type: ignore[attr-defined]
+NodeAddress.isFixed = NodeAddress.is_fixed  # type: ignore[attr-defined]
 NodeAddress.goOp = NodeAddress.go_op  # type: ignore[attr-defined]
 NodeAddress.goModality = NodeAddress.go_modality  # type: ignore[attr-defined]

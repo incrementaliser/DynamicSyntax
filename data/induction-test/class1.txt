@@ -1,0 +1,447 @@
+Sent : goto a red key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 1 - Class: 1
+
+Sent : goto a red ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 2 - Class: 1
+
+Sent : goto a red box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 3 - Class: 1
+
+Sent : goto a red door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 4 - Class: 1
+
+Sent : pickup a red key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 5 - Class: 1
+
+Sent : pickup a red ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 6 - Class: 1
+
+Sent : pickup a red box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 7 - Class: 1
+
+Sent : open a red door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_red(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 8 - Class: 1
+
+Sent : goto a green key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 9 - Class: 1
+
+Sent : goto a green ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 10 - Class: 1
+
+Sent : goto a green box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 11 - Class: 1
+
+Sent : goto a green door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 12 - Class: 1
+
+Sent : pickup a green key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 13 - Class: 1
+
+Sent : pickup a green ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 14 - Class: 1
+
+Sent : pickup a green box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 15 - Class: 1
+
+Sent : open a green door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_green(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 16 - Class: 1
+
+Sent : goto a blue key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 17 - Class: 1
+
+Sent : goto a blue ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 18 - Class: 1
+
+Sent : goto a blue box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 19 - Class: 1
+
+Sent : goto a blue door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 20 - Class: 1
+
+Sent : pickup a blue key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 21 - Class: 1
+
+Sent : pickup a blue ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 22 - Class: 1
+
+Sent : pickup a blue box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 23 - Class: 1
+
+Sent : open a blue door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_blue(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 24 - Class: 1
+
+Sent : goto a purple key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 25 - Class: 1
+
+Sent : goto a purple ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 26 - Class: 1
+
+Sent : goto a purple box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 27 - Class: 1
+
+Sent : goto a purple door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 28 - Class: 1
+
+Sent : pickup a purple key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 29 - Class: 1
+
+Sent : pickup a purple ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 30 - Class: 1
+
+Sent : pickup a purple box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 31 - Class: 1
+
+Sent : open a purple door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_purple(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 32 - Class: 1
+
+Sent : goto a yellow key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 33 - Class: 1
+
+Sent : goto a yellow ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 34 - Class: 1
+
+Sent : goto a yellow box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 35 - Class: 1
+
+Sent : goto a yellow door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 36 - Class: 1
+
+Sent : pickup a yellow key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 37 - Class: 1
+
+Sent : pickup a yellow ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 38 - Class: 1
+
+Sent : pickup a yellow box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 39 - Class: 1
+
+Sent : open a yellow door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_yellow(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 40 - Class: 1
+
+Sent : goto a grey key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 41 - Class: 1
+
+Sent : goto a grey ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 42 - Class: 1
+
+Sent : goto a grey box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 43 - Class: 1
+
+Sent : goto a grey door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 44 - Class: 1
+
+Sent : pickup a grey key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 45 - Class: 1
+
+Sent : pickup a grey ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 46 - Class: 1
+
+Sent : pickup a grey box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 47 - Class: 1
+
+Sent : open a grey door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_grey(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 48 - Class: 1
+
+Sent : goto a key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 49 - Class: 1
+
+Sent : goto a ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 50 - Class: 1
+
+Sent : goto a box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 51 - Class: 1
+
+Sent : goto a door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 52 - Class: 1
+
+Sent : pickup a key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 53 - Class: 1
+
+Sent : pickup a ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 54 - Class: 1
+
+Sent : pickup a box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 55 - Class: 1
+
+Sent : open a door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t]|x1==epsilon(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 56 - Class: 1
+
+Sent : goto the red key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 57 - Class: 1
+
+Sent : goto the red ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 58 - Class: 1
+
+Sent : goto the red box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 59 - Class: 1
+
+Sent : goto the red door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 60 - Class: 1
+
+Sent : pickup the red key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 61 - Class: 1
+
+Sent : pickup the red ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 62 - Class: 1
+
+Sent : pickup the red box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 63 - Class: 1
+
+Sent : open the red door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_red(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 64 - Class: 1
+
+Sent : goto the green key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 65 - Class: 1
+
+Sent : goto the green ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 66 - Class: 1
+
+Sent : goto the green box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 67 - Class: 1
+
+Sent : goto the green door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 68 - Class: 1
+
+Sent : pickup the green key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 69 - Class: 1
+
+Sent : pickup the green ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 70 - Class: 1
+
+Sent : pickup the green box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 71 - Class: 1
+
+Sent : open the green door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_green(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 72 - Class: 1
+
+Sent : goto the blue key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 73 - Class: 1
+
+Sent : goto the blue ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 74 - Class: 1
+
+Sent : goto the blue box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 75 - Class: 1
+
+Sent : goto the blue door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 76 - Class: 1
+
+Sent : pickup the blue key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 77 - Class: 1
+
+Sent : pickup the blue ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 78 - Class: 1
+
+Sent : pickup the blue box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 79 - Class: 1
+
+Sent : open the blue door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_blue(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 80 - Class: 1
+
+Sent : goto the purple key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 81 - Class: 1
+
+Sent : goto the purple ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 82 - Class: 1
+
+Sent : goto the purple box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 83 - Class: 1
+
+Sent : goto the purple door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 84 - Class: 1
+
+Sent : pickup the purple key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 85 - Class: 1
+
+Sent : pickup the purple ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 86 - Class: 1
+
+Sent : pickup the purple box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 87 - Class: 1
+
+Sent : open the purple door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_purple(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 88 - Class: 1
+
+Sent : goto the yellow key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 89 - Class: 1
+
+Sent : goto the yellow ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 90 - Class: 1
+
+Sent : goto the yellow box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 91 - Class: 1
+
+Sent : goto the yellow door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 92 - Class: 1
+
+Sent : pickup the yellow key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 93 - Class: 1
+
+Sent : pickup the yellow ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 94 - Class: 1
+
+Sent : pickup the yellow box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 95 - Class: 1
+
+Sent : open the yellow door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_yellow(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 96 - Class: 1
+
+Sent : goto the grey key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 97 - Class: 1
+
+Sent : goto the grey ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 98 - Class: 1
+
+Sent : goto the grey box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 99 - Class: 1
+
+Sent : goto the grey door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 100 - Class: 1
+
+Sent : pickup the grey key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 101 - Class: 1
+
+Sent : pickup the grey ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 102 - Class: 1
+
+Sent : pickup the grey box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 103 - Class: 1
+
+Sent : open the grey door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t|p1==col_grey(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p2==obj(e0, x1) : t]
+Num : 104 - Class: 1
+
+Sent : goto the key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 105 - Class: 1
+
+Sent : goto the ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 106 - Class: 1
+
+Sent : goto the box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 107 - Class: 1
+
+Sent : goto the door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_facing : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 108 - Class: 1
+
+Sent : pickup the key
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_key(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 109 - Class: 1
+
+Sent : pickup the ball
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_ball(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 110 - Class: 1
+
+Sent : pickup the box
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_box(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_holding : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 111 - Class: 1
+
+Sent : open the door
+Sem : [r0 : [x0 : e|head==x0 : e|p0==obj_door(x0) : t]|x1==iota(r0.head, r0) : e|e0==state_opened : es|head==e0 : es|p1==obj(e0, x1) : t]
+Num : 112 - Class: 1

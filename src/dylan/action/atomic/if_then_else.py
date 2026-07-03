@@ -13,7 +13,7 @@ from dylan.action.atomic.effect import Effect
 from dylan.action.atomic.effect_factory import EffectFactory
 from dylan.action.meta.element import reset_all_meta_bindings
 from dylan.action.meta_stub import reset_bound_metas
-from dylan.tree.label.labels import Label, label_factory_create
+from dylan.tree.label.labels import Label, MetaLabel, Requirement, label_factory_create
 from dylan.tree.tree import Tree
 
 if TYPE_CHECKING:
@@ -46,17 +46,59 @@ def _find_end_of_embedded_ite(lines: list[str], start: int) -> int:
 
 
 class Backtracker:
-    """Controls metavar backtracking during label checking (stub)."""
+    """Controls metavar backtracking during IF label checking (Java ``IfThenElse.Backtracker``)."""
 
     def __init__(self) -> None:
         self.index = 0
+        self._when_introduced: dict[int, int] = {}
+        self._metas: list[Any] = []
 
     def set_index(self, i: int) -> None:
-        """Set the current backtrack index."""
+        """Set the current IF-step index (Java ``setIndex``)."""
         self.index = i
 
-    def can_backtrack_tuple_context(self, tree: Tree, context: ParserTuple | None) -> bool:
-        """Always ``False`` in stub implementation."""
+    def register_label_metas(self, label: Label, step: int) -> None:
+        """Register metavariables introduced by *label* at IF step *step*."""
+        for meta in self._label_metas(label):
+            key = id(meta)
+            if key not in self._when_introduced:
+                meta.reset()
+                self._metas.append(meta)
+                self._when_introduced[key] = step
+
+    @staticmethod
+    def _label_metas(label: Label) -> list[Any]:
+        """Collect :class:`MetaElement` cells referenced by *label*."""
+        from dylan.tree.label.labels import MetaLabel as _ML
+
+        if isinstance(label, _ML):
+            return [label._meta]
+        if isinstance(label, Requirement) and isinstance(label.inner, _ML):
+            return [label.inner._meta]
+        return []
+
+    def can_backtrack_tuple_context(
+        self,
+        tree: Tree,
+        context: Any,
+        if_labels: list[Label],
+    ) -> bool:
+        """Retry failed IF checks with alternate metavar bindings (Java ``canBacktrackTupleContext``)."""
+        for i in range(len(self._metas) - 1, -1, -1):
+            meta = self._metas[i]
+            step = self._when_introduced.get(id(meta), 0)
+            if step > self.index:
+                continue
+            self.index = step
+            if not meta.backtrack():
+                continue
+            label = if_labels[step]
+            if not label.check_with_tuple_as_context(tree, context):
+                meta.unbacktrack()
+                continue
+            for later in self._metas[i + 1 :]:
+                later.reset()
+            return True
         return False
 
 
@@ -156,7 +198,11 @@ class IfThenElse(Effect):
         return result
 
     def setup_backtrackers(self, exceptions: list[Any] | None = None) -> None:
+        """Register IF-label metavariables for backtracking (Java ``setupBacktrackers``)."""
+        del exceptions
         self.backtracker = Backtracker()
+        for step, label in enumerate(self.if_labels):
+            self.backtracker.register_label_metas(label, step)
 
     def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
         """Execute this IF/THEN/ELSE on *tree*.
@@ -172,23 +218,40 @@ class IfThenElse(Effect):
         else:
             reset_bound_metas()
         self.backtracker.set_index(0)
-        success = True
-        for lab in self.if_labels:
-            if not lab.check_with_tuple_as_context(tree, context):
-                success = False
-                break
-        branch = self.then_effects if success else self.else_effects
-        if not branch:
-            return None
-        result: Tree | None = tree
-        for eff in branch:
-            result = eff.exec_tuple_context(result, context)
-            if result is None:
+        result: Tree | None = None
+        attempts = 0
+        while attempts < 64:
+            attempts += 1
+            success = True
+            start = self.backtracker.index
+            for i in range(start, len(self.if_labels)):
+                lab = self.if_labels[i]
+                self.backtracker.set_index(i)
+                if not lab.check_with_tuple_as_context(tree, context):
+                    success = False
+                    break
+            branch = self.then_effects if success else self.else_effects
+            if not branch:
                 return None
-        return result
+            result = tree
+            for eff in branch:
+                result = eff.exec_tuple_context(result, context)
+                if result is None:
+                    break
+            if result is not None:
+                return result
+            if not self.backtracker.can_backtrack_tuple_context(tree, context, self.if_labels):
+                return None
 
     def exec(self, tree: Tree, context: Any) -> Tree | None:
         return self.exec_tuple_context(tree, context)
+
+    def exec_exhaustively(self, tree: Tree, context: Any = None) -> "list[tuple[IfThenElse, Tree]] | None":
+        """Enumerate successful parses (Java ``execExhaustively``); metavar backtracking is single-path-only for now."""
+        result = self.exec_tuple_context(tree.clone(), context)
+        if result is None:
+            return None
+        return [(self.instantiate(), result)]
 
     def instantiate(self) -> Effect:
         return IfThenElse(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 from dylan.formula.formula import Formula
 from dylan.formula.variable import Variable
@@ -150,17 +150,97 @@ class TTRField(Formula):
         text = str(self.manifest_type)
         return any(part == label.label for part in _identifier_tokens(text))
 
+    def depends_on(self, other: "TTRField") -> bool:
+        """Return true when this field references *other*'s label (Java ``TTRField.dependsOn``)."""
+        if other is None or other.label is None:
+            return False
+        return self.mentions(other.label)
+
+    def is_head(self) -> bool:
+        """Return true when this field is the manifest ``head`` field (Java ``TTRField.isHead``)."""
+        from dylan.formula.ttr_label import HEAD
+
+        return self.label == HEAD
+
+    def relabel(self, label_map: Mapping[Any, Any]) -> TTRField:
+        """Return a copy with label and manifest variables renamed per *label_map* (Java ``TTRField.relabel``)."""
+        from dylan.formula.ttr_label import TTRLabel, ttr_label_from_variable
+
+        if self.label in label_map:
+            mapped = label_map[self.label]
+            new_label: TTRLabel | MetaTTRLabel = (
+                ttr_label_from_variable(mapped) if isinstance(mapped, Variable) else mapped
+            )
+        else:
+            new_label = self.label
+        mt = self.manifest_type
+        if mt is not None and hasattr(mt, "get_variables"):
+            for v in mt.get_variables():
+                if v in label_map:
+                    mt = mt.substitute(v, label_map[v])
+        if mt is not None and hasattr(mt, "clone"):
+            mt = mt.clone()
+        return TTRField(new_label, self.ds_type, mt)  # type: ignore[arg-type]
+
     def subsumes(self, other: object) -> bool:
-        """Conservative field subsumption compatible with Java record matching."""
+        """Field subsumption (Java ``TTRField`` via ``Formula.subsumes``)."""
         if not isinstance(other, TTRField):
             return False
-        if self.ds_type is not None and other.ds_type is not None and self.ds_type != other.ds_type:
+        if self == other or str(self) == str(other):
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
+
+    def subsumes_basic(self, other: Formula) -> bool:
+        """Quick field match without label renaming (Java ``TTRField.subsumesBasic``)."""
+        if not isinstance(other, TTRField):
+            return False
+        ds_ok = (self.ds_type is None and other.ds_type is None) or (
+            self.ds_type is not None and self.ds_type == other.ds_type
+        )
+        if not ds_ok:
+            return False
+        if self.manifest_type is not None:
+            if other.manifest_type is None or not self.manifest_type.subsumes_basic(other.manifest_type):
+                return False
+        return self.label.subsumes_basic(other.label)  # type: ignore[attr-defined]
+
+    def subsumes_mapped(self, other: Formula, map_: dict) -> bool:
+        """Field subsumption with label/type mapping (Java ``TTRField.subsumesMapped``)."""
+        from dylan.formula.ttr_record_type import TTRRecordType
+        from dylan.formula.variable import Variable
+
+        if not isinstance(other, TTRField):
+            return False
+        other_field = other
+        copy_map = dict(map_)
+        if not self.label.subsumes_mapped(other_field.label, map_):  # type: ignore[attr-defined]
+            map_.clear()
+            map_.update(copy_map)
+            return False
+        ds_ok = (self.ds_type is None and other_field.ds_type is None) or (
+            self.ds_type is not None and self.ds_type == other_field.ds_type
+        )
+        if not ds_ok:
+            map_.clear()
+            map_.update(copy_map)
             return False
         if self.manifest_type is None:
             return True
-        if other.manifest_type is None:
+        if other_field.manifest_type is None:
+            map_.clear()
+            map_.update(copy_map)
             return False
-        return self.manifest_type.subsumes(other.manifest_type)
+        if isinstance(self.manifest_type, TTRRecordType):
+            nested_map: dict[Variable, Variable] = {}
+            ok = self.manifest_type.subsumes_mapped(other_field.manifest_type, nested_map)
+        else:
+            ok = self.manifest_type.subsumes(other_field.manifest_type)
+        if not ok:
+            map_.clear()
+            map_.update(copy_map)
+        return ok
 
     def __str__(self) -> str:
         """Return Java-compatible TTR field syntax."""
@@ -182,3 +262,5 @@ TTRField.getLabel = TTRField.get_label  # type: ignore[attr-defined]
 TTRField.getType = TTRField.get_type  # type: ignore[attr-defined]
 TTRField.getDSType = TTRField.get_ds_type  # type: ignore[attr-defined]
 TTRField.hasManifest = TTRField.has_manifest  # type: ignore[attr-defined]
+TTRField.dependsOn = TTRField.depends_on  # type: ignore[attr-defined]
+TTRField.isHead = TTRField.is_head  # type: ignore[attr-defined]

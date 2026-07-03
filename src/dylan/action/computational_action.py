@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from dylan.action.action import Action
 from dylan.action.atomic.effect import Effect
 from dylan.action.atomic.effect_factory import EffectFactory
+from dylan.tree.tree import Tree
 
 
 class ComputationalAction(Action):
@@ -44,6 +47,28 @@ class ComputationalAction(Action):
         return ComputationalAction(
             self.name, self._source_lines, self.always_good, self.backtrack_on_success
         )
+
+    def exec_exhaustively(
+        self,
+        tree: Tree,
+        context: Any = None,
+    ) -> list[tuple[ComputationalAction, Tree]] | None:
+        """Delegate exhaustive metavar search to nested IF (Java ``ComputationalAction.execExhaustively``)."""
+        from dylan.action.atomic.if_then_else import IfThenElse
+
+        eff = self.effect
+        if not isinstance(eff, IfThenElse):
+            return None
+        nested = eff.exec_exhaustively(tree, context)
+        if not nested:
+            return None
+        rebuilt = ComputationalAction(
+            self.name,
+            list(self._source_lines),
+            self.always_good,
+            self.backtrack_on_success,
+        )
+        return [(rebuilt, t) for _ite, t in nested]
 
     def __lt__(self, other: ComputationalAction) -> bool:
         """Sort always-good actions before optional ones."""

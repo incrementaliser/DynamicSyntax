@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dylan.induction.em_learner.common import words_to_string
 from dylan.induction.em_learner.word_learner import WordLearner
 from dylan.tree.tree import Tree
 
@@ -17,6 +18,7 @@ class TreeWordLearner(WordLearner[Tree]):
             words, target = next(self.corpus_iterator)
         except StopIteration:
             return False
+        self._begin_example(words_to_string(words))
         self.hypothesiser.load_training_example(words, target)
         hyps = self.hypothesiser.hypothesise()
         self.hb.forget_current_dist()

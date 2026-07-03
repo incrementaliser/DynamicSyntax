@@ -129,6 +129,17 @@ class InteractiveContextParser(DAGParser):
                 self.set_grammar(resource_dir, repairing=repairing)
         self._configure_icp_sinks()
 
+    @classmethod
+    def from_resource_dir(
+        cls,
+        resource_dir: str | Path,
+        *,
+        top_n: int = 3,
+        **kwargs: object,
+    ) -> InteractiveContextParser:
+        """Load grammars from *resource_dir* (convenience over ``cls(resource_dir, ...)``)."""
+        return cls(resource_dir, top_n=top_n, **kwargs)  # type: ignore[arg-type]
+
     def _init_icp_log_settings(
         self,
         log_level: LogLevel,

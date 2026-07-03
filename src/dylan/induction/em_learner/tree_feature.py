@@ -1,21 +1,21 @@
-"""Abstract tree feature."""
+"""Abstract tree feature (Java ``qmul.ds.learn.TreeFeature``).
+
+Subclasses implement :meth:`extract` to pull a ``(label, node_address)`` pair
+out of a Dynamic Syntax tree.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
+from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
 
 
-@dataclass(frozen=True, slots=True)
-class TreeFeature:
-    """Feature represented by a DS tree."""
+class TreeFeature(ABC):
+    """Abstract DS-tree feature extractor (Java parity)."""
 
-    tree: Tree
-
-    def get_tree(self) -> Tree:
-        """Return feature tree."""
-        return self.tree
-
-
-TreeFeature.getTree = TreeFeature.get_tree  # type: ignore[attr-defined]
+    @abstractmethod
+    def extract(self, tree: Tree) -> "tuple[object, NodeAddress] | None":
+        """Return a ``(label, node_address)`` pair extracted from *tree* (Java ``extract``)."""
+        raise NotImplementedError

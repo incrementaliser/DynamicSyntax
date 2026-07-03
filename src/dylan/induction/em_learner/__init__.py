@@ -9,8 +9,8 @@ from dylan.induction.em_learner.corpus_converter_agenda import CorpusConverterAg
 from dylan.induction.em_learner.corpus_reader_writer import CorpusReaderWriter
 from dylan.induction.em_learner.corpus_statistics import CorpusStatistics
 from dylan.induction.em_learner.corpus_stats import CorpusStats
-from dylan.induction.em_learner.dag_induction_state import DAGInductionState
-from dylan.induction.em_learner.dag_induction_tuple import DAGInductionTuple
+from dylan.dag.dag_induction_state import DAGInductionState
+from dylan.dag.dag_induction_tuple import DAGInductionTuple
 from dylan.induction.em_learner.dag_tuple_set_transformer import DAGTupleSetTransformer
 from dylan.induction.em_learner.evaluation import Evaluation
 from dylan.induction.em_learner.feature import Feature
@@ -36,8 +36,8 @@ from dylan.induction.em_learner.tree_word_learner import TreeWordLearner
 from dylan.induction.em_learner.ttr2tree_corpus_converter import TTR2TreeCorpusConverter
 from dylan.induction.em_learner.ttr_hypothesiser import TTRHypothesiser
 from dylan.induction.em_learner.ttr_word_learner import TTRWordLearner
-from dylan.induction.em_learner.type_lattice import TypeLattice
-from dylan.induction.em_learner.type_lattice_increment import TypeLatticeIncrement
+from dylan.dag.type_lattice import TypeLattice
+from dylan.dag.type_lattice_increment import TypeLatticeIncrement
 from dylan.induction.em_learner.word_hypothesis import WordHypothesis
 from dylan.induction.em_learner.word_hypothesis_base import WordHypothesisBase
 from dylan.induction.em_learner.word_learner import WordLearner

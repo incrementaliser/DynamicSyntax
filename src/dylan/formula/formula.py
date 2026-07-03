@@ -93,12 +93,31 @@ class Formula(ABC):
         return self
 
     def subsumes(self, other: object) -> bool:
-        """Structural subsumption for node unification (Java ``Formula.subsumes`` sketch)."""
-        return isinstance(other, Formula) and self == other
+        """Structural subsumption (Java ``Formula.subsumes``: basic then mapped)."""
+        if not isinstance(other, Formula):
+            return False
+        if self == other or str(self) == str(other):
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
+
+    def subsumes_basic(self, other: Formula) -> bool:
+        """Quick subsumption without variable mapping (Java ``Formula.subsumesBasic``)."""
+        return self == other
+
+    def subsumes_mapped(self, other: Formula, map_: dict["Variable", "Variable"]) -> bool:
+        """Mapped subsumption; default fails after basic (Java ``Formula.subsumesMapped``)."""
+        _ = (other, map_)
+        return False
 
     def freshen_vars(self, tree: Any) -> Formula:
         """Default: no renaming (Java ``Formula.freshenVars`` fallback)."""
         return self.clone()
+
+    def get_variables(self) -> set["Variable"]:
+        """Return the variables mentioned by this formula (Java ``Formula.getVariables``); base is empty."""
+        return set()
 
     @staticmethod
     def create(string: str, in_ex_conj: bool = False) -> Formula | None:

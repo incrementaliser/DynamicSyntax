@@ -350,7 +350,7 @@ class TTRRecordType(TTRFormula):
                 n.add_field(f.clone())  # type: ignore[arg-type]
         return n
 
-    def freshen_vars(self, tree: object) -> TTRFormula:
+    def freshen_vars_tree(self, tree: object) -> TTRFormula:
         """Alpha-rename via ``substitute`` on each field label (Java ``TTRRecordType.freshenVars(Tree)``)."""
         from dylan.tree.tree import Tree
 
@@ -399,6 +399,20 @@ class TTRRecordType(TTRFormula):
             if not isinstance(sub, TTRRecordType):
                 raise RuntimeError("TTRRecordType.substitute must return TTRRecordType")
             fresh = sub
+        return fresh
+
+    def freshen_vars_mapped(self, gold: TTRRecordType, var_map: dict[Any, Any]) -> TTRFormula:
+        """Freshen field labels relative to gold record *gold* (Java ``freshenVars(TTRRecordType, Map)``)."""
+        fresh = TTRRecordType()
+        for f in self._fields:
+            if f.label == HEAD or f.label == REF_TIME:
+                fresh.add_field(f.relabel(var_map))
+                var_map[HEAD] = HEAD
+                continue
+            new_v = gold.get_fresh_variable(var_map.values(), f.ds_type)
+            new_lab = ttr_label_from_variable(new_v)
+            var_map[f.label] = new_lab
+            fresh.add_field(f.relabel(var_map))
         return fresh
 
     def remove_head(self) -> TTRRecordType:
@@ -525,6 +539,17 @@ class TTRRecordType(TTRFormula):
         """Return a stable-ish integer derived from the printed record."""
         return hash(str(self))
 
+    def get_variables(self) -> set[Variable]:
+        """Return the union of variables across every field's manifest (Java ``getVariables``)."""
+        out: set[Variable] = set()
+        for f in self._fields:
+            mt = f.manifest_type
+            if mt is None:
+                continue
+            if hasattr(mt, "get_variables"):
+                out |= mt.get_variables()
+        return out
+
     def __str__(self) -> str:
         """Return Java-compatible bracketed record syntax."""
         if self.is_empty():
@@ -568,20 +593,240 @@ class TTRRecordType(TTRFormula):
         """Return layout dimensions as a toolkit-neutral drawing result."""
         return self.get_dimensions_when_drawn()
 
-    def get_abstractions(self, basic_ds_type: DSType, new_var_suffix: int = 0) -> list[tuple[TTRRecordType, "TTRLambdaAbstract"]]:
-        """Return simple field-removal abstractions for Java ``getAbstractions`` callers."""
-        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+    def remove_fields(self, argument: "TTRRecordType") -> None:
+        """In-place removal: drop every field whose label appears in *argument* (Java ``removeFields``)."""
+        for f in argument._fields:
+            self.remove(f.label)
 
-        abstractions: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
+    def get_abstractions_basic(
+        self,
+        basic_ds_type: DSType,
+        new_var_suffix: int = 1,
+    ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
+        """Java ``TTRRecordType.getAbstractions(BasicType, int)`` — full port with cn/t branches and AA hacks.
+
+        Returns ``[(rt, TTRLambdaAbstract(R, asym_merge(R, substCore))), …]`` pairs.
+        Mirrors the four big branches of the Java method:
+
+        1. ``basicDSType == cn`` and field is restrictor (no ``ds_type``).
+        2. ``basicDSType == cn`` and field has ``ds_type == cn``.
+        3. ``basicDSType == cn`` and field has ``ds_type == t``.
+        4. ``basicDSType == t`` (restrictor or ``ds_type == t``).
+        5. fallthrough: ``f.ds_type == basicDSType`` (the original e>e>t case).
+        """
+        from dylan.formula.predicate_argument import Predicate
+        from dylan.formula.ttr_infix_expression import TTRInfixExpression
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+        from dylan.formula.ttr_path import parse_ttr_path
+
+        result: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
+        logger.debug("extracting %s from %s", basic_ds_type, self)
+        head = self.get_head_field()
+        head_label = head.label if head is not None else None
+
+        def add_dependents(arg: TTRRecordType, src_field: TTRField) -> None:
+            """Append fields from *self* dependent on *src_field* but not on head (Java add-dependents block)."""
+            try:
+                start = self._fields.index(src_field) + 1
+            except ValueError:
+                start = len(self._fields)
+            for cur in self._fields[start:]:
+                if not cur.depends_on(src_field):
+                    continue
+                if head is None:
+                    arg.put_at_end(cur.clone())
+                    continue
+                if (
+                    cur.label != head.label
+                    and not cur.depends_on(head)
+                    and cur.label != HEAD
+                ):
+                    arg.put_at_end(cur.clone())
+
+        def build_subst_core(core: TTRRecordType, f: TTRField, v: Variable) -> TTRRecordType:
+            """Java AA substitution: subF is sole variable in fType -> sub it; else fall back to f.label."""
+            f_type = f.manifest_type
+            head_path = parse_ttr_path(f"{v.name}.head")
+            assert head_path is not None
+            if f_type is None:
+                logger.debug("AA fType is null. So to be safe, will do what was happening before.")
+                sub = core.substitute(Variable(f.label.label), head_path)
+            else:
+                sub_f: set[Variable] = (
+                    f_type.get_variables() if hasattr(f_type, "get_variables") else set()
+                )
+                if len(sub_f) != 1:
+                    sub = core.substitute(Variable(f.label.label), head_path)
+                else:
+                    sub_f_var = next(iter(sub_f))
+                    if sub_f_var.name.startswith("r"):
+                        sub_f_var = Variable(f.label.label)
+                    sub = core.substitute(sub_f_var, head_path)
+            assert isinstance(sub, TTRRecordType)
+            return sub
+
         for f in self._fields:
-            if f.label in (HEAD, REF_TIME):
+            logger.debug("Current field: %s", f)
+            field_dst = f.ds_type
+
+            if basic_ds_type == DSType.cn:
+                if field_dst is None:
+                    arg = f.manifest_type
+                    if not isinstance(arg, TTRRecordType):
+                        continue
+                    v = Variable(f"R{new_var_suffix}")
+                    core = TTRRecordType()
+                    for cf in self._fields:
+                        core.add_field(cf.clone())
+                    sub = core.substitute_formula(arg, v)
+                    lam = TTRLambdaAbstract(v, sub)
+                    abs_pair = (arg, lam)
+                    if abs_pair in result:
+                        logger.debug("AA: abstraction already in result; skipping.")
+                    else:
+                        result.append(abs_pair)
+                        t_abs = arg.get_abstractions_basic(DSType.t, 2)
+                        if t_abs:
+                            result.extend(t_abs)
+                    continue
+
+                if field_dst == DSType.cn:
+                    if f.label == HEAD and f.manifest_type is not None:
+                        continue
+                    arg = self.get_super_type_with_parents(f)
+                    add_dependents(arg, f)
+                    v = Variable(f"R{new_var_suffix}")
+                    core = TTRRecordType()
+                    for cf in self._fields:
+                        core.add_field(cf.clone())
+                    core.remove_fields(arg)
+                    if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                        continue
+                    sub_core = build_subst_core(core, f, v)
+                    core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                    lam = TTRLambdaAbstract(v, core_final)
+                    arg.deem_head(f.label)
+                    abs_pair = (arg, lam)
+                    if abs_pair in result:
+                        logger.debug("AA: abstraction already in result; skipping.")
+                    else:
+                        result.append(abs_pair)
+                    continue
+
+                if field_dst == DSType.t:
+                    # The "AA: not sure about THIS PART" cn-from-t branch.
+                    if f.label == HEAD and f.manifest_type is not None:
+                        continue
+                    arg = self.get_super_type_with_parents(f)
+                    add_dependents(arg, f)
+                    v = Variable(f"R{new_var_suffix}")
+                    core = TTRRecordType()
+                    for cf in self._fields:
+                        core.add_field(cf.clone())
+                    core.remove_fields(arg)
+                    if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                        continue
+                    sub_core = build_subst_core(core, f, v)
+                    core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                    lam = TTRLambdaAbstract(v, core_final)
+                    arg.deem_head(f.label)
+                    abs_pair = (arg, lam)
+                    if abs_pair in result:
+                        logger.debug("AA: abstraction already in result; skipping.")
+                    else:
+                        result.append(abs_pair)
+                    continue
+
                 continue
-            if f.ds_type != basic_ds_type:
+
+            if basic_ds_type == DSType.t:
+                if field_dst is None:
+                    arg = f.manifest_type
+                    if not isinstance(arg, TTRRecordType):
+                        continue
+                    v = Variable(f"R{new_var_suffix}")
+                    core = TTRRecordType()
+                    for cf in self._fields:
+                        core.add_field(cf.clone())
+                    sub = core.substitute_formula(arg, v)
+                    lam = TTRLambdaAbstract(v, sub)
+                    abs_pair = (arg, lam)
+                    if abs_pair in result:
+                        logger.debug("AA: abstraction already in result; skipping.")
+                    else:
+                        result.append(abs_pair)
+                        result.extend(arg.get_abstractions_basic(basic_ds_type, new_var_suffix))
+                    continue
+
+                if field_dst == DSType.t:
+                    if f.label == HEAD and f.manifest_type is not None:
+                        continue
+                    arg = self.get_super_type_with_parents(f)
+                    add_dependents(arg, f)
+                    v = Variable(f"R{new_var_suffix}")
+                    core = TTRRecordType()
+                    for cf in self._fields:
+                        core.add_field(cf.clone())
+                    core.remove_fields(arg)
+                    if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                        continue
+                    sub_core = build_subst_core(core, f, v)
+                    core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                    lam = TTRLambdaAbstract(v, core_final)
+                    head_field = self.get_head_field()
+                    if head_field is not None and head_field.label is not None:
+                        arg.deem_head(head_field.label)
+                    abs_pair = (arg, lam)
+                    if abs_pair in result:
+                        logger.debug("AA: abstraction already in result; skipping.")
+                    else:
+                        result.append(abs_pair)
+                    continue
+
                 continue
-            var = Variable(f"R{new_var_suffix}")
-            core = self.remove_specific_field(f)
-            abstractions.append((core, TTRLambdaAbstract(var, core.clone())))
-        return abstractions
+
+            if field_dst is not None and field_dst == basic_ds_type:
+                if f.label == HEAD and f.manifest_type is not None:
+                    continue
+                arg = self.get_super_type_with_parents(f)
+                add_dependents(arg, f)
+                v = Variable(f"R{new_var_suffix}")
+                core = TTRRecordType()
+                for cf in self._fields:
+                    core.add_field(cf.clone())
+                core.remove_fields(arg)
+                if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                    continue
+                sub_core = build_subst_core(core, f, v)
+                core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                lam = TTRLambdaAbstract(v, core_final)
+                arg.deem_head(f.label)
+                abs_pair = (arg, lam)
+                if abs_pair in result:
+                    logger.debug("AA: abstraction already in result; skipping.")
+                else:
+                    result.append(abs_pair)
+                continue
+
+        logger.debug("Total number of abstractions: %d", len(result))
+        return result
+
+    def get_abstractions(
+        self,
+        first: Any,
+        second: Any | None = None,
+        third: Any | None = None,
+    ) -> Any:
+        """Multi-arity dispatch (see :meth:`TTRFormula.get_abstractions`).
+
+        Two-arg ``(BasicType, int)`` invokes :meth:`get_abstractions_basic`;
+        otherwise we delegate to the inherited tree-builder.
+        """
+        from dylan.type.dstype import BasicType as _BT
+
+        if isinstance(first, _BT) and (second is None or isinstance(second, int)):
+            return self.get_abstractions_basic(first, second if isinstance(second, int) else 1)
+        return super().get_abstractions(first, second, third)
 
     def get_empty_abstractions(self, prefix: "NodeAddress") -> list["Tree"]:
         """Return a minimal tree abstraction containing this record at *prefix*."""
@@ -604,23 +849,44 @@ class TTRRecordType(TTRFormula):
         type_: DSType,
         filtering: bool,
     ) -> list["Tree"]:
-        """Return abstraction trees, optionally filtered by Java ``TreeFilter`` semantics."""
+        """Java port of ``TTRRecordType.getFilteredAbstractions`` — DSType-driven template trees plus subj/obj filtering."""
         from dylan.induction.em_learner.tree_filter import TreeFilter
 
-        trees = self.get_empty_abstractions(prefix)
-        for _core, abstraction in self.get_abstractions(type_):
-            abstracted = abstraction.evaluate()
-            if isinstance(abstracted, TTRFormula):
-                clone = self.clone()
-                abstracted_tree = clone.get_empty_abstractions(prefix)[0]
-                abstracted_tree.pointed_node.remove_formula_label()
-                from dylan.tree.label.labels import FormulaLabel
+        result: list = []
+        filt = TreeFilter(self)
+        templates: list[DSType] = []
+        if type_ == DSType.t:
+            for spec in ("e>(e>(e>t))", "e>(e>t)", "e>t"):
+                ds = DSType.parse(spec)
+                if ds is not None:
+                    templates.append(ds)
+        elif type_ == DSType.cn:
+            ds = DSType.parse("cn>cn")
+            if ds is not None:
+                templates.append(ds)
 
-                abstracted_tree.pointed_node.add_label(FormulaLabel(abstracted))
-                trees.append(abstracted_tree)
-        if filtering:
-            return TreeFilter(self).filter(trees)
-        return trees
+        max_num_nodes = 0
+        for ds_type in templates:
+            cur_trees = self.get_abstractions(ds_type, prefix)
+            for tree in cur_trees:
+                if tree.get_num_nodes() > max_num_nodes:
+                    max_num_nodes = tree.get_num_nodes()
+            if not filtering and cur_trees:
+                for cur in cur_trees:
+                    if cur not in result:
+                        result.append(cur)
+            filtered = filt.filter(cur_trees)
+            if filtered:
+                for cur in cur_trees:
+                    if cur not in result:
+                        result.append(cur)
+            else:
+                for cur in cur_trees:
+                    if len(cur) == max_num_nodes and cur not in result:
+                        result.append(cur)
+        if not result:
+            return self.get_empty_abstractions(prefix)
+        return result
 
     def get_maximal_filtered_abstractions(
         self,
@@ -628,16 +894,51 @@ class TTRRecordType(TTRFormula):
         type_: DSType,
         filtering: bool,
     ) -> list["Tree"]:
-        """Return maximal filtered abstraction trees."""
-        trees = self.get_filtered_abstractions(prefix, type_, filtering)
-        seen: set[str] = set()
-        maximal: list[Any] = []
-        for tree in trees:
-            key = str(tree)
-            if key in seen:
-                continue
-            seen.add(key)
-            maximal.append(tree)
+        """Return maximally-extended abstraction trees (Java ``getMaximalFilteredAbstractions``).
+
+        Picks the trees with the highest ``getNumNodes`` from
+        :meth:`get_filtered_abstractions`, then performs the Java
+        ``R2^R1`` argument-swap hack so abstraction-order matches the
+        Tree typeMap (BabyDS templates).
+        """
+        from dylan.formula.predicate_argument import Predicate
+        from dylan.formula.ttr_infix_expression import TTRInfixExpression
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+
+        filtered = self.get_filtered_abstractions(prefix, type_, filtering)
+        max_num = 0
+        for t in filtered:
+            n = t.get_num_nodes()
+            if n > max_num:
+                max_num = n
+        maximal = [t for t in filtered if t.get_num_nodes() == max_num]
+        for tree in maximal:
+            for node in tree.get_nodes():
+                fo = node.get_formula()
+                if fo is None or not str(fo).startswith("R2^R1"):
+                    continue
+                if not isinstance(fo, TTRLambdaAbstract):
+                    continue
+                v_outer = fo.variable
+                core_outer = fo.body
+                if not isinstance(core_outer, TTRInfixExpression):
+                    continue
+                inner_expr = core_outer.arg2
+                if not isinstance(inner_expr, TTRInfixExpression):
+                    continue
+                v_inner_obj = inner_expr.arg1
+                if not isinstance(v_inner_obj, Variable):
+                    continue
+                if v_inner_obj.name == v_outer.name:
+                    continue
+                core_inner = inner_expr.arg2
+                new_inner = TTRInfixExpression(Predicate("++"), v_outer, core_inner)
+                new_outer = TTRInfixExpression(Predicate("++"), v_inner_obj, new_inner)
+                swapped = TTRLambdaAbstract(v_outer, TTRLambdaAbstract(v_inner_obj, new_outer))
+                from dylan.tree.label.labels import FormulaLabel
+
+                node.remove_formula_label()
+                node.add_label(FormulaLabel(swapped))
         return maximal
 
     def get_ttr_paths(self) -> list["TTRPath"]:
@@ -724,18 +1025,77 @@ class TTRRecordType(TTRFormula):
         return [f.label for f in self._fields if isinstance(f.label, TTRLabel) and string in str(f)]
 
     def subsumes_basic(self, other: Formula, this_index: int = 0, remaining_other_indices: set[int] | None = None) -> bool:
-        """Conservatively test Java ``subsumesBasic`` by matching every field."""
-        _ = (this_index, remaining_other_indices)
+        """Java ``TTRRecordType.subsumesBasic`` (recursive field assignment)."""
         if not isinstance(other, TTRRecordType):
             return False
-        return self._subsumes_record(other, strict_labels=False)
+        if remaining_other_indices is None:
+            remaining_other_indices = set(range(len(other._fields)))
+        if this_index >= len(self._fields):
+            return True
+        for i in list(remaining_other_indices):
+            field = other._fields[i]
+            if self._fields[this_index].subsumes_basic(field):
+                remaining = set(remaining_other_indices)
+                remaining.discard(i)
+                if self.subsumes_basic(other, this_index + 1, remaining):
+                    return True
+                if hasattr(self._fields[this_index], "partial_reset_metas"):
+                    self._fields[this_index].partial_reset_metas()  # type: ignore[attr-defined]
+        return False
 
-    def subsumes_mapped(self, other: Formula, map_: dict[Variable, Variable] | None = None, *args: Any) -> bool:
-        """Conservatively test mapped subsumption; *map_* is accepted for Java parity."""
-        _ = (map_, args)
+    def subsumes_mapped(
+        self,
+        other: Formula,
+        map_: dict[Variable, Variable] | None = None,
+        this_index: int = 0,
+    ) -> bool:
+        """Java ``TTRRecordType.subsumesMapped`` with label-variable map."""
+        if map_ is None:
+            map_ = {}
         if not isinstance(other, TTRRecordType):
             return False
-        return self._subsumes_record(other, strict_labels=False)
+        if self.is_empty():
+            return True
+        return self._subsumes_mapped_at(other, this_index, map_)
+
+    def _subsumes_mapped_at(
+        self,
+        other: TTRRecordType,
+        this_index: int,
+        map_: dict[Variable, Variable],
+    ) -> bool:
+        """Recursive mapped subsumption from field *this_index* (Java private loop)."""
+        if this_index >= len(self._fields):
+            return True
+        copy_map = dict(map_)
+        label_here = self._fields[this_index].label
+        from dylan.formula.ttr_label import TTRLabel
+
+        lab_var = Variable(label_here.label) if isinstance(label_here, TTRLabel) else label_here
+        if lab_var in map_:
+            mapped = map_[lab_var]
+            other_field = other.get_field(mapped)
+            if other_field is not None and self._fields[this_index].subsumes_mapped(other_field, map_):
+                if self._subsumes_mapped_at(other, this_index + 1, map_):
+                    return True
+                if hasattr(self._fields[this_index], "partial_reset_metas"):
+                    self._fields[this_index].partial_reset_metas()  # type: ignore[attr-defined]
+                map_.clear()
+                map_.update(copy_map)
+        for i, field in enumerate(other._fields):
+            if field.label in map_.values():
+                continue
+            if self._fields[this_index].subsumes_mapped(field, map_):
+                if self._subsumes_mapped_at(other, this_index + 1, map_):
+                    return True
+                if hasattr(self._fields[this_index], "partial_reset_metas"):
+                    self._fields[this_index].partial_reset_metas()  # type: ignore[attr-defined]
+                map_.clear()
+                map_.update(copy_map)
+            else:
+                map_.clear()
+                map_.update(copy_map)
+        return False
 
     def subsumes_mapped_strict_label_identity(self, other: Formula, map_: dict[Variable, Variable] | None = None, *args: Any) -> bool:
         """Test subsumption requiring identical labels."""
@@ -749,8 +1109,14 @@ class TTRRecordType(TTRFormula):
         return self.subsumes_mapped_strict_label_identity(other, {})
 
     def subsumes(self, other: object) -> bool:
-        """Return whether this record is no more specific than *other*."""
-        return isinstance(other, TTRRecordType) and self._subsumes_record(other, strict_labels=False)
+        """Return whether this record is no more specific than *other* (Java ``Formula.subsumes``)."""
+        if not isinstance(other, TTRRecordType):
+            return False
+        if self == other or str(self) == str(other):
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
 
     def _subsumes_record(self, other: TTRRecordType, strict_labels: bool) -> bool:
         """Internal field matching for subsumption variants."""
@@ -1108,6 +1474,7 @@ TTRRecordType.getAbstractions = TTRRecordType.get_abstractions  # type: ignore[a
 TTRRecordType.getEmptyAbstractions = TTRRecordType.get_empty_abstractions  # type: ignore[attr-defined]
 TTRRecordType.getFilteredAbstractions = TTRRecordType.get_filtered_abstractions  # type: ignore[attr-defined]
 TTRRecordType.getMaximalFilteredAbstractions = TTRRecordType.get_maximal_filtered_abstractions  # type: ignore[attr-defined]
+TTRRecordType.removeFields = TTRRecordType.remove_fields  # type: ignore[attr-defined]
 TTRRecordType.getDimensionsWhenDrawn = TTRRecordType.get_dimensions_when_drawn  # type: ignore[attr-defined]
 TTRRecordType.getTTRPaths = TTRRecordType.get_ttr_paths  # type: ignore[attr-defined]
 TTRRecordType.hasDependent = TTRRecordType.has_dependent  # type: ignore[attr-defined]
