@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 from dylan.formula.formula import Formula
 from dylan.formula.variable import Variable
@@ -111,12 +111,17 @@ class TTRField(Formula):
         mt = self.manifest_type.evaluate() if self.manifest_type is not None else None
         return TTRField(self.label, self.ds_type, mt)  # type: ignore[arg-type]
 
-    def substitute(self, var: Variable, arg: Formula) -> Formula:
-        """Rename the field label when *var* matches it, and substitute through the manifest (Java ``TTRField.substitute``)."""
+    def substitute(self, var: Formula, arg: Formula) -> Formula:
+        """Replace the whole type, the label, or variables inside the manifest (Java ``TTRField.substitute``)."""
+        if self.manifest_type is not None and self.manifest_type == var:
+            return TTRField(self.label, self.ds_type, arg)  # type: ignore[arg-type]
         new_label: TTRLabel | MetaTTRLabel = self.label
-        if isinstance(self.label, TTRLabel) and var.name == self.label.label:
-            if not isinstance(arg, Variable):
-                raise TypeError(f"TTR label substitution expects Variable, got {type(arg).__name__}")
+        if (
+            isinstance(self.label, TTRLabel)
+            and isinstance(var, Variable)
+            and isinstance(arg, Variable)
+            and var.name == self.label.label
+        ):
             from dylan.formula.ttr_label import ttr_label_from_variable
 
             new_label = ttr_label_from_variable(arg)
@@ -143,24 +148,55 @@ class TTRField(Formula):
         """Whether this field has manifest content."""
         return self.manifest_type is not None
 
-    def mentions(self, label: TTRLabel) -> bool:
-        """Return true when the manifest string mentions *label* as a variable/path segment."""
+    def get_variables(self) -> set[Variable]:
+        """Return the manifest type's variables (Java ``TTRField.getVariables``)."""
         if self.manifest_type is None:
-            return False
-        text = str(self.manifest_type)
-        return any(part == label.label for part in _identifier_tokens(text))
+            return set()
+        return self.manifest_type.get_variables()
 
-    def depends_on(self, other: "TTRField") -> bool:
-        """Return true when this field references *other*'s label (Java ``TTRField.dependsOn``)."""
-        if other is None or other.label is None:
+    def get_ttr_paths(self) -> list["Formula"]:
+        """Return TTR paths inside the manifest type (Java ``TTRField.getTTRPaths``)."""
+        if self.manifest_type is None:
+            return []
+        return self.manifest_type.get_ttr_paths()
+
+    def depends_on(self, other: "TTRField | Formula") -> bool:
+        """Return true when this field references *other* (Java ``TTRField.dependsOn`` overloads)."""
+        from dylan.formula.ttr_path import TTRPath
+
+        if isinstance(other, TTRPath):
+            return other in self.get_ttr_paths()
+        if isinstance(other, Variable) and not isinstance(other, TTRField):
+            return other in self.get_variables()
+        if not isinstance(other, TTRField) or other.label is None:
             return False
-        return self.mentions(other.label)
+        if other.label == self.label:
+            return False
+        if Variable(other.label.label) in self.get_variables():
+            return True
+        if other.manifest_type is None or not isinstance(other.manifest_type, TTRPath):
+            return False
+        return other.manifest_type in self.get_ttr_paths()
 
     def is_head(self) -> bool:
         """Return true when this field is the manifest ``head`` field (Java ``TTRField.isHead``)."""
         from dylan.formula.ttr_label import HEAD
 
         return self.label == HEAD
+
+    def equals_ignore_heads(self, other: "TTRField") -> bool:
+        """Field equality where embedded record types ignore their heads (Java ``equalsIgnoreHeads``)."""
+        from dylan.formula.ttr_record_type import TTRRecordType
+
+        if isinstance(self.manifest_type, TTRRecordType):
+            if not isinstance(other.manifest_type, TTRRecordType):
+                return False
+            if self.ds_type != other.ds_type:
+                return False
+            if self.label != other.label:
+                return False
+            return self.manifest_type.equals_ignore_heads(other.manifest_type)
+        return self == other
 
     def relabel(self, label_map: Mapping[Any, Any]) -> TTRField:
         """Return a copy with label and manifest variables renamed per *label_map* (Java ``TTRField.relabel``)."""
@@ -249,13 +285,6 @@ class TTRField(Formula):
             return f"{self.label}{mid} {TTR_LABEL_SEPARATOR} {self.ds_type}"
         rhs = "" if self.manifest_type is None else str(self.manifest_type)
         return f"{self.label} {TTR_LABEL_SEPARATOR} {rhs}"
-
-
-def _identifier_tokens(text: str) -> Iterable[str]:
-    """Yield identifier-like tokens from formula text."""
-    import re
-
-    return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
 
 
 TTRField.getLabel = TTRField.get_label  # type: ignore[attr-defined]

@@ -120,7 +120,7 @@ def test_open_a_door_hypothesiser_trace_steps_1_to_18() -> None:
         exp_prev, exp_ptr = _OPEN_A_DOOR_TRACE_STEPS[step]
         assert (prev, ptr) == (exp_prev, exp_ptr), f"step {step}: got ({prev!r}, {ptr!r})"
         if step == 18:
-            max_sem = hyp._extraction_semantics(cur)
+            max_sem = cur.get_semantics()
             assert hyp.target_type is not None
             assert max_sem.subsumes(hyp.target_type) and hyp.target_type.subsumes(max_sem)
             return

@@ -33,7 +33,7 @@ def test_record_metavar_r1_binds_gold_r0_restrictor() -> None:
     )
     gold = TTRRecordType.parse(sem)
     assert gold is not None
-    fo = Formula.create("epsilon(r1.head,r1)")
+    fo = Formula.create("epsilon(R1.head,R1)")
     assert fo is not None
     bound = bind_metavar_path_domains(fo, gold)
     head = bound.arguments[0]
@@ -48,7 +48,7 @@ def test_epsilon_paths_bind_domains() -> None:
     )
     gold = TTRRecordType.parse(sem)
     assert gold is not None
-    fo = Formula.create("epsilon(r0.head,r0)")
+    fo = Formula.create("epsilon(R0.head,R0)")
     assert fo is not None
     bound = bind_metavar_path_domains(fo, gold)
     head = bound.arguments[0]
@@ -56,7 +56,7 @@ def test_epsilon_paths_bind_domains() -> None:
 
 
 def test_dag_induction_state_propagates_gold_target() -> None:
-    """New induction tuples must expose the training gold for :func:`bind_metavar_path_domains`."""
+    """New induction tuples must expose the training gold for extraction-time metavar binding."""
     sem = "[e0 : es|head==e0 : es]"
     gold = TTRRecordType.parse(sem)
     assert gold is not None

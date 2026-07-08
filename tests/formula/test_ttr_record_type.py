@@ -218,7 +218,9 @@ def test_fixture_restrictor_and_head_helpers() -> None:
     rt = _checked_rt(t44)
     restrictor = rt.get_restrictor_field()
     assert restrictor is not None
-    assert restrictor.label == TTRLabel("x1")
+    # Java's dependency-ordered parse (TTRRecordType.add) places x4==iota(r2.head, r2)
+    # before x1==iota(r1.head, r1), so the first epsilon-family field is x4.
+    assert restrictor.label == TTRLabel("x4")
     assert rt.has_head()
     assert rt.get_head_field() == rt.get_field(TTRLabel("e6"))
     assert rt.remove_head().num_fields() == rt.num_fields() - 1
@@ -341,9 +343,11 @@ def test_put_field_replace_moves_replaced_label_to_end() -> None:
     """Replacing a label removes the old field and appends the new one at the end."""
     rt = TTRRecordType.parse("[first:t|second:t]")
     assert rt is not None
-    assert [f.label for f in rt.fields] == [TTRLabel("first"), TTRLabel("second")]
-    rt.put_field_replace(TTRField(TTRLabel("first"), DSType.t, None))
+    # Java's dependency-ordered add inserts var-free fields at the front, so
+    # source order [first|second] parses as [second, first].
     assert [f.label for f in rt.fields] == [TTRLabel("second"), TTRLabel("first")]
+    rt.put_field_replace(TTRField(TTRLabel("second"), DSType.t, None))
+    assert [f.label for f in rt.fields] == [TTRLabel("first"), TTRLabel("second")]
 
 
 def test_substitute_variable_in_manifest() -> None:

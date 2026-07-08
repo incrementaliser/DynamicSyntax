@@ -176,6 +176,13 @@ class CandidateSequence(list[Action]):
             result.pop()
         return result
 
+    def _exec_action_on_tuple(self, action: Action, start: ParserTuple) -> ParserTuple:
+        """Apply *action* to *start* and return the updated tuple (Java fail-fast on null)."""
+        t = action.exec_tuple_context(start.get_tree().clone(), start)
+        if t is None:
+            raise RuntimeError(f"Result of action application was null: {action}")
+        return ParserTuple(t)
+
     def split(self) -> "set[tuple[CandidateSequence, ...]]":
         """Java ``split``: enumerate all per-word splits with the formula-decoration constraint."""
         num_formulae = self.num_formula_decorations()
@@ -185,7 +192,6 @@ class CandidateSequence(list[Action]):
                 f"num words={len(self.words)} num formulae={num_formulae}",
             )
         result: set[tuple[CandidateSequence, ...]] = set()
-        # base case
         if len(self.words) == 1:
             comp_removed = self.remove_computational_from_right()
             if comp_removed and isinstance(comp_removed[-1], LexicalAction):
@@ -198,18 +204,13 @@ class CandidateSequence(list[Action]):
         i = 0
         for i in range(len(self)):
             a = self[i]
-            try:
-                t = a.exec_tuple_context(start.get_tree().clone(), start)
-                if t is not None:
-                    start = ParserTuple(t)
-            except Exception:  # noqa: BLE001
-                pass
+            start = self._exec_action_on_tuple(a, start)
             if isinstance(a, LexicalHypothesis) and a.contains_content_decoration():
                 break
             if isinstance(a, LexicalAction):
                 break
         j = i + 1
-        while j < len(self):
+        while j < len(self) - 1:
             cur = self[j]
             if (cur.get_name() if hasattr(cur, "get_name") else "").startswith("hyp-adj"):
                 j += 1
@@ -229,21 +230,11 @@ class CandidateSequence(list[Action]):
                 isinstance(self[j], ComputationalAction)
                 or (self[j].get_name() if hasattr(self[j], "get_name") else "").startswith("hyp-adj")
             ):
-                try:
-                    res = self[j].exec_tuple_context(start.get_tree().clone(), start)
-                    if res is not None:
-                        start = ParserTuple(res)
-                except Exception:  # noqa: BLE001
-                    pass
+                start = self._exec_action_on_tuple(self[j], start)
                 j += 1
             if j >= len(self):
                 break
-            try:
-                res = self[j].exec_tuple_context(start.get_tree().clone(), start)
-                if res is not None:
-                    start = ParserTuple(res)
-            except Exception:  # noqa: BLE001
-                pass
+            start = self._exec_action_on_tuple(self[j], start)
             if isinstance(self[j], LexicalHypothesis):
                 if self[j].contains_content_decoration():
                     break

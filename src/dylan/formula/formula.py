@@ -119,6 +119,14 @@ class Formula(ABC):
         """Return the variables mentioned by this formula (Java ``Formula.getVariables``); base is empty."""
         return set()
 
+    def get_ttr_paths(self) -> list["Formula"]:
+        """Return TTR paths inside this formula (Java ``Formula.getTTRPaths``); base is empty."""
+        return []
+
+    def has_manifest_content(self) -> bool:
+        """True by default; variables and unmanifest-head records return false (Java ``hasManifestContent``)."""
+        return True
+
     @staticmethod
     def create(string: str, in_ex_conj: bool = False) -> Formula | None:
         """Parse formula specs from lexicon / TTR (partial implementation)."""

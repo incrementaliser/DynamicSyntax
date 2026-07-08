@@ -18,6 +18,17 @@ class Predicate:
         return self.name
 
 
+def _subsumes_mapped_lists(l1: list[Formula], l2: list[Formula], map_: dict) -> bool:
+    """Ordered pairwise mapped subsumption (Java ``Formula.subsumesMapped(List, List, map)``)."""
+    if len(l1) != len(l2):
+        return False
+    if not l1:
+        return True
+    if l1[0].subsumes_mapped(l2[0], map_):
+        return _subsumes_mapped_lists(l1[1:], l2[1:], map_)
+    return False
+
+
 @dataclass
 class PredicateArgumentFormula(Formula):
     """Formula ``pred(arg1, …)``."""
@@ -41,23 +52,29 @@ class PredicateArgumentFormula(Formula):
         )
 
     def evaluate(self) -> Formula:
-        """Evaluate arguments; epsilon/iota/tau stay unevaluated for maximal-semantics (Java parity)."""
-        from dylan.formula.epsilon_term import EPSILON_FUNCTOR, IOTA_FUNCTOR, TAU_FUNCTOR
+        """Evaluate arguments, keeping relative paths unevaluated (Java ``PredicateArgumentFormula.evaluate``)."""
+        from dylan.formula.ttr_path import TTRRelativePath
 
-        if self.predicate.name in (EPSILON_FUNCTOR, IOTA_FUNCTOR, TAU_FUNCTOR):
-            return self.clone()
+        new_args: list[Formula] = []
+        for a in self.arguments:
+            if isinstance(a, TTRRelativePath):
+                new_args.append(a.clone())
+            else:
+                ev = a.evaluate()
+                new_args.append(a.clone() if ev is None else ev)
+        return PredicateArgumentFormula(self.predicate, tuple(new_args))
+
+    def substitute(self, var: Formula, arg: Formula) -> Formula:
+        """Substitute *var* with *arg* in every argument (Java ``substitute``)."""
+        from dylan.formula.ttr_label import TTRLabel
+        from dylan.formula.variable import Variable as _V
+
+        if self == var:
+            return arg
+        sub_arg = _V(arg.name) if type(arg) is TTRLabel else arg  # noqa: E721
         return PredicateArgumentFormula(
             self.predicate,
-            tuple(a.evaluate() for a in self.arguments),
-        )
-
-    def substitute(self, var: "Variable", arg: Formula) -> Formula:
-        """Substitute *var* with *arg* in every argument."""
-        from dylan.formula.variable import Variable as _V  # noqa: F401
-
-        return PredicateArgumentFormula(
-            self.predicate,
-            tuple(x.substitute(var, arg) for x in self.arguments),
+            tuple(x.substitute(var, sub_arg) for x in self.arguments),
         )
 
     def conjoin(self, other: Formula) -> Formula:
@@ -71,22 +88,44 @@ class PredicateArgumentFormula(Formula):
             out |= a.get_variables() if hasattr(a, "get_variables") else set()
         return out
 
+    def get_ttr_paths(self) -> list[Formula]:
+        """Collect TTR paths across every argument (Java ``getTTRPaths``)."""
+        out: list[Formula] = []
+        for a in self.arguments:
+            out.extend(a.get_ttr_paths())
+        return out
+
     def subsumes(self, other: object) -> bool:
-        """Return whether this application is no more specific than *other* (argument-wise, same predicate)."""
+        """Basic-then-mapped subsumption (Java ``Formula.subsumes``)."""
+        if not isinstance(other, Formula):
+            return False
+        if self == other:
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
+
+    def subsumes_basic(self, other: Formula) -> bool:
+        """Same predicate and pairwise-equal arguments (Java ``subsumesBasic``)."""
+        if not isinstance(other, PredicateArgumentFormula):
+            return False
+        if len(self.arguments) != len(other.arguments):
+            return False
+        if self.predicate.name != other.predicate.name:
+            return False
+        return all(sa == oa for sa, oa in zip(self.arguments, other.arguments, strict=True))
+
+    def subsumes_mapped(self, other: Formula, map_: dict) -> bool:
+        """Predicate match plus ordered argument subsumption under *map_* (Java ``subsumesMapped``)."""
         if not isinstance(other, PredicateArgumentFormula):
             return False
         if self.predicate.name != other.predicate.name or len(self.arguments) != len(other.arguments):
             return False
-        for sa, oa in zip(self.arguments, other.arguments, strict=True):
-            sub = getattr(sa, "subsumes", None)
-            if callable(sub):
-                if not sub(oa):
-                    return False
-            elif sa != oa:
-                return False
-        return True
+        return _subsumes_mapped_lists(list(self.arguments), list(other.arguments), map_)
 
     def __str__(self) -> str:
-        """Render ``pred(arg1, …)`` for printing."""
-        inner = ",".join(str(a) for a in self.arguments)
+        """Render ``pred(arg1, arg2)`` with Java's ``", "`` separator."""
+        if not self.arguments:
+            return self.predicate.name
+        inner = ", ".join(str(a) for a in self.arguments)
         return f"{self.predicate.name}({inner})"

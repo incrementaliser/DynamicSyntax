@@ -102,7 +102,7 @@ class TTRRecordType(TTRFormula):
 
     @staticmethod
     def parse(s1: str) -> TTRRecordType | None:
-        """Parse ``[…]`` surface form (Java `TTRRecordType.parse`)."""
+        """Parse ``[…]`` surface form with dependency-ordered insertion (Java `TTRRecordType.parse`)."""
         s = s1.strip()
         if not s.startswith(TTR_OPEN) or not s.endswith(TTR_CLOSE):
             return None
@@ -115,7 +115,7 @@ class TTRRecordType(TTRFormula):
             if tf is None:
                 logger.error("Bad field %s in record type %s", fs, s1)
                 return None
-            rt.add_field(tf)
+            rt.add(tf)
         return rt
 
     @staticmethod
@@ -232,10 +232,30 @@ class TTRRecordType(TTRFormula):
         self.add_field(f)
 
     def add(self, label_or_field: TTRLabel | TTRField, formula: Formula | None = None, ds_type: DSType | None = None) -> TTRLabel:
-        """Add a field or components, returning the final label (Java ``add`` overloads)."""
+        """Add a field at a dependency-satisfying position, or components at the end (Java ``add`` overloads)."""
         if isinstance(label_or_field, TTRField):
-            self.add_field(label_or_field)
-            return label_or_field.label  # type: ignore[return-value]
+            f = label_or_field
+            if self.has_label(f.label):
+                raise ValueError(f"Coinciding labels in: {self} when adding: {f}")
+            f_vars = f.get_variables()
+            variables = set(f_vars)
+            i = 0
+            dep_satisfied = False
+            while i < len(self._fields):
+                if not variables:
+                    dep_satisfied = True
+                if dep_satisfied and len(f_vars) <= len(self._fields[i].get_variables()):
+                    break
+                existing = self._fields[i]
+                lab_var = Variable(existing.label.label) if isinstance(existing.label, TTRLabel) else None
+                if lab_var is not None and lab_var in variables:
+                    variables.discard(lab_var)
+                i += 1
+            self._fields.insert(i, f)
+            self._record[f.label] = f  # type: ignore[index]
+            f.parent_rec_type = self
+            _wire_formula_owner(f.manifest_type, self)
+            return f.label  # type: ignore[return-value]
         label = self.get_free_label(label_or_field)
         self.add_field(TTRField(label, ds_type, formula))
         return label
@@ -261,20 +281,28 @@ class TTRRecordType(TTRFormula):
         return TTRLabel(f"{base}{i}")
 
     def deem_head(self, label: TTRLabel) -> None:
-        """Make *label* the manifest of the ``head`` field (Java ``deemHead``)."""
-        f = self.get_field(label)
-        ds = f.ds_type if f is not None else None
-        self.put_field_replace(TTRField(HEAD, ds, Variable(label.label)))
+        """Point ``head`` at *label*, updating in place or dependency-inserting (Java ``deemHead``)."""
+        if label == HEAD:
+            return
+        existing = self.head()
+        if existing is not None:
+            existing.manifest_type = Variable(label.label)
+            return
+        pointed = self.get_field(label)
+        ds = pointed.ds_type if pointed is not None else None
+        self.add(TTRField(HEAD, ds, Variable(label.label)))
 
     def get_head_field(self) -> TTRField | None:
-        """Return the field pointed to by ``head``, falling back to the ``head`` field itself."""
+        """Return the field pointed to by ``head`` (Java ``getHeadField``)."""
+        from dylan.formula.ttr_path import TTRAbsolutePath
+
         h = self.head()
         if h is None:
             return None
-        if h.manifest_type is None:
+        if h.manifest_type is None or isinstance(h.manifest_type, TTRAbsolutePath):
             return h
         if isinstance(h.manifest_type, Variable):
-            return self.get_field(TTRLabel(h.manifest_type.name)) or h
+            return self.get_field(TTRLabel(h.manifest_type.name))
         return h
 
     def asymmetric_merge(self, r2: TTRFormula) -> TTRFormula:
@@ -302,13 +330,15 @@ class TTRRecordType(TTRFormula):
                 and isinstance(f.manifest_type, TTRRecordType)
             ):
                 inner = ex.manifest_type.asymmetric_merge(f.manifest_type)
-                new_f = TTRField(f.label, f.ds_type, inner)  # type: ignore[arg-type]
+                new_f = TTRField(TTRLabel(f.label.label), f.ds_type, inner)  # type: ignore[arg-type]
             else:
                 new_f = f.clone()
+            merged.remove(f.label)
             ev = new_f.evaluate()
             if not isinstance(ev, TTRField):
                 raise TypeError(f"field evaluate must return TTRField, got {type(ev).__name__}")
-            merged.put_field_replace(ev)
+            merged.add(ev)
+        merged.update_parent_links()
         return merged.evaluate()
 
     def asymmetric_merge_same_type(self, fo: TTRFormula) -> TTRFormula:
@@ -512,8 +542,14 @@ class TTRRecordType(TTRFormula):
             _wire_formula_owner(f.manifest_type, self)
 
     def has_manifest_content(self) -> bool:
-        """Whether any field contains a manifest formula."""
-        return any(f.manifest_type is not None for f in self._fields)
+        """Whether the head field is manifest or depended upon (Java ``hasManifestContent``)."""
+        head = self.get_head_field()
+        if head is None:
+            raise ValueError(f"only headed rec types can have manifest content. this rectype: {self}")
+        if head.manifest_type is not None:
+            return True
+        head_less = self.remove_head()
+        return head_less.has_dependent(head)
 
     def has_head(self) -> bool:
         """Whether this record contains the ``head`` label."""
@@ -524,8 +560,20 @@ class TTRRecordType(TTRFormula):
         return self.get_field(HEAD)
 
     def equals_ignore_heads(self, rec_type: TTRRecordType) -> bool:
-        """Compare records after removing head fields."""
-        return self.remove_head() == rec_type.remove_head()
+        """Label-wise comparison ignoring head pointers (Java ``equalsIgnoreHeads``)."""
+        n = self.num_fields() - (1 if self.has_head() else 0)
+        m = rec_type.num_fields() - (1 if rec_type.has_head() else 0)
+        if n != m:
+            return False
+        for f in self._fields:
+            if f.label == HEAD:
+                continue
+            other_f = rec_type.get_field(f.label)
+            if other_f is None:
+                return False
+            if not f.equals_ignore_heads(other_f):
+                return False
+        return True
 
     def is_isomorphic_to(self, other: TTRRecordType) -> bool:
         """Conservative isomorphism check based on head-insensitive equality."""
@@ -539,15 +587,33 @@ class TTRRecordType(TTRFormula):
         """Return a stable-ish integer derived from the printed record."""
         return hash(str(self))
 
+    def __eq__(self, other: object) -> bool:
+        """Order-insensitive record equality (Java ``equals`` compares the label→field map)."""
+        if self is other:
+            return True
+        if not isinstance(other, TTRRecordType) or type(other) is not type(self):
+            return False
+        if len(self._fields) != len(other._fields):
+            return False
+        for f in self._fields:
+            other_f = other.get_field(f.label)
+            if other_f is None or other_f != f:
+                return False
+        return True
+
+    def __hash__(self) -> int:
+        """Order-insensitive hash consistent with ``__eq__`` (Java ``record.hashCode()``)."""
+        return hash(frozenset((str(f.label), str(f)) for f in self._fields))
+
     def get_variables(self) -> set[Variable]:
-        """Return the union of variables across every field's manifest (Java ``getVariables``)."""
+        """Record types expose no variables (Java: ``Formula.variables`` never populated)."""
+        return set()
+
+    def get_all_field_variables(self) -> set[Variable]:
+        """Return the union of variables across every field's manifest (non-Java helper)."""
         out: set[Variable] = set()
         for f in self._fields:
-            mt = f.manifest_type
-            if mt is None:
-                continue
-            if hasattr(mt, "get_variables"):
-                out |= mt.get_variables()
+            out |= f.get_variables()
         return out
 
     def __str__(self) -> str:
@@ -942,56 +1008,133 @@ class TTRRecordType(TTRFormula):
         return maximal
 
     def get_ttr_paths(self) -> list["TTRPath"]:
-        """Return manifest TTR paths contained in this record."""
-        from dylan.formula.ttr_path import TTRPath
-
-        paths: list[TTRPath] = []
+        """Return manifest TTR paths across fields (Java ``getTTRPaths``)."""
+        paths: list = []
         for f in self._fields:
-            paths.extend(_collect_instances(f.manifest_type, TTRPath))
+            paths.extend(f.get_ttr_paths())
         return paths
 
     def has_dependent(self, field_to_check: TTRField) -> bool:
-        """Whether any other field mentions *field_to_check*'s label."""
-        return any(f is not field_to_check and f.mentions(field_to_check.label) for f in self._fields)
+        """Whether any field depends on *field_to_check* (Java ``hasDependent``)."""
+        return any(f.depends_on(field_to_check) for f in self._fields)
 
     def get_dependents(self, field_to_check: TTRField) -> list[TTRField]:
-        """Return fields that mention *field_to_check*'s label."""
-        return [f for f in self._fields if f is not field_to_check and f.mentions(field_to_check.label)]
+        """Return dependents of *field_to_check* including their parents (Java ``getDependents``)."""
+        result: list[TTRField] = []
+        for f in self._fields:
+            if f.depends_on(field_to_check):
+                for parent in self.get_parents(f):
+                    if parent not in result:
+                        result.append(parent)
+                if f not in result:
+                    result.append(f)
+        return result
 
     def get_proper_dependents(self, field_to_check: TTRField) -> list[TTRField]:
-        """Return non-head dependents of *field_to_check*."""
-        return [f for f in self.get_dependents(field_to_check) if f.label != HEAD]
+        """Return dependents excluding *field_to_check* itself (Java ``getProperDependents``)."""
+        result = self.get_dependents(field_to_check)
+        return [f for f in result if f != field_to_check]
 
     def get_parents(self, field_to_check: TTRField) -> list[TTRField]:
-        """Return fields mentioned by *field_to_check*'s manifest."""
-        parents: list[TTRField] = []
-        for f in self._fields:
-            if f != field_to_check and field_to_check.mentions(f.label):
-                parents.append(f)
-        return parents
+        """Return ancestor fields recursively, iterating backwards (Java ``getParents``)."""
+        result: list[TTRField] = []
+        try:
+            start = self._fields.index(field_to_check) - 1
+        except ValueError:
+            start = -1
+        for i in range(start, -1, -1):
+            f = self._fields[i]
+            if field_to_check.depends_on(f):
+                result.extend(self.get_parents(f))
+                result.append(f)
+        return result
 
     def get_immediate_parents(self, field_to_check: TTRField) -> list[TTRField]:
-        """Return direct parents for the conservative string-based dependency graph."""
-        return self.get_parents(field_to_check)
+        """Return direct parents only, iterating backwards (Java ``getImmediateParents``)."""
+        result: list[TTRField] = []
+        try:
+            start = self._fields.index(field_to_check) - 1
+        except ValueError:
+            start = -1
+        for i in range(start, -1, -1):
+            f = self._fields[i]
+            if field_to_check.depends_on(f):
+                result.append(f)
+        return result
+
+    def _get_minimal_parents(self, field_to_check: TTRField, on: TTRLabel) -> list[TTRField]:
+        """Java ``getMinimalParents``: recursive parents, unmanifesting the *on* field."""
+        result: list[TTRField] = []
+        try:
+            start = self._fields.index(field_to_check) - 1
+        except ValueError:
+            start = -1
+        for i in range(start, -1, -1):
+            f = self._fields[i]
+            if field_to_check.depends_on(f):
+                f_result = self._get_minimal_parents(f, on)
+                if f.label == on and f.ds_type is not None:
+                    new_f = f.clone()
+                    new_f.manifest_type = None  # type: ignore[union-attr]
+                    result.append(new_f)  # type: ignore[arg-type]
+                else:
+                    result.extend(f_result)
+                    result.append(f)
+        return result
 
     def get_super_type_with_parents(self, field_to_check: TTRField) -> TTRRecordType:
-        """Return a record containing *field_to_check* and its parents."""
+        """Return a record of *field_to_check* plus its recursive parents (Java ``getSuperTypeWithParents``)."""
+        if not self.has_field(field_to_check):
+            return TTRRecordType()
         out = TTRRecordType()
         for f in [*self.get_parents(field_to_check), field_to_check]:
             if not out.has_label(f.label):
-                out.add_field(f.clone())  # type: ignore[arg-type]
+                out.add_at_end(f.clone())  # type: ignore[arg-type]
         return out
 
     def get_minimal_super_type_with(self, field_to_check: TTRField) -> TTRRecordType:
-        """Return the minimal dependency supertype containing *field_to_check*."""
-        return self.get_super_type_with_parents(field_to_check)
+        """Java ``getMinimalSuperTypeWith``: immediate parents unmanifested, restrictors minimised."""
+        from dylan.formula.predicate_argument import PredicateArgumentFormula
+        from dylan.formula.ttr_path import TTRPath
+
+        result = TTRRecordType()
+        if not field_to_check.get_variables():
+            result.add(field_to_check.clone())  # type: ignore[arg-type]
+            return result
+        for parent in self.get_immediate_parents(field_to_check):
+            if parent.ds_type is None and isinstance(parent.manifest_type, TTRRecordType):
+                quantifier_f = field_to_check.manifest_type
+                if not isinstance(quantifier_f, PredicateArgumentFormula):
+                    continue
+                path = quantifier_f.arguments[0]
+                rest_label = quantifier_f.arguments[1]
+                if not isinstance(path, TTRPath) or not isinstance(rest_label, Variable):
+                    continue
+                rest_field = self.get_field(TTRLabel(rest_label.name))
+                if rest_field is None or not isinstance(rest_field.manifest_type, TTRRecordType):
+                    continue
+                restrictor = rest_field.manifest_type
+                last = path.get_final_label()
+                path_target = restrictor.get_field(last)
+                if path_target is None:
+                    continue
+                least_spec_rest = restrictor.get_minimal_super_type_with(path_target)
+                result.add(TTRField(TTRLabel(rest_label.name), None, least_spec_rest))
+            else:
+                new_f = parent.clone()
+                new_f.manifest_type = None  # type: ignore[union-attr]
+                result.add(new_f)  # type: ignore[arg-type]
+        result.add(field_to_check.clone())  # type: ignore[arg-type]
+        return result
 
     def get_minimal_increment_with(self, field_to_check: TTRField, on: TTRLabel) -> TTRRecordType:
-        """Return a minimal increment for *field_to_check* over label *on*."""
-        _ = on
+        """Return the minimal increment record for *field_to_check* over *on* (Java ``getMinimalIncrementWith``)."""
+        if not self.has_field(field_to_check):
+            return TTRRecordType()
         out = TTRRecordType()
-        for f in [*self.get_parents(field_to_check), field_to_check]:
-            out.add_field(f.clone())  # type: ignore[arg-type]
+        for f in [*self._get_minimal_parents(field_to_check, on), field_to_check]:
+            if not out.has_label(f.label):
+                out.add_at_end(f.clone())  # type: ignore[arg-type]
         return out
 
     def get_types(self) -> list[TTRRecordType]:

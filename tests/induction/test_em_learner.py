@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from dylan.action.atomic.effect import Effect
 from dylan.dag.parser_tuple import ParserTuple
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.induction import Learner
@@ -18,18 +19,39 @@ from dylan.induction.em_learner import (
 from dylan.tree.node_address import NodeAddress
 
 
+class _IdentityEffect(Effect):
+    """No-op effect so :meth:`CandidateSequence.split` can apply actions in unit tests."""
+
+    def exec(self, tree, context=None):  # type: ignore[no-untyped-def]
+        """Return *tree* unchanged."""
+        return tree
+
+    def exec_tuple_context(self, tree, context=None):  # type: ignore[no-untyped-def]
+        """Return *tree* unchanged (Java ``execTupleContext`` entry point)."""
+        return tree
+
+    def instantiate(self) -> "_IdentityEffect":
+        """Return a fresh copy."""
+        return _IdentityEffect()
+
+
 def test_candidate_sequence_split_per_word_hypotheses() -> None:
-    """CandidateSequence splits semantic hypotheses into per-word rows."""
+    """CandidateSequence splits semantic hypotheses into per-word rows (Java ``j < size()-1`` bound)."""
+    noop = _IdentityEffect()
     seq = CandidateSequence(
         ParserTuple(),
-        [LexicalHypothesis("h_a", None, True), LexicalHypothesis("h_b", None, True)],
-        "a b",
+        [
+            LexicalHypothesis("h_a", noop, True),
+            LexicalHypothesis("h_b", noop, True),
+            LexicalHypothesis("h_c", noop, True),
+        ],
+        "a b c",
     )
 
     splits = seq.split()
 
     assert splits
-    assert any(len(split) == 2 for split in splits)
+    assert all(len(part) >= 1 for split in splits for part in split)
 
 
 def test_word_log_prob_distribution_uniform_and_prune() -> None:

@@ -17,7 +17,9 @@ from dylan.logging_context import (
     parser_emits_formula_warning,
 )
 
-REC_TYPE_NAME_PATTERN = re.compile(r"^R\d*$", re.IGNORECASE)
+# Java ``TTRPath.REC_TYPE_NAME_PATTERN = "R\\d*"`` — case-sensitive: lowercase
+# ``r0.head`` is a *relative* path, only uppercase ``R1.head`` is absolute.
+REC_TYPE_NAME_PATTERN = re.compile(r"^R\d*$")
 
 
 @dataclass
@@ -30,6 +32,7 @@ class TTRPath(Formula, ABC):
         super().__init__()
 
     def _walk_to_container(self, domain: "TTRRecordType") -> tuple["TTRRecordType", TTRLabel] | None:
+        """Walk all but the last label, returning the containing record and final label."""
         from dylan.formula.ttr_record_type import TTRRecordType
 
         cur: TTRRecordType = domain
@@ -44,7 +47,7 @@ class TTRPath(Formula, ABC):
         return cur, self.labels[-1]
 
     def evaluate_against(self, domain: "TTRRecordType") -> bool:
-        """Return true if this path resolves to an existing label in *domain*."""
+        """Return true if this path resolves to an existing label in *domain* (Java ``evaluateAgainst``)."""
         if domain is None or not self.labels:
             return False
         w = self._walk_to_container(domain)
@@ -54,12 +57,20 @@ class TTRPath(Formula, ABC):
         return cur.has_label(last)
 
     def get_variables(self) -> set[Variable]:
-        """Treat the head label of an absolute path as a Variable (Java ``getVariables``)."""
+        """Return path variables; subclasses override (Java constructor-populated set)."""
         return set()
+
+    def get_ttr_paths(self) -> list["TTRPath"]:
+        """Return ``[self]`` (Java ``TTRPath.getTTRPaths``)."""
+        return [self]
 
     def get_labels(self) -> list[TTRLabel]:
         """Return the address labels (Java ``TTRPath.getLabels``)."""
         return list(self.labels)
+
+    def get_final_label(self) -> TTRLabel:
+        """Return the last path label (Java ``TTRPath.getFinalLabel``)."""
+        return self.labels[-1]
 
     def get_first_label(self) -> TTRLabel | None:
         """Return the first path label (Java ``TTRPath.getFirstLabel``)."""
@@ -71,6 +82,18 @@ class TTRPath(Formula, ABC):
 
         return TTRRelativePath(list(self.labels[1:]))
 
+    def subsumes_mapped(self, other: Formula, map_: dict[Variable, Variable]) -> bool:
+        """Java ``TTRPath.subsumesMapped``: evaluate then compare pointed types."""
+        ev = self.evaluate()
+        if ev is None:
+            return True
+        if isinstance(other, TTRPath):
+            other_ev = other.evaluate()
+            if other_ev is None:
+                return False
+            return ev.subsumes_mapped(other_ev, map_)
+        return ev.subsumes_mapped(other, map_)
+
 
 @dataclass
 class TTRAbsolutePath(TTRPath):
@@ -80,13 +103,16 @@ class TTRAbsolutePath(TTRPath):
     domain: "TTRRecordType | None" = None
 
     def clone(self) -> Formula:
-        from dylan.formula.ttr_record_type import TTRRecordType
-
-        dom = self.domain.clone() if isinstance(self.domain, TTRRecordType) else None
+        """Return a copy sharing the (uncloned) domain, as in Java ``TTRAbsolutePath(TTRAbsolutePath)``."""
         nm = TTRLabel(self.name.label) if self.name is not None else None
-        return TTRAbsolutePath(list(self.labels), name=nm, domain=dom)
+        return TTRAbsolutePath(list(self.labels), name=nm, domain=self.domain)
 
-    def substitute(self, var: Variable, arg: Formula) -> Formula:
+    def get_variables(self) -> set[Variable]:
+        """Absolute paths contribute no variables (Java: constructor adds none)."""
+        return set()
+
+    def substitute(self, var: Formula, arg: Formula) -> Formula:
+        """Java ``TTRAbsolutePath.substitute``: replace self, or instantiate the domain record."""
         from dylan.formula.ttr_record_type import TTRRecordType
 
         if isinstance(var, TTRAbsolutePath) and self == var:
@@ -95,80 +121,85 @@ class TTRAbsolutePath(TTRPath):
             self.name is not None
             and isinstance(var, Variable)
             and var.name == self.name.label
+            and isinstance(arg, TTRRecordType)
         ):
-            if isinstance(arg, TTRRecordType):
-                return TTRAbsolutePath(list(self.labels), name=self.name, domain=arg)
-            if isinstance(arg, Variable):
-                return TTRAbsolutePath(list(self.labels), name=TTRLabel(arg.name), domain=None)
+            return TTRAbsolutePath(list(self.labels), name=TTRLabel(self.name.label), domain=arg)
         return self
 
-    def _record_metavar_equivalent(self, other: "TTRAbsolutePath") -> bool:
-        """Return true when both path roots are record metavar labels (``r0`` / ``R1``)."""
-        if self.name is None or other.name is None:
+    def subsumes_mapped(self, other: Formula, map_: dict[Variable, Variable]) -> bool:
+        """Java ``TTRAbsolutePath.subsumesMapped``."""
+        if other is None:
             return False
-        if self.labels != other.labels:
-            return False
-        if self.name == other.name:
+        this_eval = self.evaluate()
+        if this_eval is None:
             return True
-        a, b = self.name.label, other.name.label
-        return bool(REC_TYPE_NAME_PATTERN.match(a)) and bool(REC_TYPE_NAME_PATTERN.match(b))
+        if isinstance(other, TTRAbsolutePath):
+            other_eval = other.evaluate()
+            if isinstance(this_eval, TTRAbsolutePath) and isinstance(other_eval, TTRAbsolutePath):
+                if this_eval.name is None or other_eval.name is None:
+                    return False
+                name_ok = Variable(this_eval.name.label).subsumes_mapped(
+                    Variable(other_eval.name.label), map_
+                )
+                return name_ok and this_eval.labels == other_eval.labels
+            if isinstance(this_eval, TTRAbsolutePath):
+                return False
+            if other_eval is None:
+                return False
+            return this_eval.subsumes_mapped(other_eval, map_)
+        if isinstance(this_eval, TTRAbsolutePath):
+            return False
+        return this_eval.subsumes_mapped(other, map_)
 
     def subsumes(self, other: object) -> bool:
-        """Return whether this path is no more specific than *other* (missing domain matches any refinement)."""
-        if not isinstance(other, TTRAbsolutePath):
+        """Basic-then-mapped subsumption (Java ``Formula.subsumes``)."""
+        if not isinstance(other, Formula):
             return False
-        if self.labels != other.labels:
-            return False
-        if self.name == other.name:
-            if self.domain is None or other.domain is None:
-                return True
-            return self.domain.subsumes(other.domain)
-        if self._record_metavar_equivalent(other):
-            if self.domain is None or other.domain is None:
-                return True
-            return self.domain.subsumes(other.domain) and other.domain.subsumes(self.domain)
-        return False
+        if self == other:
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
 
-    def evaluate(self) -> Formula:
-        from dylan.formula.ttr_record_type import TTRRecordType
+    def evaluate(self) -> Formula | None:
+        """Java ``TTRAbsolutePath.evaluate``: pointed type within the domain, or ``None`` on bad path."""
+        from dylan.formula.ttr_label import TTRLabel as _L
 
-        if self.domain is None or (isinstance(self.domain, TTRRecordType) and self.domain.is_empty()):
+        if self.domain is None:
             if parser_emits_formula_debug():
                 logger.debug("TTRAbsolutePath evaluate: no domain for {}", self)
             return self
         if not self.evaluate_against(self.domain):
             if parser_emits_formula_error():
                 logger.error("bad absolute path: {} for domain {}", self, self.domain)
-            return self
-        assert self.domain is not None
+            return None
         w = self._walk_to_container(self.domain)
         if w is None:
-            return self
+            return None
         cur, last_lab = w
         pointed = cur.get_pointer_type(last_lab)
         if pointed is None:
             return last_lab  # type: ignore[return-value]
         result = pointed.evaluate()
-        if isinstance(result, Variable) and self.parent_rec_type is None and self.domain is not None:
-            got = self.domain.get_field(TTRLabel(result.name))
-            if got is not None and got.manifest_type is not None:
-                return got.manifest_type.evaluate()
+        if isinstance(result, Variable) and self.parent_rec_type is None:
+            return self.domain.get(_L(result.name))
         return result
 
     def __eq__(self, other: object) -> bool:
+        """Java ``TTRAbsolutePath.equals``: labels and name."""
         return (
             isinstance(other, TTRAbsolutePath)
             and self.name == other.name
             and self.labels == other.labels
-            and self.domain == other.domain
         )
 
     def __hash__(self) -> int:
-        dn = id(self.domain) if self.domain is not None else 0
+        """Hash on labels and name (domain excluded, as in Java)."""
         nl = self.name.label if self.name else ""
-        return hash((tuple(self.labels), nl, dn))
+        return hash((tuple(self.labels), nl))
 
     def __str__(self) -> str:
+        """Java ``TTRAbsolutePath.toString``: name.label1.label2…"""
         if self.name is None:
             return "." + ".".join(str(l) for l in self.labels)
         return self.name.label + "." + ".".join(str(l) for l in self.labels)
@@ -176,52 +207,70 @@ class TTRAbsolutePath(TTRPath):
 
 @dataclass
 class TTRRelativePath(TTRPath):
-    """Relative path .head within parent record."""
+    """Relative path within parent record, e.g. ``r0.head`` or ``.head``."""
 
     def clone(self) -> Formula:
-        return TTRRelativePath(list(self.labels))
+        """Copy labels and keep the parent record pointer (Java copy constructor)."""
+        out = TTRRelativePath(list(self.labels))
+        out.parent_rec_type = self.parent_rec_type
+        return out
 
-    def substitute(self, var: Variable, arg: Formula) -> Formula:
-        if not isinstance(arg, Variable):
+    def get_variables(self) -> set[Variable]:
+        """First label acts as a variable (Java ``TTRRelativePath`` constructor)."""
+        if not self.labels:
+            return set()
+        return {Variable(self.labels[0].label)}
+
+    def substitute(self, var: Formula, arg: Formula) -> Formula:
+        """Rename any label equal to *var* (Java ``TTRRelativePath.substitute``)."""
+        if not (isinstance(var, Variable) and isinstance(arg, Variable)):
             return self
         new_labels: list[TTRLabel] = []
         for lab in self.labels:
-            vlab = Variable(lab.label)
-            if vlab == var:
+            if Variable(lab.label) == var:
                 new_labels.append(TTRLabel(arg.name))
             else:
                 new_labels.append(lab)
         return TTRRelativePath(new_labels)
 
-    def evaluate(self) -> Formula:
+    def evaluate(self) -> Formula | None:
+        """Java ``TTRRelativePath.evaluate``: pointed type looked up through parent records."""
         cur = self.parent_rec_type
         while cur is not None and not self.evaluate_against(cur):
             cur = cur.parent_rec_type  # type: ignore[assignment]
         if cur is None:
             if parser_emits_formula_warning():
-                logger.warning("bad relative TTR path {}", self)
-            return self
+                logger.warning(
+                    "trying to get the pointed type of a bad TTR Path: {} in rec type: {}",
+                    self,
+                    self.parent_rec_type,
+                )
+            return None
         w = self._walk_to_container(cur)
         if w is None:
-            return self
+            return None
         container, last_lab = w
         pointed = container.get_pointer_type(last_lab)
-        if pointed is None:
-            return self
-        return pointed.evaluate()
+        return None if pointed is None else pointed.evaluate()
 
     def __eq__(self, other: object) -> bool:
+        """Java ``TTRPath.equals``: same labels."""
         return isinstance(other, TTRRelativePath) and self.labels == other.labels
 
     def __hash__(self) -> int:
+        """Hash on labels."""
         return hash(tuple(self.labels))
 
     def __str__(self) -> str:
-        return "." + ".".join(str(l) for l in self.labels)
+        """Java ``TTRPath.toString``: leading '.' only for single-label paths."""
+        if not self.labels:
+            return ""
+        prefix = "." if len(self.labels) == 1 else ""
+        return prefix + ".".join(str(l) for l in self.labels)
 
 
 def parse_ttr_path(string: str) -> TTRPath | None:
-    """Parse R1.head or .arg (Java TTRPath.parse)."""
+    """Parse ``R1.head`` (absolute) or ``r0.head`` / ``.arg`` (relative) (Java ``TTRPath.parse``)."""
     from dylan.formula import ttr_label as tl_mod
 
     path = string.strip()
@@ -234,8 +283,6 @@ def parse_ttr_path(string: str) -> TTRPath | None:
     elif REC_TYPE_NAME_PATTERN.match(label_strings[0]):
         rt_name = label_strings[0]
         label_strings = label_strings[1:]
-    else:
-        return None
     labels: list[TTRLabel] = []
     for lab_s in label_strings:
         if not lab_s:
@@ -252,4 +299,5 @@ TTRPath.parse = staticmethod(parse_ttr_path)  # type: ignore[method-assign]
 TTRPath.getLabels = TTRPath.get_labels  # type: ignore[attr-defined]
 TTRPath.getVariables = TTRPath.get_variables  # type: ignore[attr-defined]
 TTRPath.getFirstLabel = TTRPath.get_first_label  # type: ignore[attr-defined]
+TTRPath.getFinalLabel = TTRPath.get_final_label  # type: ignore[attr-defined]
 TTRPath.removeFirst = TTRPath.remove_first  # type: ignore[attr-defined]
