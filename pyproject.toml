@@ -23,6 +23,9 @@ classifiers = [
 ]
 dependencies = [
     "loguru>=0.7",
+    "pyyaml>=6.0.3",
+    "rich>=14.3.3",
+    "textual>=8.2.8",
     "tqdm>=4.67",
 ]
 
@@ -51,6 +54,7 @@ dylan-gui = "dylan.gui.app:main"
 dynamicsyntax-gui = "dylan.gui.app:main"
 dylan-serve-web = "dylan.web_dev:main"
 dynamicsyntax-serve-web = "dylan.web_dev:main"
+dsttr-induction = "dylan.induction.pipeline.cli:main"
 
 [tool.setuptools_scm]
 

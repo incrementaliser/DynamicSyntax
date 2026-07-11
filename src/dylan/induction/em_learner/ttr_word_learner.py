@@ -88,7 +88,7 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
             return True
         logger.info("Got %d sequences for %s", len(hyps), target)
         for cs in hyps:
-            print(cs.to_short_string())
+            logger.debug(cs.to_short_string())
         unknown_words = self.get_unknown_words(words)
         self.hb.forget_current_dist()
         try:

@@ -46,10 +46,9 @@ def spine_actions_to_lexical_source_lines(spine: Iterable["Action"]) -> list[str
             blocks.append(block)
     if not blocks:
         return []
+    # Java gold keeps consecutive top-level IF blocks for one word with no blank between them.
     out: list[str] = []
-    for i, block in enumerate(blocks):
-        if i:
-            out.append("")
+    for block in blocks:
         out.extend(block)
     return out
 

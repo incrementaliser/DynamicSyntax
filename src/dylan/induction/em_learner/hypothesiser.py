@@ -61,7 +61,11 @@ class Hypothesiser:
             self.seed_lexicon = Lexicon(None, top_n)
         else:
             self.resource_dir = Path(resource_dir_or_url)
-            self.seed_lexicon = Lexicon(self.resource_dir, top_n)
+            self.seed_lexicon = Lexicon(
+                self.resource_dir,
+                top_n,
+                load_learnt_lexicon=load_learnt_lexicon,
+            )
         if learner_comp_actions_path is not None:
             comp_dir = Path(learner_comp_actions_path)
         elif self.resource_dir is not None:

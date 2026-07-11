@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from dylan.action.atomic.put import Put
 from dylan.action.lexical_action import LexicalAction
 from dylan.action.lexicon import Lexicon
@@ -30,6 +32,73 @@ def test_lexicon_write_to_text_file_includes_body(tmp_path: Path) -> None:
     assert "[0.5,0]" in text
     assert "IF      ?Ty(e)" in text
     assert "THEN    put(Ty(e))" in text
+
+
+def test_multi_if_export_has_no_internal_blank() -> None:
+    """Consecutive IF blocks for one action must not be separated by a blank line (Java gold)."""
+    from dylan.induction.em_learner.lexicon_export import spine_actions_to_lexical_source_lines
+
+    block_a = ["IF      ?Ty(e>t)", "THEN    put(Ty(e>t))", "ELSE    abort"]
+    block_b = ["IF      ?Ty(e)", "THEN    make(\\/0)", "ELSE    abort"]
+    act_a = LexicalAction("goto", block_a, None)
+    act_b = LexicalAction("goto", block_b, None)
+    lines = spine_actions_to_lexical_source_lines([act_a, act_b])
+    text = "\n".join(lines)
+    assert "ELSE    abort\nIF      ?Ty(e)" in text
+    assert "\n\n" not in text
+
+
+def test_load_learnt_lexicon_round_trip(tmp_path: Path) -> None:
+    """Write multi-IF learnt lexicon and reload via ``load_learnt_lexicon_txt``."""
+    body = [
+        "IF      ?Ty(e>t)",
+        "THEN    put(Ty(e>t))",
+        "ELSE    abort",
+        "IF      ?Ty(e)",
+        "THEN    make(\\/0)",
+        "ELSE    abort",
+    ]
+    act = LexicalAction("goto", body, None)
+    setattr(act, "prob", 0.4)
+    setattr(act, "rank", 0)
+    written = Lexicon(None)
+    written["goto"] = [act]
+    out = tmp_path / "lexicon-top-1.txt"
+    written.write_to_text_file(out)
+    text = out.read_text(encoding="utf-8")
+    assert "ELSE    abort\nIF      ?Ty(e)" in text
+
+    loaded = Lexicon(tmp_path, 1, load_learnt_lexicon=True)
+    assert len(loaded) == 1
+    assert "goto" in loaded
+    assert len(loaded["goto"]) == 1
+    assert len(loaded["goto"][0].effects) >= 2
+    assert float(getattr(loaded["goto"][0], "prob", 0.0)) == pytest.approx(0.4)
+
+
+def test_load_learnt_tolerates_internal_blank(tmp_path: Path) -> None:
+    """Blank lines between multi-IF blocks must not split one lexical action."""
+    (tmp_path / "lexicon-top-1.txt").write_text(
+        "\n".join(
+            [
+                "[0.5,0]",
+                "a",
+                "IF      ?Ty(e)",
+                "THEN    put(Ty(e))",
+                "ELSE    abort",
+                "",
+                "IF      ?Ty(cn>e)",
+                "THEN    put(Ty(cn>e))",
+                "ELSE    abort",
+                "",
+            ],
+        ),
+        encoding="utf-8",
+    )
+    loaded = Lexicon(tmp_path, 1, load_learnt_lexicon=True)
+    assert len(loaded) == 1
+    assert len(loaded["a"]) == 1
+    assert len(loaded["a"][0].effects) == 2
 
 
 def test_get_core_action_skips_stub_hypothesis_to_the_right() -> None:

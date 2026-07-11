@@ -169,6 +169,9 @@ class LexiconLoadStats:
     """Macro base names that failed to load (incomplete body), in order."""
 
 
+_PROB_RANK_RE = re.compile(r"^\[([^,\]]+)\s*,\s*([^\]]+)\]\s*$")
+
+
 class Lexicon(dict[str, list[LexicalAction]]):
     """Maps surface words to a list of instantiated `LexicalAction` objects."""
 
@@ -176,7 +179,18 @@ class Lexicon(dict[str, list[LexicalAction]]):
     ACTION_FILE_NAME = "lexical-actions.txt"
     MACRO_FILE_NAME = "lexical-macros.txt"
 
-    def __init__(self, resource_dir: str | Path | None = None, _top_n: int = 3) -> None:
+    def __init__(
+        self,
+        resource_dir: str | Path | None = None,
+        _top_n: int = 3,
+        load_learnt_lexicon: bool = False,
+    ) -> None:
+        """Load a seed grammar directory, or a learnt IF/THEN lexicon when *load_learnt_lexicon* is set.
+
+        Mirrors Java ``Lexicon(dir, topN, loadLearntLexicon)``: when *load_learnt_lexicon* is true,
+        or when ``lexicon.txt`` is absent but a learnt top-N file exists, load via
+        :meth:`load_learnt_lexicon_txt` instead of template-based ``lexicon.txt``.
+        """
         super().__init__()
         self.top_n = _top_n
         self._templates: dict[str, _LexicalTemplate] = {}
@@ -187,6 +201,22 @@ class Lexicon(dict[str, list[LexicalAction]]):
             return
         root = Path(resource_dir)
         self._resource_dir = root
+        word_path = root / self.WORD_FILE_NAME
+        learnt_path = self.resolve_learnt_lexicon_path(root, _top_n)
+        use_learnt = load_learnt_lexicon or (not word_path.is_file() and learnt_path is not None)
+        if use_learnt:
+            EffectFactory.clear_macro_templates()
+            word_entries, word_failed, words_failed_names = self.load_learnt_lexicon_txt(root, _top_n)
+            self._load_stats = LexiconLoadStats(
+                word_entries_loaded=word_entries,
+                words_unique=len(self),
+                words_failed=word_failed,
+                macros_loaded=0,
+                macros_failed=0,
+                words_failed_names=words_failed_names,
+                macros_failed_names=(),
+            )
+            return
         macro_path = root / self.MACRO_FILE_NAME
         macro_loaded, macro_failed, macros_failed_names = 0, 0, ()
         if macro_path.is_file():
@@ -200,7 +230,6 @@ class Lexicon(dict[str, list[LexicalAction]]):
         if action_path.is_file():
             action_raw_lines = action_path.read_text(encoding="utf-8").splitlines()
             self._init_lexical_templates(strip_block_comments(list(action_raw_lines)))
-        word_path = root / self.WORD_FILE_NAME
         cleaned_word_lines: list[str | None] = []
         word_entries, word_failed, words_failed_names = 0, 0, ()
         if word_path.is_file():
@@ -218,6 +247,97 @@ class Lexicon(dict[str, list[LexicalAction]]):
             words_failed_names=words_failed_names,
             macros_failed_names=macros_failed_names,
         )
+
+    @staticmethod
+    def resolve_learnt_lexicon_path(grammar_path: str | Path, top_n: int) -> Path | None:
+        """Return the first existing learnt lexicon file for *top_n*, or ``None``."""
+        root = Path(grammar_path)
+        for name in (f"lexicon.lex-top-{top_n}.txt", f"lexicon-top-{top_n}.txt"):
+            candidate = root / name
+            if candidate.is_file():
+                return candidate
+        return None
+
+    def load_learnt_lexicon_txt(
+        self,
+        grammar_path: str | Path,
+        top_n: int,
+    ) -> tuple[int, int, tuple[str, ...]]:
+        """Load IF/THEN learnt lexicon entries (Java ``loadLearntLexiconTxt``).
+
+        Action boundaries are marked by a new ``[prob,rank]`` line (or EOF). Blank lines
+        inside a block are ignored so multi-IF bodies with accidental internal blanks still
+        load as one :class:`~dylan.action.lexical_action.LexicalAction`.
+        """
+        lex_file = self.resolve_learnt_lexicon_path(grammar_path, top_n)
+        if lex_file is None:
+            raise FileNotFoundError(
+                f"No learnt lexicon for top-{top_n} in {grammar_path} "
+                f"(expected lexicon.lex-top-{top_n}.txt or lexicon-top-{top_n}.txt)",
+            )
+        logger.info("Loading top-%s learned actions from %s", top_n, lex_file)
+        raw_lines = lex_file.read_text(encoding="utf-8").splitlines()
+        cleaned = strip_block_comments(raw_lines)
+        entries_loaded = 0
+        entries_failed = 0
+        failed_names: list[str] = []
+        buffer: list[str] = []
+
+        def _flush() -> None:
+            nonlocal entries_loaded, entries_failed
+            if not buffer:
+                return
+            if len(buffer) < 2:
+                entries_failed += 1
+                failed_names.append(buffer[0] if buffer else "<empty>")
+                buffer.clear()
+                return
+            prob_rank_line, word, *body = buffer
+            buffer.clear()
+            try:
+                lex_act = LexicalAction(word, body, None)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to build lexical action for %r: %s", word, exc)
+                entries_failed += 1
+                failed_names.append(word)
+                return
+            m = _PROB_RANK_RE.match(prob_rank_line.strip())
+            if m:
+                try:
+                    setattr(lex_act, "prob", float(m.group(1).strip()))
+                    setattr(lex_act, "rank", int(m.group(2).strip()))
+                except ValueError:
+                    logger.warning(
+                        "Could not parse probability/rank from line: %s for word: %s",
+                        prob_rank_line,
+                        word,
+                    )
+            else:
+                logger.warning(
+                    "Probability/rank line does not have expected format [prob,rank]: %s for word: %s",
+                    prob_rank_line,
+                    word,
+                )
+            self.setdefault(word, []).append(lex_act)
+            entries_loaded += 1
+
+        for raw in cleaned:
+            if raw is None:
+                continue
+            line = raw.strip()
+            if not line:
+                continue
+            if _PROB_RANK_RE.match(line) and buffer:
+                _flush()
+            buffer.append(line)
+        _flush()
+        logger.info(
+            "Successfully loaded top-%s learned lexicon with %s words (%s entries).",
+            top_n,
+            len(self),
+            entries_loaded,
+        )
+        return entries_loaded, entries_failed, tuple(failed_names)
 
     @property
     def load_stats(self) -> LexiconLoadStats:

@@ -17,7 +17,7 @@ class LoadLearntGrammar(Lexicon):
     def __init__(self, path: "str | Path | None" = None, top_n: int = 0) -> None:
         """Optionally load a learned grammar directory at *path*."""
         if path is not None and Path(path).is_dir():
-            super().__init__(path, top_n)
+            super().__init__(path, top_n, load_learnt_lexicon=True)
         else:
             super().__init__()
         self.path = Path(path) if path is not None else None
@@ -28,7 +28,7 @@ class LoadLearntGrammar(Lexicon):
         from dylan.induction.em_learner.test_parser import TestParser
 
         path = Path(grammar_path)
-        lex = Lexicon(path)
+        lex = Lexicon(path, top_n, load_learnt_lexicon=True)
         comp = Grammar(path)
         return TestParser(lex, comp, top_n=top_n)
 

@@ -434,6 +434,8 @@ class InteractiveContextParser(DAGParser):
             ([], dag.get_current_tuple().get_tree().clone())
         )
         global_pairs: list[tuple[list[Action], Tree]] = [init_pair]
+        # Java: HashSet<Tree> via equals/hashCode. Python Tree.__hash__ can fail on
+        # unhashable formula labels (e.g. TTRLambdaAbstract), so use a structural key.
         tried: dict[str, set[tuple]] = {ca.name: set() for ca in self.optional_grammar.values()}
         idx = 0
         while idx < len(global_pairs):

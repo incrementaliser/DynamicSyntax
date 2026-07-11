@@ -1,0 +1,57 @@
+data:
+  # Split mode: holdout | train_val_test | kfold | pre_split
+  split: pre_split
+  # Explicit train corpus path (pre_split)
+  train: data/induction-test/train.txt
+  # Explicit test corpus path (pre_split)
+  test: data/induction-test/test.txt
+  # Explicit validation corpus path (optional for pre_split)
+  val: data/induction-test/dev.txt
+  # Write train/test/(val) corpora under run_dir/splits/
+  save_splits: true
+
+model:
+  # Directory with computational-actions.txt (read in place; not copied)
+  seed_grammar: resources/2025-seed-grammar
+  # If true, continue learning from previous_model; if false, learn from scratch
+  use_previous_model: false
+  # Path to another run/model dir with lexicon-top-N.txt (used only when use_previous_model is true)
+  previous_model: null
+  # Number of top lexicon ranks to save / evaluate up to
+  top_n: 3
+
+train:
+  # Show EM learning progress bar
+  show_progress: true
+  # Always train and overwrite lexicons in the current output dir (no warning); wins over reuse_existing_model
+  force_train: false
+  # If true and current-dir lexicons exist and force_train is false, skip EM and reuse them for eval
+  reuse_existing_model: false
+
+eval:
+  # Splits to score, e.g. [test], [val, test], or [train, test] (omit train to skip train-set eval)
+  evaluate_on: [val, test]
+  # Inclusive start of top-N ranks to evaluate
+  top_n_start: 1
+  # Inclusive end of top-N ranks (null → model.top_n)
+  top_n_end: null
+
+logging:
+  # Log level: DEBUG | INFO | WARNING | ERROR (loguru + stdlib intercept)
+  level: INFO
+  # Print logs to the CLI (stderr)
+  to_cli: true
+  # Write logs to run_dir/<file_name>
+  to_file: true
+  # Log file name under the run directory
+  file_name: run.log
+
+output:
+  # Parent directory for timestamped run folders
+  run_dir: out/runs
+  # Run folder suffix: run_dir/<timestamp>_<name>/
+  name: induction-presplit
+  # Write metrics.tsv
+  write_tsv: true
+  # Write report.txt (and print Rich report when to_cli)
+  write_report: true
