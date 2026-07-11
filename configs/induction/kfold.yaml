@@ -53,5 +53,5 @@ output:
   name: induction-kfold
   # Write eval-scores.tsv (per-fold and top-level average)
   write_tsv: true
-  # Write full_run_report.txt (per-fold and top-level average)
+  # Write full_run_report.txt (per-fold and top-level average) and print Rich report to CLI (scores last)
   write_report: true

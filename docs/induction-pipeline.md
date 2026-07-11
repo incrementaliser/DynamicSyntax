@@ -81,7 +81,7 @@ Each run creates a directory like `out/runs/20260710-161500_induction-holdout/` 
 
 For `kfold`, each fold is under `fold_0/`, … with the same relative layout (`data/`, `models/`, `eval-scores.tsv`, `full_run_report.txt`); the top-level `eval-scores.tsv` and `full_run_report.txt` average fold scores.
 
-While running, the console prints brief stage lines (`[Run]`, `[Data]`, `[Train]`, `[Eval]`). The `[Run]` line reports whether continual learning is on (`continual_learning=true|false` and `previous_model=...` when enabled). After the run, a Rich report is printed when `logging.to_cli` is true (config, metadata, timing, then scores last). The report file puts scores first, then timing. Use `--report-tui` for an interactive Textual view (`q` to quit).
+While running, the console prints brief stage lines (`[Run]`, `[Data]`, `[Train]`, `[Eval]`). The `[Run]` line reports whether continual learning is on (`continual_learning=true|false` and `previous_model=...` when enabled). After the run, when `output.write_report` is true, a Rich report is printed to the CLI (config, metadata, timing, then scores last). The report file puts scores first, then timing. Use `--report-tui` for an interactive Textual view (`q` to quit).
 
 ## Library API
 

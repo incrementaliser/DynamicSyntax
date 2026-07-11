@@ -291,8 +291,7 @@ class TrainEvalRunner:
 
         if self.config.output.write_report:
             write_report_file(result, self.config, run_dir / "full_run_report.txt")
-            if self.config.logging.to_cli:
-                print_report(result, self.config)
+            print_report(result, self.config)
             logger.info("Wrote {}", run_dir / "full_run_report.txt")
             if report_tui:
                 launch_report_tui(result, self.config)

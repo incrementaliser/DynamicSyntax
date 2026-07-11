@@ -53,5 +53,5 @@ output:
   name: induction-holdout
   # Write eval-scores.tsv
   write_tsv: true
-  # Write full_run_report.txt (and print Rich report when to_cli)
+  # Write full_run_report.txt and print the Rich report to the CLI (scores last)
   write_report: true

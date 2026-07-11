@@ -176,8 +176,14 @@ def _metadata_text(result: EvalResult) -> str:
 
 
 def build_report_text(result: EvalResult, config: InductionConfig) -> str:
-    """Return a plain-text report for ``full_run_report.txt`` (scores then timing)."""
-    console = Console(record=True, width=120, force_terminal=False)
+    """Return a plain-text report for ``full_run_report.txt`` (scores then timing).
+
+    Output is captured only (not echoed to the real terminal).
+    """
+    from io import StringIO
+
+    buf = StringIO()
+    console = Console(file=buf, record=True, width=120, force_terminal=False)
     _print_file_report(console, result, config)
     return console.export_text()
 

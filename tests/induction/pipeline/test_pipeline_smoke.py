@@ -79,6 +79,30 @@ def test_report_contains_scores_timing_config_metadata(tmp_path: Path) -> None:
     assert "manifest.json" not in text
 
 
+def test_cli_report_puts_scores_after_timing(tmp_path: Path) -> None:
+    """CLI Rich report prints timing before the score tables."""
+    from io import StringIO
+
+    from rich.console import Console
+
+    from dylan.induction.pipeline.report import print_report
+
+    result = EvalResult()
+    result.add(1, "test", SplitMetrics(60.0, 50.0, 55.0, 80.0, 40.0, 1, 2, 0))
+    result.metadata.update(
+        {
+            "run_dir": str(tmp_path),
+            "train_time_s": 1.0,
+            "eval_time_s": 2.0,
+        },
+    )
+    buf = StringIO()
+    print_report(result, InductionConfig(), console=Console(file=buf, force_terminal=False))
+    text = buf.getvalue()
+    assert text.index("Timing") < text.index("Coverage / EM")
+    assert text.index("Coverage / EM") < text.index("P / R / F1")
+
+
 def test_prepare_previous_model_seed(tmp_path: Path) -> None:
     """Continue-learning seed staging copies lexicon-top-N.txt under the staging dir."""
     prev = tmp_path / "prev"
