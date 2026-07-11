@@ -20,7 +20,7 @@ from dylan.tree.tree import Tree
 
 def test_lexicon_write_to_text_file_includes_body(tmp_path: Path) -> None:
     """``write_to_text_file`` must emit ``_source_lines``, not only the surface word."""
-    lines = ["IF      ?Ty(e)", "THEN    put(Ty(e))", "ELSE    abort"]
+    lines = ["IF    ?Ty(e)", "THEN  put(Ty(e))", "ELSE  abort"]
     act = LexicalAction("door", lines, "test_cat")
     setattr(act, "prob", 0.5)
     setattr(act, "rank", 0)
@@ -30,33 +30,33 @@ def test_lexicon_write_to_text_file_includes_body(tmp_path: Path) -> None:
     lex.write_to_text_file(out)
     text = out.read_text(encoding="utf-8")
     assert "[0.5,0]" in text
-    assert "IF      ?Ty(e)" in text
-    assert "THEN    put(Ty(e))" in text
+    assert "IF    ?Ty(e)" in text
+    assert "THEN  put(Ty(e))" in text
 
 
 def test_multi_if_export_has_no_internal_blank() -> None:
     """Consecutive IF blocks for one action must not be separated by a blank line (Java gold)."""
     from dylan.induction.em_learner.lexicon_export import spine_actions_to_lexical_source_lines
 
-    block_a = ["IF      ?Ty(e>t)", "THEN    put(Ty(e>t))", "ELSE    abort"]
-    block_b = ["IF      ?Ty(e)", "THEN    make(\\/0)", "ELSE    abort"]
+    block_a = ["IF    ?Ty(e>t)", "THEN  put(Ty(e>t))", "ELSE  abort"]
+    block_b = ["IF    ?Ty(e)", "THEN  make(\\/0)", "ELSE  abort"]
     act_a = LexicalAction("goto", block_a, None)
     act_b = LexicalAction("goto", block_b, None)
     lines = spine_actions_to_lexical_source_lines([act_a, act_b])
     text = "\n".join(lines)
-    assert "ELSE    abort\nIF      ?Ty(e)" in text
+    assert "ELSE  abort\nIF    ?Ty(e)" in text
     assert "\n\n" not in text
 
 
 def test_load_learnt_lexicon_round_trip(tmp_path: Path) -> None:
     """Write multi-IF learnt lexicon and reload via ``load_learnt_lexicon_txt``."""
     body = [
-        "IF      ?Ty(e>t)",
-        "THEN    put(Ty(e>t))",
-        "ELSE    abort",
-        "IF      ?Ty(e)",
-        "THEN    make(\\/0)",
-        "ELSE    abort",
+        "IF    ?Ty(e>t)",
+        "THEN  put(Ty(e>t))",
+        "ELSE  abort",
+        "IF    ?Ty(e)",
+        "THEN  make(\\/0)",
+        "ELSE  abort",
     ]
     act = LexicalAction("goto", body, None)
     setattr(act, "prob", 0.4)
@@ -66,7 +66,7 @@ def test_load_learnt_lexicon_round_trip(tmp_path: Path) -> None:
     out = tmp_path / "lexicon-top-1.txt"
     written.write_to_text_file(out)
     text = out.read_text(encoding="utf-8")
-    assert "ELSE    abort\nIF      ?Ty(e)" in text
+    assert "ELSE  abort\nIF    ?Ty(e)" in text
 
     loaded = Lexicon(tmp_path, 1, load_learnt_lexicon=True)
     assert len(loaded) == 1
@@ -83,13 +83,13 @@ def test_load_learnt_tolerates_internal_blank(tmp_path: Path) -> None:
             [
                 "[0.5,0]",
                 "a",
-                "IF      ?Ty(e)",
-                "THEN    put(Ty(e))",
-                "ELSE    abort",
+                "IF    ?Ty(e)",
+                "THEN  put(Ty(e))",
+                "ELSE  abort",
                 "",
-                "IF      ?Ty(cn>e)",
-                "THEN    put(Ty(cn>e))",
-                "ELSE    abort",
+                "IF    ?Ty(cn>e)",
+                "THEN  put(Ty(cn>e))",
+                "ELSE  abort",
                 "",
             ],
         ),
@@ -114,7 +114,7 @@ def test_get_core_action_skips_stub_hypothesis_to_the_right() -> None:
     assert core.word == "w"
     body = "\n".join(core._source_lines)
     assert "put(" in body
-    assert body.count("THEN    abort") <= 1
+    assert body.count("THEN  abort") <= 1
 
 
 def test_action_key_includes_lexical_hypothesis_effect() -> None:
@@ -137,6 +137,49 @@ def test_get_core_action_from_lexical_hypothesis() -> None:
     assert isinstance(core, LexicalAction)
     assert core.word == "w"
     assert any("put(" in ln for ln in core._source_lines)
+
+
+def test_get_core_action_keeps_mid_path_computational() -> None:
+    """Java ``getCoreAction`` retains mid-path computational IF/THEN blocks on the unique spine."""
+    from dylan.action.computational_action import ComputationalAction
+
+    put = Put(label_factory_create("Ty(e)"))
+    hyp = LexicalHypothesis("hyp-sem(x)", [put], True)
+    thinning = ComputationalAction(
+        "thinning",
+        ["IF    ?Ty(e)", "THEN  put(Ty(e))", "ELSE  abort"],
+        always_good=False,
+    )
+    # Unique path (R→L build): root -- thinning -- hyp --> leaf  ⇒ core [hyp, thinning]
+    cs = CandidateSequence(ParserTuple(Tree()), [hyp, thinning], ["w"])
+    wh = WordHypothesis(0)
+    assert wh.intersect_into(cs)
+    core = wh.get_core_action()
+    assert isinstance(core, LexicalAction)
+    body = "\n".join(core._source_lines)
+    assert "put(" in body
+    # Two IF blocks: lexical hyp + computational thinning
+    assert body.count("IF") >= 2
+
+
+def test_get_core_action_shortens_on_branch() -> None:
+    """When sequences branch after a shared lexical head, core stops before the branch."""
+    put_e = Put(label_factory_create("Ty(e)"))
+    put_cn = Put(label_factory_create("Ty(cn)"))
+    hyp_shared = LexicalHypothesis("hyp-sem(shared)", [put_e], True)
+    hyp_a = LexicalHypothesis("hyp-sem(a)", [put_e], True)
+    hyp_b = LexicalHypothesis("hyp-sem(b)", [put_cn], True)
+    wh = WordHypothesis(1)
+    assert wh.intersect_into(CandidateSequence(ParserTuple(Tree()), [hyp_shared, hyp_a], ["w"]))
+    # Second sequence shares only computational-prefix capacity; different trailing lex → fail or branch.
+    # Both are non-computational throughout: intersection should fail (cannot branch after first lexical).
+    ok = wh.intersect_into(CandidateSequence(ParserTuple(Tree()), [hyp_shared, hyp_b], ["w"]))
+    assert ok is False
+    core = wh.get_core_action()
+    assert isinstance(core, LexicalAction)
+    body = "\n".join(core._source_lines)
+    assert "put(" in body
+
 
 
 def test_lexicon_export_lines_for_hypothesis_without_source(tmp_path: Path) -> None:

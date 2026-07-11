@@ -692,6 +692,11 @@ class TTRHypothesiser(Hypothesiser):
         if max_sem.subsumes(self.target_type) and self.target_type.subsumes(max_sem):
             stack = self.state.word_stack
             if stack:
+                # Java only extracts when the stack is empty. With an empty seed lexicon
+                # (all words unknown) the stack top is never popped by known-lex edges;
+                # hyp-sem edges consume words. If semantics already match but residual
+                # unknown words remain, treat like Java's empty-stack case only when every
+                # remaining word is unknown (same situation as a from-scratch BabyDS run).
                 def _known(w: UtteredWord) -> bool:
                     return (
                         self.seed_lexicon.contains_key(w.word)
@@ -704,17 +709,15 @@ class TTRHypothesiser(Hypothesiser):
                 else:
                     logger.warning("word stack is non-empty: %s", stack)
             if not self.state.word_stack:
-                from dylan.induction.em_learner.hypothesise_parity_util import normalise_sequence_line
-
                 result = self.extract_sequence()
-                sig = normalise_sequence_line(result.to_short_string())
-                known = {normalise_sequence_line(h.to_short_string()) for h in self.hypotheses}
-                if sig not in known:
-                    self.hypotheses.append(result)
+                self.hypotheses.append(result)
                 if len(self.hypotheses) > 300:
                     logger.warning("sequences exceeded 300; stopping")
                     return False
                 done_with_branch = True
+                # After extract, continue search from an earlier branch (Java relies on
+                # goFirst/attemptBacktrack alone; refill keeps word_index aligned for
+                # subsequent unknown-word hyp-sem applications on this Python DAG).
                 self.attempt_backtrack()
                 self.state.word_stack = list(
                     reversed([UtteredWord(w.word()) for w in self.all_words]),

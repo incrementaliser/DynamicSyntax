@@ -26,19 +26,19 @@ from dylan.induction.pipeline.evaluate import build_eval_parser, evaluate_corpus
 
 
 def test_configure_logging_file(tmp_path: Path) -> None:
-    """File sink is created when ``to_file`` is true."""
+    """File sink is created under ``logs/`` when ``to_file`` is true."""
     cfg = LoggingConfig(level="INFO", to_cli=False, to_file=True, file_name="test.log")
     configure_induction_logging(cfg, run_dir=tmp_path)
     from loguru import logger
 
     logger.info("hello pipeline")
-    log_path = tmp_path / "test.log"
+    log_path = tmp_path / "logs" / "test.log"
     assert log_path.is_file()
     assert "hello pipeline" in log_path.read_text(encoding="utf-8")
 
 
 def test_report_contains_scores_timing_config_metadata(tmp_path: Path) -> None:
-    """Report text includes F1, timing, config, and metadata sections."""
+    """File report has Cov/EM then P/R/F1 before Timing, plus config and metadata."""
     result = EvalResult()
     result.add(
         1,
@@ -63,11 +63,17 @@ def test_report_contains_scores_timing_config_metadata(tmp_path: Path) -> None:
     )
     config = InductionConfig()
     text = build_report_text(result, config)
+    assert "Coverage / EM" in text
+    assert "P / R / F1" in text
     assert "75.00" in text or "75.0" in text
     assert "seed_grammar" in text
     assert "00-01-05" in text
     assert "Metadata" in text or "run_dir" in text
-    out = tmp_path / "report.txt"
+    cov_pos = text.index("Coverage / EM")
+    prf_pos = text.index("P / R / F1")
+    timing_pos = text.index("Timing")
+    assert cov_pos < prf_pos < timing_pos
+    out = tmp_path / "full_run_report.txt"
     write_report_file(result, config, out)
     assert out.is_file()
     assert "manifest.json" not in text
@@ -151,15 +157,18 @@ def test_pipeline_holdout_smoke(tmp_path: Path) -> None:
     )
     result = TrainEvalRunner(config).run(report_tui=False)
     run_dir = Path(result.metadata["run_dir"])
-    assert (run_dir / "metrics.tsv").is_file()
-    assert (run_dir / "report.txt").is_file()
+    assert (run_dir / "run_config.yaml").is_file()
+    assert (run_dir / "eval-scores.tsv").is_file()
+    assert (run_dir / "full_run_report.txt").is_file()
+    assert (run_dir / "logs" / "run.log").is_file()
+    assert (run_dir / "data").is_dir()
     assert not (run_dir / "manifest.json").exists()
-    assert (run_dir / "lexicon-top-1.txt").is_file()
+    assert (run_dir / "models" / "lexicon-top-1.txt").is_file()
     assert not (run_dir / "computational-actions.txt").exists()
     assert result.get(1, "test") is not None
     assert "train_time_s" in result.metadata
     assert "eval_time_s" in result.metadata
-    report = (run_dir / "report.txt").read_text(encoding="utf-8")
+    report = (run_dir / "full_run_report.txt").read_text(encoding="utf-8")
     assert "00-" in report  # HH-MM-SS style timing
 
 

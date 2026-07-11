@@ -31,6 +31,31 @@ class LexicalAction(Action):
         ifs = EffectFactory.get_if_indices(lines)
         self.effects: list[Effect] = EffectFactory.create_multiple(lines, ifs)
 
+    @classmethod
+    def from_action_spine(cls, word: str, actions: list[Action]) -> "LexicalAction":
+        """Build from a flattened action spine like Java ``LexicalAction(String, ArrayList<Action>)``."""
+        from dylan.induction.em_learner.lexicon_export import effect_to_lexical_lines
+
+        effects: list[Effect] = []
+        for a in actions:
+            if isinstance(a, LexicalAction):
+                effects.extend(list(a.effects))
+            else:
+                ge = a.get_effect() if hasattr(a, "get_effect") else None
+                if ge is not None:
+                    effects.append(ge)
+        lines: list[str] = []
+        for e in effects:
+            block = effect_to_lexical_lines(e)
+            if block:
+                lines.extend(block)
+        fallback = ["IF    ?Ty(t)", "THEN  abort", "ELSE  abort"]
+        inst = cls(word, lines if lines else fallback, None)
+        if effects:
+            inst.effects = list(effects)
+            inst._source_lines = lines
+        return inst
+
     def get_lexical_action_type(self) -> str | None:
         """Return lexical action type."""
         return self.action_type
@@ -72,3 +97,4 @@ class LexicalAction(Action):
 LexicalAction.getLexicalActionType = LexicalAction.get_lexical_action_type  # type: ignore[attr-defined]
 LexicalAction.requiresLeftAdjustment = LexicalAction.requires_left_adjustment  # type: ignore[attr-defined]
 LexicalAction.execTupleContext = LexicalAction.exec_tuple_context  # type: ignore[attr-defined]
+LexicalAction.fromActionSpine = LexicalAction.from_action_spine  # type: ignore[attr-defined]

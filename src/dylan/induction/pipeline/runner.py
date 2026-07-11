@@ -86,7 +86,11 @@ def _corpora_for_eval(split: CorpusSplit, evaluate_on: list[str]) -> dict[str, R
 
 
 def _resolve_previous_model(config: InductionConfig) -> Path | None:
-    """Return previous-model path when ``use_previous_model`` is enabled."""
+    """Return previous-model path when ``use_previous_model`` is enabled.
+
+    The path must be a directory that directly contains ``lexicon-top-N.txt``
+    (typically a prior run's ``models/`` folder); nested paths are not searched.
+    """
     if not config.model.use_previous_model:
         return None
     if not config.model.previous_model:
@@ -95,6 +99,16 @@ def _resolve_previous_model(config: InductionConfig) -> Path | None:
     if not path.exists():
         raise FileNotFoundError(f"previous_model not found: {path}")
     return path
+
+
+def _print_run_stage(config: InductionConfig, run_dir: Path) -> None:
+    """Print a one-line summary of run identity and continual-learning status."""
+    parts: list[str] = [f"dir={run_dir}", f"name={config.output.name}"]
+    if config.model.use_previous_model:
+        parts.append(f"continual_learning=true previous_model={config.model.previous_model}")
+    else:
+        parts.append("continual_learning=false")
+    print(f"[Run]   {'  '.join(parts)}", flush=True)
 
 
 def _print_data_stage(
@@ -152,14 +166,15 @@ def _run_one(
     """Train and evaluate a single split under *work_dir*."""
     _print_data_stage(config, split, n_folds=n_folds)
     if config.data.save_splits:
-        save_split_corpora(split, work_dir / "splits")
+        save_split_corpora(split, work_dir / "data")
 
     seed_grammar = Path(config.model.seed_grammar)
     previous = _resolve_previous_model(config)
+    models_dir = work_dir / "models"
     lexicon_prefix, train_s = train_model(
         train_corpus=split.train,
         seed_grammar=seed_grammar,
-        model_dir=work_dir,
+        model_dir=models_dir,
         top_n=config.model.top_n,
         previous_model=previous,
         show_progress=config.train.show_progress,
@@ -197,8 +212,9 @@ class TrainEvalRunner:
         """Execute the configured pipeline and return metrics."""
         run_dir = _make_run_dir(self.config)
         configure_induction_logging(self.config.logging, run_dir=run_dir)
-        dump_config(self.config, run_dir / "config.yaml")
+        dump_config(self.config, run_dir / "run_config.yaml")
         logger.info("Run directory: {}", run_dir)
+        _print_run_stage(self.config, run_dir)
 
         mode = self.config.data.split
         if mode == "pre_split":
@@ -233,9 +249,9 @@ class TrainEvalRunner:
                 total_train += float(fold_result.metadata.get("train_time_s", 0.0))
                 total_eval += float(fold_result.metadata.get("eval_time_s", 0.0))
                 if self.config.output.write_tsv:
-                    write_metrics_tsv(fold_result, fold_dir / "metrics.tsv")
+                    write_metrics_tsv(fold_result, fold_dir / "eval-scores.tsv")
                 if self.config.output.write_report:
-                    write_report_file(fold_result, self.config, fold_dir / "report.txt")
+                    write_report_file(fold_result, self.config, fold_dir / "full_run_report.txt")
                 fold_results.append(fold_result)
             bag = EvalResult(fold_results=fold_results, metadata={"split": "kfold"})
             result = bag.mean_over_folds()
@@ -270,14 +286,14 @@ class TrainEvalRunner:
         result.metadata.setdefault("dataset_sizes", dict(result.dataset_sizes))
 
         if self.config.output.write_tsv:
-            write_metrics_tsv(result, run_dir / "metrics.tsv")
-            logger.info("Wrote {}", run_dir / "metrics.tsv")
+            write_metrics_tsv(result, run_dir / "eval-scores.tsv")
+            logger.info("Wrote {}", run_dir / "eval-scores.tsv")
 
         if self.config.output.write_report:
-            write_report_file(result, self.config, run_dir / "report.txt")
+            write_report_file(result, self.config, run_dir / "full_run_report.txt")
             if self.config.logging.to_cli:
                 print_report(result, self.config)
-            logger.info("Wrote {}", run_dir / "report.txt")
+            logger.info("Wrote {}", run_dir / "full_run_report.txt")
             if report_tui:
                 launch_report_tui(result, self.config)
 

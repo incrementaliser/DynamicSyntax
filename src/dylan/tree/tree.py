@@ -96,7 +96,27 @@ class Tree(dict[NodeAddress, Node]):
 
     def key_set(self) -> set[NodeAddress]:
         """Address keys (Java ``Tree.keySet``)."""
-        return set(self.keys())
+        return set(super().keys())
+
+    def _sorted_addresses(self) -> list[NodeAddress]:
+        """Return addresses in Java ``TreeMap`` / ``NodeAddress.compareTo`` order (string order)."""
+        return sorted(super().keys(), key=lambda a: a.address)
+
+    def keys(self) -> list[NodeAddress]:  # type: ignore[override]
+        """Iterate keys in address-sorted order (Java ``TreeMap.keySet``)."""
+        return self._sorted_addresses()
+
+    def values(self) -> list[Node]:  # type: ignore[override]
+        """Iterate values in address-sorted order (Java ``TreeMap.values``)."""
+        return [self[k] for k in self._sorted_addresses()]
+
+    def items(self) -> list[tuple[NodeAddress, Node]]:  # type: ignore[override]
+        """Iterate items in address-sorted order (Java ``TreeMap.entrySet``)."""
+        return [(k, self[k]) for k in self._sorted_addresses()]
+
+    def __iter__(self):  # type: ignore[override]
+        """Iterate addresses in TreeMap order."""
+        return iter(self._sorted_addresses())
 
     def get_nodes(self) -> list[Node]:
         """Return all nodes in this tree (Java ``Tree.getNodes``)."""

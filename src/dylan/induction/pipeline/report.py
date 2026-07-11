@@ -15,15 +15,12 @@ from dylan.induction.pipeline.metrics import EvalResult
 from dylan.induction.pipeline.timing import format_hh_mm_ss
 
 
-def _scores_table(result: EvalResult, title: str) -> Table:
-    """Build a Rich table of P/R/F1/coverage/EM for all splits × top-N."""
+def _coverage_em_table(result: EvalResult) -> Table:
+    """Build a Rich table of coverage and exact-match for all splits × top-N."""
     splits = result.split_names()
-    table = Table(title=title, show_header=True, header_style="bold")
+    table = Table(title="Coverage / EM (percentages)", show_header=True, header_style="bold")
     table.add_column("Top-N", justify="right")
     for split in splits:
-        table.add_column(f"{split} P", justify="right")
-        table.add_column(f"{split} R", justify="right")
-        table.add_column(f"{split} F1", justify="right")
         table.add_column(f"{split} Cov", justify="right")
         table.add_column(f"{split} EM", justify="right")
 
@@ -32,19 +29,99 @@ def _scores_table(result: EvalResult, title: str) -> Table:
         for split in splits:
             m = result.get(top_n, split)
             if m is None:
-                row.extend(["—"] * 5)
+                row.extend(["—"] * 2)
             else:
-                row.extend(
-                    [
-                        f"{m.precision:.2f}",
-                        f"{m.recall:.2f}",
-                        f"{m.f1:.2f}",
-                        f"{m.coverage:.2f}",
-                        f"{m.exact_match:.2f}",
-                    ],
-                )
+                row.extend([f"{m.coverage:.2f}", f"{m.exact_match:.2f}"])
         table.add_row(*row)
     return table
+
+
+def _prf_table(result: EvalResult) -> Table:
+    """Build a Rich table of precision/recall/F1 for all splits × top-N."""
+    splits = result.split_names()
+    table = Table(title="P / R / F1 (percentages)", show_header=True, header_style="bold")
+    table.add_column("Top-N", justify="right")
+    for split in splits:
+        table.add_column(f"{split} P", justify="right")
+        table.add_column(f"{split} R", justify="right")
+        table.add_column(f"{split} F1", justify="right")
+
+    for top_n in result.top_ns():
+        row: list[str] = [str(top_n)]
+        for split in splits:
+            m = result.get(top_n, split)
+            if m is None:
+                row.extend(["—"] * 3)
+            else:
+                row.extend([f"{m.precision:.2f}", f"{m.recall:.2f}", f"{m.f1:.2f}"])
+        table.add_row(*row)
+    return table
+
+
+def _print_scores(console: Console, result: EvalResult) -> None:
+    """Print Cov/EM then P/R/F1 tables, plus fold std-dev when present."""
+    console.print(_coverage_em_table(result))
+    console.print(_prf_table(result))
+    if not result.fold_results:
+        return
+    console.print(
+        f"\n[dim]Averaged over {len(result.fold_results)} folds "
+        f"(per-fold details under run_dir/fold_*).[/dim]",
+    )
+    std = result.metadata.get("std")
+    if not isinstance(std, dict) or not std:
+        return
+    std_table = Table(title="Std-dev across folds (F1 / Coverage / EM)", show_header=True)
+    std_table.add_column("Top-N", justify="right")
+    std_table.add_column("Split")
+    std_table.add_column("F1 σ", justify="right")
+    std_table.add_column("Cov σ", justify="right")
+    std_table.add_column("EM σ", justify="right")
+    for top_n, split_map in sorted(std.items()):
+        for split_name, vals in split_map.items():
+            std_table.add_row(
+                str(top_n),
+                str(split_name),
+                f"{vals.get('f1', 0):.2f}",
+                f"{vals.get('coverage', 0):.2f}",
+                f"{vals.get('exact_match', 0):.2f}",
+            )
+    console.print(std_table)
+
+
+def _print_timing(console: Console, result: EvalResult) -> None:
+    """Print the timing table when train/eval seconds are available."""
+    train_s = result.metadata.get("train_time_s")
+    eval_s = result.metadata.get("eval_time_s")
+    if not (isinstance(train_s, (int, float)) or isinstance(eval_s, (int, float))):
+        return
+    timing = Table(title="Timing", show_header=True)
+    timing.add_column("Phase")
+    timing.add_column("HH-MM-SS", justify="right")
+    timing.add_column("Seconds", justify="right")
+    if isinstance(train_s, (int, float)):
+        timing.add_row("Train", format_hh_mm_ss(float(train_s)), f"{float(train_s):.2f}")
+    if isinstance(eval_s, (int, float)):
+        timing.add_row("Eval", format_hh_mm_ss(float(eval_s)), f"{float(eval_s):.2f}")
+    console.print(timing)
+
+
+def _print_title(console: Console) -> None:
+    """Print the induction report title panel."""
+    console.print()
+    console.print(Panel(Text("Induction report", style="bold"), expand=False))
+
+
+def _print_config(console: Console, config: InductionConfig) -> None:
+    """Print the resolved-config panel."""
+    console.print()
+    console.print(Panel(_config_text(config), title="Resolved config", border_style="cyan"))
+
+
+def _print_metadata(console: Console, result: EvalResult) -> None:
+    """Print the metadata panel."""
+    console.print()
+    console.print(Panel(_metadata_text(result), title="Metadata", border_style="green"))
 
 
 def _config_text(config: InductionConfig) -> str:
@@ -99,9 +176,9 @@ def _metadata_text(result: EvalResult) -> str:
 
 
 def build_report_text(result: EvalResult, config: InductionConfig) -> str:
-    """Return a plain-text report (tables + config + metadata) for ``report.txt``."""
+    """Return a plain-text report for ``full_run_report.txt`` (scores then timing)."""
     console = Console(record=True, width=120, force_terminal=False)
-    _print_report(console, result, config)
+    _print_file_report(console, result, config)
     return console.export_text()
 
 
@@ -111,56 +188,26 @@ def print_report(
     *,
     console: Console | None = None,
 ) -> None:
-    """Print the Rich report to the given (or default) console."""
-    _print_report(console or Console(), result, config)
+    """Print the Rich report to the CLI (timing then scores last)."""
+    _print_cli_report(console or Console(), result, config)
 
 
-def _print_report(console: Console, result: EvalResult, config: InductionConfig) -> None:
-    """Shared Rich rendering for CLI and text export."""
-    console.print()
-    console.print(Panel(Text("Induction report", style="bold"), expand=False))
+def _print_file_report(console: Console, result: EvalResult, config: InductionConfig) -> None:
+    """File/TUI order: title → scores → timing → config → metadata."""
+    _print_title(console)
+    _print_scores(console, result)
+    _print_timing(console, result)
+    _print_config(console, config)
+    _print_metadata(console, result)
 
-    train_s = result.metadata.get("train_time_s")
-    eval_s = result.metadata.get("eval_time_s")
-    if isinstance(train_s, (int, float)) or isinstance(eval_s, (int, float)):
-        timing = Table(title="Timing", show_header=True)
-        timing.add_column("Phase")
-        timing.add_column("HH-MM-SS", justify="right")
-        timing.add_column("Seconds", justify="right")
-        if isinstance(train_s, (int, float)):
-            timing.add_row("Train", format_hh_mm_ss(float(train_s)), f"{float(train_s):.2f}")
-        if isinstance(eval_s, (int, float)):
-            timing.add_row("Eval", format_hh_mm_ss(float(eval_s)), f"{float(eval_s):.2f}")
-        console.print(timing)
 
-    console.print(_scores_table(result, "Scores (percentages)"))
-    if result.fold_results:
-        console.print(
-            f"\n[dim]Averaged over {len(result.fold_results)} folds "
-            f"(per-fold details under run_dir/fold_*).[/dim]",
-        )
-        std = result.metadata.get("std")
-        if isinstance(std, dict) and std:
-            std_table = Table(title="Std-dev across folds (F1 / Coverage / EM)", show_header=True)
-            std_table.add_column("Top-N", justify="right")
-            std_table.add_column("Split")
-            std_table.add_column("F1 σ", justify="right")
-            std_table.add_column("Cov σ", justify="right")
-            std_table.add_column("EM σ", justify="right")
-            for top_n, split_map in sorted(std.items()):
-                for split_name, vals in split_map.items():
-                    std_table.add_row(
-                        str(top_n),
-                        str(split_name),
-                        f"{vals.get('f1', 0):.2f}",
-                        f"{vals.get('coverage', 0):.2f}",
-                        f"{vals.get('exact_match', 0):.2f}",
-                    )
-            console.print(std_table)
-    console.print()
-    console.print(Panel(_config_text(config), title="Resolved config", border_style="cyan"))
-    console.print()
-    console.print(Panel(_metadata_text(result), title="Metadata", border_style="green"))
+def _print_cli_report(console: Console, result: EvalResult, config: InductionConfig) -> None:
+    """CLI order: title → config → metadata → timing → scores."""
+    _print_title(console)
+    _print_config(console, config)
+    _print_metadata(console, result)
+    _print_timing(console, result)
+    _print_scores(console, result)
 
 
 def write_report_file(

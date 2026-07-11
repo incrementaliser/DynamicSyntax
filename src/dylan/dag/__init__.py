@@ -1,6 +1,7 @@
 from dylan.dag.dag_induction_state import DAGInductionState
 from dylan.dag.dag_induction_tuple import DAGInductionTuple
 from dylan.dag.dag_tuple import DAGTuple
+from dylan.dag.dag_tuple_set import DAGTupleSet
 from dylan.dag.groundable_edge import (
     ActionReplayEdge,
     BacktrackingEdge,
@@ -21,6 +22,7 @@ __all__ = [
     "DAGInductionState",
     "DAGInductionTuple",
     "DAGTuple",
+    "DAGTupleSet",
     "GroundableEdge",
     "TypeLattice",
     "TypeLatticeIncrement",

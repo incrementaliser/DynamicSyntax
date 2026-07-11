@@ -70,6 +70,16 @@ class ComputationalAction(Action):
         )
         return [(rebuilt, t) for _ite, t in nested]
 
+    def __eq__(self, other: object) -> bool:
+        """Java ``equals``: effect equality (name check in Java is a no-op)."""
+        if not isinstance(other, ComputationalAction):
+            return False
+        return self.effect == other.effect
+
+    def __hash__(self) -> int:
+        """Hash by name and effect (pairs with ``__eq__``)."""
+        return hash((self.name, self.effect))
+
     def __lt__(self, other: ComputationalAction) -> bool:
         """Sort always-good actions before optional ones."""
         if self.always_good and not other.always_good:

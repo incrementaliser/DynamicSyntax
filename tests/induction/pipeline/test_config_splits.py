@@ -102,7 +102,7 @@ def test_write_metrics_tsv(tmp_path: Path) -> None:
             exact_match_count=0,
         ),
     )
-    out = tmp_path / "metrics.tsv"
+    out = tmp_path / "eval-scores.tsv"
     write_metrics_tsv(result, out)
     text = out.read_text(encoding="utf-8")
     assert "TopN" in text

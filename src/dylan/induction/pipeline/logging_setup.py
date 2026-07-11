@@ -47,8 +47,9 @@ def configure_induction_logging(
     if config.to_file:
         if run_dir is None:
             raise ValueError("run_dir is required when logging.to_file is true")
-        run_dir.mkdir(parents=True, exist_ok=True)
-        log_path = run_dir / config.file_name
+        logs_dir = run_dir / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_path = logs_dir / config.file_name
         handler_ids.append(
             logger.add(
                 str(log_path),

@@ -20,7 +20,7 @@ class Node:
         self.labels: list[Label] = list(labels) if labels is not None else []
 
     def __iter__(self) -> Iterator[Label]:
-        """Iterate labels (Java ``Node`` is iterable)."""
+        """Iterate labels in insertion order (Java ``Node`` uses ``TreeSet``; see ``Label.compare_to``)."""
         return iter(self.labels)
 
     def add_label(self, label: Label) -> bool:

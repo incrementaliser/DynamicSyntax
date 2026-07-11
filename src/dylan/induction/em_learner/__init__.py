@@ -11,6 +11,7 @@ from dylan.induction.em_learner.corpus_statistics import CorpusStatistics
 from dylan.induction.em_learner.corpus_stats import CorpusStats
 from dylan.dag.dag_induction_state import DAGInductionState
 from dylan.dag.dag_induction_tuple import DAGInductionTuple
+from dylan.dag.dag_tuple_set import DAGTupleSet
 from dylan.induction.em_learner.dag_tuple_set_transformer import DAGTupleSetTransformer
 from dylan.induction.em_learner.evaluation import Evaluation
 from dylan.induction.em_learner.feature import Feature
@@ -54,6 +55,7 @@ __all__ = [
     "CorpusStats",
     "DAGInductionState",
     "DAGInductionTuple",
+    "DAGTupleSet",
     "DAGTupleSetTransformer",
     "Evaluation",
     "Feature",

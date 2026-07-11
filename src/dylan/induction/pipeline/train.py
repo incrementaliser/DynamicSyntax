@@ -13,7 +13,7 @@ from dylan.induction.em_learner.ttr_word_learner import TTRWordLearner
 
 
 def _find_lexicon_file(model_dir: Path, top_n: int) -> Path | None:
-    """Locate a saved lexicon-top-N file under *model_dir*."""
+    """Locate a saved lexicon-top-N file directly under *model_dir* (no nested search)."""
     candidates = [
         model_dir / f"lexicon-top-{top_n}.txt",
         Path(f"{model_dir / 'lexicon'}-top-{top_n}.txt"),
@@ -33,7 +33,11 @@ def prepare_previous_model_seed(
     top_n: int,
     staging_dir: Path,
 ) -> Path:
-    """Copy a prior learnt lexicon into *staging_dir* as ``lexicon-top-{top_n}.txt`` for continue learning."""
+    """Copy a prior learnt lexicon into *staging_dir* as ``lexicon-top-{top_n}.txt`` for continue learning.
+
+    *previous_model* must be the directory that directly contains ``lexicon-top-N.txt``
+    (for new runs, typically ``.../models/``). Nested directories are not searched.
+    """
     src = _find_lexicon_file(previous_model, top_n)
     if src is None:
         raise FileNotFoundError(

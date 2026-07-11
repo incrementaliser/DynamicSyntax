@@ -9,7 +9,7 @@ data:
   val_ratio: 0.15
   # Shuffle seed before splitting
   seed: 47
-  # Write train/test/(val) corpora under run_dir/splits/
+  # Write train/test/(val) corpora under run_dir/data/
   save_splits: true
 
 model:
@@ -17,7 +17,7 @@ model:
   seed_grammar: resources/2025-seed-grammar
   # If true, continue learning from previous_model; if false, learn from scratch
   use_previous_model: false
-  # Path to another run/model dir with lexicon-top-N.txt (used only when use_previous_model is true)
+  # Directory that directly contains lexicon-top-N.txt (typically a prior run's models/); used only when use_previous_model is true
   previous_model: null
   # Number of top lexicon ranks to save / evaluate up to
   top_n: 2
@@ -43,9 +43,9 @@ logging:
   level: INFO
   # Print logs to the CLI (stderr)
   to_cli: true
-  # Write logs to run_dir/<file_name>
+  # Write logs to run_dir/logs/<file_name>
   to_file: true
-  # Log file name under the run directory
+  # Log file name under run_dir/logs/
   file_name: run.log
 
 output:
@@ -53,7 +53,7 @@ output:
   run_dir: out/runs
   # Run folder suffix: run_dir/<timestamp>_<name>/
   name: induction-tvt
-  # Write metrics.tsv
+  # Write eval-scores.tsv
   write_tsv: true
-  # Write report.txt (and print Rich report when to_cli)
+  # Write full_run_report.txt (and print Rich report when to_cli)
   write_report: true

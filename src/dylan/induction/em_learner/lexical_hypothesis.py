@@ -68,17 +68,12 @@ class LexicalHypothesis(Action):
         if effects_or_effect is None:
             effect: Effect | None = None
         elif isinstance(effects_or_effect, Effect):
+            # Java ``LexicalHypothesis(name, Effect, hasSem, backtrack)`` stores the effect as-is.
             effect = effects_or_effect
         else:
+            # Java ``LexicalHypothesis(name, List<Effect>, hasSem)`` always wraps in IfThenElse(IF=[], …).
             effect_list = list(effects_or_effect)
-            if not effect_list:
-                effect = None
-            elif len(effect_list) == 1 and req is None:
-                effect = effect_list[0]
-            elif len(effect_list) == 1:
-                effect = _effects_to_ite(req, effect_list)
-            else:
-                effect = _effects_to_ite(req, effect_list) if req is not None else _CompositeEffect(effect_list)
+            effect = _effects_to_ite(req, effect_list)
         super().__init__(name, effect, backtrack_flag)
         self.has_semantic_content = has_sem
         self.requirement = req
@@ -141,16 +136,34 @@ class LexicalHypothesis(Action):
         return self.name
 
     def __eq__(self, other: object) -> bool:
-        """Java ``equals``: same name + same effect-sequence text."""
+        """Java ``equals``: THEN-clause effects only (name and IF ignored)."""
         if self is other:
             return True
-        if not isinstance(other, LexicalHypothesis):
+        if other is None or type(other) is not LexicalHypothesis:
             return False
-        return self.name == other.name and str(self.effect) == str(other.effect)
+        aite = other.get_effect() if hasattr(other, "get_effect") else other.effect
+        ite = self.get_effect() if hasattr(self, "get_effect") else self.effect
+        then_a = _then_effects(aite)
+        then_b = _then_effects(ite)
+        if len(then_a) != len(then_b):
+            return False
+        return all(x == y for x, y in zip(then_a, then_b, strict=True))
 
     def __hash__(self) -> int:
-        """Java ``hashCode``: ``31*name.hash + effect-sequence.hash``."""
-        return hash((self.name, str(self.effect)))
+        """Java ``hashCode``: ``31*name.hash + THEN-clause.hash``."""
+        then = tuple(_then_effects(self.effect))
+        return hash((self.name, then))
+
+
+def _then_effects(effect: Effect | None) -> list[Effect]:
+    """Extract THEN-clause effects for Java ``LexicalHypothesis.equals``."""
+    if effect is None:
+        return []
+    if isinstance(effect, IfThenElse):
+        return list(effect.then_effects)
+    if isinstance(effect, _CompositeEffect):
+        return list(effect.effects)
+    return [effect]
 
 
 def _effects_to_ite(requirement: Requirement | None, effects: list[Effect]) -> Effect:

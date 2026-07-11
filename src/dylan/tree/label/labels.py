@@ -29,6 +29,32 @@ _METALABEL_PATTERN = re.compile(r"^(?:[V-Z][0-9]*|META)$")
 # last repetition is stored; Java's regex differs.  We slice by the closing bracket.
 
 
+def java_string_hashcode(s: str) -> int:
+    """32-bit Java ``String.hashCode`` (signed)."""
+    h = 0
+    for ch in s:
+        h = (31 * h + ord(ch)) & 0xFFFFFFFF
+    if h >= 0x80000000:
+        h -= 0x100000000
+    return h
+
+
+def _java_int_sub(a: int, b: int) -> int:
+    """32-bit signed Java integer subtraction."""
+    r = (a - b) & 0xFFFFFFFF
+    if r >= 0x80000000:
+        r -= 0x100000000
+    return r
+
+
+def _java_int_add(a: int, b: int) -> int:
+    """32-bit signed Java integer addition."""
+    r = (a + b) & 0xFFFFFFFF
+    if r >= 0x80000000:
+        r -= 0x100000000
+    return r
+
+
 # ── abstract base ────────────────────────────────────────────────────
 
 
@@ -42,6 +68,22 @@ class Label(ABC):
     def instantiate(self) -> Label:
         """Fresh copy with metavariables resolved (Java ``Label.instantiate``)."""
         return self
+
+    def java_hash_code(self) -> int:
+        """Java ``Label.hashCode`` default: hash of ``toString`` (subclasses override)."""
+        return java_string_hashcode(str(self))
+
+    def compare_to(self, other: "Label") -> int:
+        """Java ``Label.compareTo`` (TreeSet order on ``Node``): equals → 0 else hashCode delta."""
+        if self == other or other == self:
+            return 0
+        return _java_int_sub(self.java_hash_code(), other.java_hash_code())
+
+    def __lt__(self, other: object) -> bool:
+        """Order labels like Java ``TreeSet<Label>``."""
+        if not isinstance(other, Label):
+            return NotImplemented
+        return self.compare_to(other) < 0
 
     @abstractmethod
     def __eq__(self, other: object) -> bool:
@@ -77,6 +119,11 @@ class TypeLabel(Label):
 
     def instantiate(self) -> Label:
         return TypeLabel(self.type.instantiate())
+
+    def java_hash_code(self) -> int:
+        """Java ``TypeLabel.hashCode``: ``31 * 1 + type.hashCode()``."""
+        type_h = 0 if self.type is None else java_string_hashcode(str(self.type))
+        return _java_int_add(31, type_h)
 
     def __hash__(self) -> int:
         return hash(self.type)
@@ -279,6 +326,11 @@ class FormulaLabel(Label):
 
     def instantiate(self) -> Label:
         return FormulaLabel(self._formula.instantiate().evaluate())
+
+    def java_hash_code(self) -> int:
+        """Java ``FormulaLabel.hashCode``: ``31 * 1 + formula.hashCode()``."""
+        form_h = 0 if self._formula is None else java_string_hashcode(str(self._formula))
+        return _java_int_add(31, form_h)
 
     def __hash__(self) -> int:
         return hash((FormulaLabel, self._formula))

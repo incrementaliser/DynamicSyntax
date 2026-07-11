@@ -7,16 +7,21 @@ from typing import TYPE_CHECKING
 
 from dylan.action.atomic.if_then_else import IfThenElse
 from dylan.induction.em_learner.lexical_hypothesis import _CompositeEffect
-from dylan.tree.label.labels import Requirement, TypeLabel
-from dylan.type.dstype import DSType
 
 if TYPE_CHECKING:
     from dylan.action.action import Action
     from dylan.action.atomic.effect import Effect
 
+# Java ``IfThenElse.tabSizeForPrinting = 6``: ``IF`` + 4 spaces, ``THEN``/``ELSE`` + 2 spaces.
+_TAB = 6
+_IF_PAD = " " * (_TAB - len("IF"))
+_THEN_PAD = " " * (_TAB - len("THEN"))
+_ELSE_PAD = " " * (_TAB - len("ELSE"))
+_CONT = " " * _TAB
+
 
 def spine_actions_to_lexical_source_lines(spine: Iterable["Action"]) -> list[str]:
-    """Flatten a linear candidate spine like Java ``LexicalAction.flatten`` (``LexicalAction(String, ArrayList<Action>)``) into reloadable source lines."""
+    """Flatten a linear candidate spine like Java ``LexicalAction.flatten`` into reloadable source lines."""
     from dylan.action.action import Action
     from dylan.action.atomic.effect import Effect
     from dylan.action.lexical_action import LexicalAction
@@ -46,7 +51,6 @@ def spine_actions_to_lexical_source_lines(spine: Iterable["Action"]) -> list[str
             blocks.append(block)
     if not blocks:
         return []
-    # Java gold keeps consecutive top-level IF blocks for one word with no blank between them.
     out: list[str] = []
     for block in blocks:
         out.extend(block)
@@ -54,70 +58,60 @@ def spine_actions_to_lexical_source_lines(spine: Iterable["Action"]) -> list[str
 
 
 def effect_to_lexical_lines(effect: "Effect | None") -> list[str]:
-    """Turn an induction *effect* into ``IF``/``THEN``/``ELSE`` source lines parseable by :class:`~dylan.action.atomic.effect_factory.EffectFactory`."""
+    """Turn an induction *effect* into ``IF``/``THEN``/``ELSE`` source lines (Java ``IfThenElse.toString`` layout)."""
     if effect is None:
         return _minimal_abort_block()
     if isinstance(effect, IfThenElse):
-        return _if_then_else_to_lines(effect, base_indent="", top_level=True)
+        return _if_then_else_to_lines(effect, embedding=0)
     if isinstance(effect, _CompositeEffect):
         return _composite_effect_to_lines(effect)
     spec = str(effect).strip()
     if not spec:
         return _minimal_abort_block()
-    guard = str(Requirement(TypeLabel(DSType.t)))
-    return [f"IF      {guard}", f"THEN    {spec}", "ELSE    abort"]
+    return [f"IF{_IF_PAD}", f"THEN{_THEN_PAD}{spec}", f"ELSE{_ELSE_PAD}abort"]
 
 
 def _minimal_abort_block() -> list[str]:
     """Return a trivial failing block when there is no effect to serialize."""
-    guard = str(Requirement(TypeLabel(DSType.t)))
-    return [f"IF      {guard}", "THEN    abort", "ELSE    abort"]
+    return [f"IF{_IF_PAD}", f"THEN{_THEN_PAD}abort", f"ELSE{_ELSE_PAD}abort"]
 
 
 def _composite_effect_to_lines(composite: _CompositeEffect) -> list[str]:
     """Wrap a flat list of atomic effects as an IF/THEN/ELSE block (induced ``put`` sequences)."""
-    guard = str(Requirement(TypeLabel(DSType.t)))
     specs = [str(e).strip() for e in composite.effects if str(e).strip()]
     if not specs:
         return _minimal_abort_block()
-    lines = [f"IF      {guard}", f"THEN    {specs[0]}"]
-    lines.extend(f"        {s}" for s in specs[1:])
-    lines.append("ELSE    abort")
+    lines = [f"IF{_IF_PAD}", f"THEN{_THEN_PAD}{specs[0]}"]
+    lines.extend(f"{_CONT}{s}" for s in specs[1:])
+    lines.append(f"ELSE{_ELSE_PAD}abort")
     return lines
 
 
-def _if_then_else_to_lines(
-    ite: IfThenElse,
-    *,
-    base_indent: str,
-    top_level: bool,
-) -> list[str]:
-    """Serialize *ite* with Java-like ``IF``/``THEN``/``ELSE`` layout and optional *base_indent*."""
+def _if_then_else_to_lines(ite: IfThenElse, *, embedding: int) -> list[str]:
+    """Serialize *ite* with Java ``tabSizeForPrinting=6`` layout."""
+    tabs = _CONT * embedding
     out: list[str] = []
-    kw_if = "IF      " if top_level else "if      "
     if_labels = list(ite.if_labels)
     if not if_labels:
-        guard = str(Requirement(TypeLabel(DSType.t)))
-        out.append(f"{base_indent}{kw_if}{guard}")
+        out.append(f"{tabs}IF{_IF_PAD}")
     else:
         for i, lab in enumerate(if_labels):
             s = str(lab)
             if i == 0:
-                out.append(f"{base_indent}{kw_if}{s}")
+                out.append(f"{tabs}IF{_IF_PAD}{s}")
             else:
-                out.append(f"{base_indent}        {s}")
+                out.append(f"{tabs}{_CONT}{s}")
 
-    inner_pad = base_indent + "        "
     first_then = True
     for eff in ite.then_effects:
         if isinstance(eff, IfThenElse):
-            sub = _if_then_else_to_lines(eff, base_indent=inner_pad, top_level=False)
+            sub = _if_then_else_to_lines(eff, embedding=embedding + 1)
             if not sub:
                 continue
             if first_then:
                 first_ln = sub[0]
-                remainder = first_ln[len(inner_pad) :] if first_ln.startswith(inner_pad) else first_ln.lstrip()
-                out.append(f"{base_indent}THEN    {remainder}")
+                payload = first_ln[len(tabs) + _TAB :] if first_ln.startswith(tabs + _CONT) else first_ln.lstrip()
+                out.append(f"{tabs}THEN{_THEN_PAD}{payload}")
                 out.extend(sub[1:])
                 first_then = False
             else:
@@ -125,25 +119,25 @@ def _if_then_else_to_lines(
         else:
             spec = str(eff).strip()
             if first_then:
-                out.append(f"{base_indent}THEN    {spec}")
+                out.append(f"{tabs}THEN{_THEN_PAD}{spec}")
                 first_then = False
             else:
-                out.append(f"{base_indent}        {spec}")
+                out.append(f"{tabs}{_CONT}{spec}")
 
     if not ite.else_effects:
-        out.append(f"{base_indent}ELSE    abort")
+        out.append(f"{tabs}ELSE{_ELSE_PAD}abort")
         return out
 
     first_else = True
     for eff in ite.else_effects:
         if isinstance(eff, IfThenElse):
-            sub = _if_then_else_to_lines(eff, base_indent=inner_pad, top_level=False)
+            sub = _if_then_else_to_lines(eff, embedding=embedding + 1)
             if not sub:
                 continue
             if first_else:
                 first_ln = sub[0]
-                remainder = first_ln[len(inner_pad) :] if first_ln.startswith(inner_pad) else first_ln.lstrip()
-                out.append(f"{base_indent}ELSE    {remainder}")
+                payload = first_ln[len(tabs) + _TAB :] if first_ln.startswith(tabs + _CONT) else first_ln.lstrip()
+                out.append(f"{tabs}ELSE{_ELSE_PAD}{payload}")
                 out.extend(sub[1:])
                 first_else = False
             else:
@@ -151,8 +145,8 @@ def _if_then_else_to_lines(
         else:
             spec = str(eff).strip()
             if first_else:
-                out.append(f"{base_indent}ELSE    {spec}")
+                out.append(f"{tabs}ELSE{_ELSE_PAD}{spec}")
                 first_else = False
             else:
-                out.append(f"{base_indent}        {spec}")
+                out.append(f"{tabs}{_CONT}{spec}")
     return out

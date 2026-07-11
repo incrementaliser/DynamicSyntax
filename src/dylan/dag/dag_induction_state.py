@@ -223,6 +223,8 @@ class DAGInductionState(WordLevelContextDAG):
             return 1
         elif isinstance(o2, CompletionEdge):
             return -1
+        # Name preferences: keep until incompleteness measures match Java TreeMap walks
+        # on all gold cases without them (open-a-door set parity).
         n1, n2 = _edge_action_name(o1), _edge_action_name(o2)
         if n1 == "completion" and "hyp-build-cn-e" in n2:
             return -1
