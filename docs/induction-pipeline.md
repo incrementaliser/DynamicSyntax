@@ -36,13 +36,13 @@ Example configs live under [`configs/induction/`](../configs/induction/):
 - `split` — `holdout` | `train_val_test` | `kfold` | `pre_split`
 - `test_ratio` — fraction held out as test (default `0.15`); train is the remainder
 - `val_ratio` — validation fraction for `train_val_test` (default `0.0`)
-- `folds`, `seed`, `save_splits`
+- `folds`, `seed`, `save_splits` — when `save_splits` is true, corpora are written under `data/` in the run folder
 
 ### `model`
 
 - `seed_grammar` — directory with `computational-actions.txt` (read in place; not copied)
 - `use_previous_model` — if `true`, continue learning from `previous_model`
-- `previous_model` — path to another run/model dir with `lexicon-top-N.txt` (ignored unless `use_previous_model`)
+- `previous_model` — directory that **directly** contains `lexicon-top-N.txt` (for new runs: `out/runs/<run>/models/`). Nested folders are not searched. Ignored unless `use_previous_model`
 - `top_n` — lexicon ranks to save / evaluate up to
 
 ### `train`
@@ -59,7 +59,7 @@ Example configs live under [`configs/induction/`](../configs/induction/):
 ### `logging`
 
 - `level` — `DEBUG` | `INFO` | `WARNING` | `ERROR` (loguru + stdlib intercept)
-- `to_cli` / `to_file` / `file_name`
+- `to_cli` / `to_file` / `file_name` — with `to_file`, the log is written to `logs/<file_name>` (default `logs/run.log`)
 
 ### `output`
 
@@ -72,16 +72,16 @@ Each run creates a directory like `out/runs/20260710-161500_induction-holdout/` 
 
 | Artifact | Contents |
 |----------|----------|
-| `config.yaml` | Resolved config (after `--set`) |
-| `lexicon-top-N.txt` | Learnt lexicons |
-| `splits/` | Saved train/test/(val) corpora (if enabled) |
-| `metrics.tsv` | Tab-separated P/R/F1/coverage/EM |
-| `report.txt` | Score tables, timing (`HH-MM-SS`), config, metadata |
-| `run.log` | File log (if `logging.to_file`) |
+| `run_config.yaml` | Resolved config (after `--set`) |
+| `models/lexicon-top-N.txt` | Learnt lexicons |
+| `data/` | Saved train/test/(val) corpora (if `save_splits`) |
+| `eval-scores.tsv` | Tab-separated P/R/F1/coverage/EM |
+| `full_run_report.txt` | Cov/EM then P/R/F1 score tables, timing (`HH-MM-SS`), config, metadata |
+| `logs/run.log` | File log (if `logging.to_file`) |
 
-For `kfold`, each fold is under `fold_0/`, … with its own `metrics.tsv` and `report.txt`; the top-level files average fold scores.
+For `kfold`, each fold is under `fold_0/`, … with the same relative layout (`data/`, `models/`, `eval-scores.tsv`, `full_run_report.txt`); the top-level `eval-scores.tsv` and `full_run_report.txt` average fold scores.
 
-The console prints a Rich report (timing, scores, config, metadata). Use `--report-tui` for an interactive Textual view (`q` to quit).
+While running, the console prints brief stage lines (`[Run]`, `[Data]`, `[Train]`, `[Eval]`). The `[Run]` line reports whether continual learning is on (`continual_learning=true|false` and `previous_model=...` when enabled). After the run, a Rich report is printed when `logging.to_cli` is true (config, metadata, timing, then scores last). The report file puts scores first, then timing. Use `--report-tui` for an interactive Textual view (`q` to quit).
 
 ## Library API
 
