@@ -48,14 +48,12 @@ class TTRLabel(Variable):
         return f"TTRLabel(label={self.name!r})"
 
     def subsumes_basic(self, other: object) -> bool:
-        """Label basic subsumption is equality (Java ``TTRLabel`` via ``Variable``)."""
-        from dylan.formula.formula import Formula
+        """Label basic subsumption is name equality (Java ``Variable.subsumesBasic``).
 
-        if isinstance(other, TTRLabel):
-            return self.label == other.label
-        if isinstance(other, Formula):
-            return self.subsumes(other)
-        return False
+        Must not call :meth:`subsumes` here — ``Variable.subsumes`` already
+        delegates to ``subsumes_basic``, and a back-call recurses forever.
+        """
+        return isinstance(other, Variable) and self.name == other.name
 
     def subsumes_mapped(self, other: object, map_: dict) -> bool:
         """Map record labels across freshened names (Java ``Variable.subsumesMapped``)."""

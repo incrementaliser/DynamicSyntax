@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +12,8 @@ from dylan.formula.ttr_formula import TTRFormula
 from dylan.formula.ttr_path import TTRPath
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.formula.variable import Variable
+
+logger = logging.getLogger(__name__)
 
 _ASYM = Predicate("++")
 ASYM_MERGE_FUNCTOR = _ASYM
@@ -116,6 +119,65 @@ class TTRInfixExpression(TTRFormula):
             other.arg2, map_
         )
 
+    def get_types(self) -> list[TTRRecordType]:
+        """Collect record-type cores under this infix (Java ``TTRInfixExpression.getTypes``)."""
+        result: list[TTRRecordType] = []
+        a1, a2 = self.arg1, self.arg2
+        if isinstance(a1, Variable) and isinstance(a2, TTRFormula) and hasattr(a2, "get_types"):
+            result.extend(a2.get_types())
+        elif isinstance(a2, Variable) and isinstance(a1, TTRFormula) and hasattr(a1, "get_types"):
+            result.extend(a1.get_types())
+        elif isinstance(a1, TTRFormula) and isinstance(a2, TTRFormula):
+            if hasattr(a1, "get_types"):
+                result.extend(a1.get_types())
+            if hasattr(a2, "get_types"):
+                result.extend(a2.get_types())
+        return result
+
+    def get_abstractions_basic(self, basic: Any, new_var_suffix: int = 1) -> list[Any]:
+        """Peel the single ``++`` core then rewrap (Java ``TTRInfixExpression.getAbstractions``).
+
+        Assumes a single record-type core (``Variable ++ RT``). Each core
+        abstraction mutates a clone of this infix and wraps ``R{suffix} ++ infix``.
+        """
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+
+        types = self.get_types()
+        if len(types) > 1:
+            raise NotImplementedError(
+                "get_abstractions_basic on infix with more than one record-type core",
+            )
+        if not types:
+            return []
+        core = types[0]
+        core_abstractions = core.get_abstractions_basic(basic, new_var_suffix)
+        result: list[Any] = []
+        for argument, abs_lambda in core_abstractions:
+            if not isinstance(abs_lambda, TTRLambdaAbstract):
+                continue
+            infix = self.clone()
+            assert isinstance(infix, TTRInfixExpression)
+            new_cores = infix.get_types()
+            if not new_cores:
+                continue
+            new_core = new_cores[0]
+            abs_core = abs_lambda.get_core()
+            if isinstance(abs_core, TTRRecordType):
+                new_core.replace_content(abs_core)
+            elif hasattr(abs_core, "get_types"):
+                abs_types = abs_core.get_types()
+                if not abs_types:
+                    continue
+                new_core.replace_content(abs_types[0])
+            else:
+                logger.warning("infix abstraction: unexpected core type %s", type(abs_core))
+                continue
+            binder = Variable(f"R{new_var_suffix}")
+            core_final = TTRInfixExpression(_ASYM, binder, infix)
+            lambda_abs = TTRLambdaAbstract(binder, core_final)
+            result.append((argument, lambda_abs))
+        return result
+
     def __str__(self) -> str:
         """Render parenthesised infix form."""
         return f"({self.arg1} {self.functor} {self.arg2})"
@@ -147,6 +209,7 @@ class TTRInfixExpression(TTRFormula):
 TTRInfixExpression.getArg1 = TTRInfixExpression.get_arg1  # type: ignore[attr-defined]
 TTRInfixExpression.getArg2 = TTRInfixExpression.get_arg2  # type: ignore[attr-defined]
 TTRInfixExpression.subsumesMapped = TTRInfixExpression.subsumes_mapped  # type: ignore[attr-defined]
+TTRInfixExpression.getTypes = TTRInfixExpression.get_types  # type: ignore[attr-defined]
 
 
 def split_top_level_merge(s: str) -> tuple[str, str] | None:

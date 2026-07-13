@@ -84,6 +84,9 @@ class TTRHypothesiser(Hypothesiser):
             else [Word(str(w)) if not isinstance(w, Word) else w for w in sentence]
         )
         utt = [UtteredWord(w.word()) for w in self.all_words]
+        # CHILDES (and some converted) RTs omit top-level head; lattice needs one.
+        if target.ensure_induction_head() is None:
+            logger.warning("No deemable head for target RT; lattice may be empty: %s", target)
         self.state = DAGInductionState(utt, gold_target=target)
         self.target = target
         self.target_type = target
@@ -112,11 +115,11 @@ class TTRHypothesiser(Hypothesiser):
             head_f = whole_inc.get_head_field()
             filtered = head_f is not None and head_f.ds_type == DSType.es
             try:
-                trees = whole_inc.get_maximal_filtered_abstractions(
+                trees = whole_inc.get_induction_abstractions(
                     self.state.get_current_tuple().get_tree().get_pointer(), DSType.t, filtered,
                 )
             except Exception as exc:  # noqa: BLE001
-                logger.debug("get_maximal_filtered_abstractions raised %s", exc)
+                logger.debug("get_induction_abstractions raised %s", exc)
                 continue
             for tree in trees:
                 tree_hyp = TreeHypothesis(list(inc_list), tree)
@@ -152,7 +155,7 @@ class TTRHypothesiser(Hypothesiser):
                 whole_inc.remove_field_by_label(HEAD) if hasattr(whole_inc, "remove_field_by_label") else None
                 head_increment = whole_inc.substitute(inc_head_label, HEAD) if hasattr(whole_inc, "substitute") else whole_inc
             try:
-                trees = head_increment.get_maximal_filtered_abstractions(
+                trees = head_increment.get_induction_abstractions(
                     self.state.get_current_tuple().get_tree().get_pointer().up(), DSType.t, False,
                 )
             except Exception:  # noqa: BLE001
@@ -185,7 +188,7 @@ class TTRHypothesiser(Hypothesiser):
         for inc in inc_set:
             whole_inc = self.flatten(inc)
             try:
-                non_head_trees = whole_inc.get_maximal_filtered_abstractions(
+                non_head_trees = whole_inc.get_induction_abstractions(
                     cur_tree.get_pointer(), DSType.t, False,
                 )
             except Exception:  # noqa: BLE001
@@ -199,7 +202,7 @@ class TTRHypothesiser(Hypothesiser):
                 wcopy.remove_head() if hasattr(wcopy, "remove_head") else None
                 head_increment = wcopy.substitute(inc_head_label, HEAD) if hasattr(wcopy, "substitute") else wcopy
             try:
-                trees = head_increment.get_maximal_filtered_abstractions(
+                trees = head_increment.get_induction_abstractions(
                     cur_tree.get_pointer(), DSType.t, False,
                 )
             except Exception:  # noqa: BLE001
@@ -249,7 +252,7 @@ class TTRHypothesiser(Hypothesiser):
         for inc in inc_set:
             whole_inc = self.flatten(inc)
             try:
-                trees = whole_inc.get_maximal_filtered_abstractions(
+                trees = whole_inc.get_induction_abstractions(
                     cur.get_tree().get_pointer().up(), DSType.cn, False,
                 )
             except Exception:  # noqa: BLE001

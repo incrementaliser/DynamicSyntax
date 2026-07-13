@@ -1,0 +1,51 @@
+# CHILDES induction: single corpus file split via holdout.
+#
+# Run from repo root:
+#   uv run dsttr-induction --config configs/induction/childes-holdout.yaml
+#
+# Override without editing YAML:
+#   uv run dsttr-induction -c configs/induction/childes-holdout.yaml --set data.test_ratio=0.15
+
+data:
+  # Induction corpus profile: babyds | childes (TreeFilter / typeMap / lattice templates)
+  profile: childes
+  # Single CHILDES file; holdout shuffles then splits train / test by test_ratio
+  # Headed Java CorpusConverter gold (head==eN); keep ensure_induction_head as safety net
+  corpus: data/CHILDES/CHILDESconversion400Final.txt
+  # holdout = one file → train + test (use pre_split only when you already have separate files)
+  split: holdout
+  # Fraction held out as test; train gets the remainder (must be in (0, 1))
+  test_ratio: 0.10
+  # Shuffle seed before splitting
+  seed: 42
+  # Write train/test corpora under run_dir/data/
+  save_splits: true
+
+model:
+  # CHILDES induction seed (Java 2023-english-ttr-induction-seed)
+  seed_grammar: resources/2023-english-ttr-induction-seed
+  use_previous_model: false
+  previous_model: null
+  top_n: 3
+
+train:
+  show_progress: true
+  force_train: false
+  reuse_existing_model: false
+
+eval:
+  evaluate_on: [train, test]
+  top_n_start: 1
+  top_n_end: null
+
+logging:
+  level: INFO
+  to_cli: false
+  to_file: true
+  file_name: run.log
+
+output:
+  run_dir: out/runs
+  name: induction-childes
+  write_tsv: true
+  write_report: true

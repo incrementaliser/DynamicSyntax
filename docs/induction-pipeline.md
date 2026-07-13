@@ -26,6 +26,17 @@ Example configs live under [`configs/induction/`](../configs/induction/):
 | `train-val-test.yaml` | Train / val / test from ratios |
 | `kfold.yaml` | Disjoint k-fold CV |
 | `presplit.yaml` | Explicit train/val/test files |
+| `childes-holdout.yaml` | CHILDES profile; holdout split on `data/CHILDES/data.txt` |
+
+### CHILDES (single file → train / test)
+
+CHILDES ships as one `Sent` / `Sem` corpus. Use **holdout** (not `pre_split`) so the pipeline shuffles and splits by `test_ratio`:
+
+```bash
+uv run dsttr-induction --config configs/induction/childes-holdout.yaml
+```
+
+This sets `data.profile: childes` (subj/obj maps, 2023 induction seed) and writes train/test slices under the run folder when `save_splits` is true.
 
 ## Config sections
 
@@ -34,6 +45,7 @@ Example configs live under [`configs/induction/`](../configs/induction/):
 - `corpus` — single file to split (`holdout`, `train_val_test`, `kfold`)
 - `train` / `val` / `test` — paths for `split: pre_split`
 - `split` — `holdout` | `train_val_test` | `kfold` | `pre_split`
+- `profile` — `babyds` | `childes` (argument-position maps and abstraction templates; default `babyds`)
 - `test_ratio` — fraction held out as test (default `0.15`); train is the remainder
 - `val_ratio` — validation fraction for `train_val_test` (default `0.0`)
 - `folds`, `seed`, `save_splits` — when `save_splits` is true, corpora are written under `data/` in the run folder

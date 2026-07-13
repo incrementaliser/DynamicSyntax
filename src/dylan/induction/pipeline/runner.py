@@ -8,6 +8,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from dylan.induction.corpus_profile import set_active_profile
 from dylan.induction.em_learner.record_type_corpus import RecordTypeCorpus
 from dylan.induction.pipeline.config import InductionConfig, dump_config
 from dylan.induction.pipeline.evaluate import evaluate_model_dir
@@ -180,6 +181,7 @@ def _run_one(
         show_progress=config.train.show_progress,
         force_train=config.train.force_train,
         reuse_existing_model=config.train.reuse_existing_model,
+        corpus_profile=config.data.profile,
     )
     reused = train_s == 0.0 and config.train.reuse_existing_model
     _print_train_stage(lexicon_prefix, train_s, reused=reused)
@@ -210,10 +212,12 @@ class TrainEvalRunner:
 
     def run(self, *, report_tui: bool = False) -> EvalResult:
         """Execute the configured pipeline and return metrics."""
+        set_active_profile(self.config.data.profile)
         run_dir = _make_run_dir(self.config)
         configure_induction_logging(self.config.logging, run_dir=run_dir)
         dump_config(self.config, run_dir / "run_config.yaml")
         logger.info("Run directory: {}", run_dir)
+        logger.info("Induction corpus profile: {}", self.config.data.profile)
         _print_run_stage(self.config, run_dir)
 
         mode = self.config.data.split

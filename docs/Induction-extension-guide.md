@@ -2,7 +2,7 @@
 
 Don't forget to check these:
 
-- The two `map`s in the lattice code
+- The two `map`s in `tree`
   - These have to [somewhat?] match the conditions at the beginning of `getAbstractions()` in `TTRRecordType`.
 - The `subj/obj/ind_obj` restrictions in lattice code.
 - `getAbstractions()` x2 (one in `TTRFormula` (tree) and one in `TTRRecordType` (rt)), and the conditions at their beginning.

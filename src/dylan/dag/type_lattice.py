@@ -147,15 +147,12 @@ class TypeLattice:
     def init_templates(self) -> None:
         """Populate the static priority templates (Java ``initTemplates``)."""
         from dylan.formula.ttr_record_type import TTRRecordType
+        from dylan.induction.corpus_profile import get_active_profile
 
         if TypeLattice.priority_templates:
             self.init_priority_fields()
             return
-        for spec in (
-            "[e1:es|e2:es|x1:e|x2:e|p1==subj(e1,x1):t|p2==obj(e1,x2):t|p3==ind_obj(e1, e2):t]",
-            "[e1:es|x1:e|x2:e|p1==subj(e1,x1):t|p2==obj(e1,x2):t]",
-            "[e1:es|x1:e|p1==subj(e1,x1):t]",
-        ):
+        for spec in get_active_profile().priority_template_specs:
             tpl = TTRRecordType.parse(spec)
             if tpl is not None:
                 TypeLattice.priority_templates.append(tpl)
@@ -164,10 +161,11 @@ class TypeLattice:
     def init_priority_fields(self) -> None:
         """Initialise priority fields used to bias subtype population (Java ``initPriorityFields``)."""
         from dylan.formula.ttr_field import TTRField
+        from dylan.induction.corpus_profile import get_active_profile
 
         if self.priority_fields:
             return
-        for spec in ("p==subj(e,x):t", "p==obj(e,x):t", "p==ind_obj(e1,e2):t"):
+        for spec in get_active_profile().priority_field_specs:
             tf = TTRField.parse(spec)
             if tf is not None:
                 self.priority_fields.append(tf)

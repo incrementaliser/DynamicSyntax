@@ -39,12 +39,18 @@ class TTRFreshPut(Effect):
         return cls(OpaqueTTRSpec(inner))
 
     def exec_tuple_context(self, tree: Tree, context: Any) -> Tree | None:
-        """Execute on *tree* with freshening from gold or the parse tree (Java ``TTRFreshPut``)."""
+        """Execute on *tree* freshening from *tree*'s pools (Java ``execTupleContext``).
+
+        Java ``TTRFreshPut.execTupleContext`` calls ``freshenVars(tree)`` on the
+        tree being modified (not the parent context), so successive hyp-sem
+        puts on a cloned search tree allocate distinct entity labels.
+        """
+        _ = context
         node = tree.pointed_node
         if node.get_formula_label() is not None:
             logger.warning("ttrput: node already has Fo; leaving tree")
             return tree
-        fresh = self.ttr.freshen_vars(context if context is not None else tree)
+        fresh = self.ttr.freshen_vars(tree)
         node.add_label(FormulaLabel(fresh.instantiate()))
         return tree
 

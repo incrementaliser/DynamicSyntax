@@ -1,8 +1,8 @@
 """Tree filter used by TTR abstraction induction (Java ``qmul.ds.learn.TreeFilter``).
 
 Filters generated abstraction trees against a target :class:`TTRRecordType`
-using ``subj``/``obj``/``ind_obj`` argument-position templates.  The Java
-class hard-codes node addresses for these positions; the port preserves them.
+using ``subj``/``obj``/``ind_obj`` argument-position templates.  Node-address
+mappings come from the active :class:`~dylan.induction.corpus_profile.InductionCorpusProfile`.
 """
 
 from __future__ import annotations
@@ -49,14 +49,17 @@ class TreeFilter:
 
     @classmethod
     def init(cls) -> None:
-        """Populate the static node->field template map (Java ``init``)."""
+        """Populate the static node->field template map from the active corpus profile."""
         if cls._node_field_map:
             return
+        from dylan.induction.corpus_profile import get_active_profile
+
+        profile = get_active_profile()
         try:
-            cls._node_field_map[NodeAddress("00")] = TTRField.parse("p==subj(e,x):t")
-            cls._node_field_map[NodeAddress("010")] = TTRField.parse("p==obj(e,x):t")
-            cls._node_field_map[NodeAddress("0110")] = TTRField.parse("p==ind_obj(e1,e2):t")
-            cls._node_field_map[NodeAddress("00")] = TTRField.parse("p==obj(e,x):t")
+            for address, spec in profile.tree_filter_map.items():
+                field = TTRField.parse(spec)
+                if field is not None:
+                    cls._node_field_map[NodeAddress(address)] = field
         except Exception:  # noqa: BLE001
             pass
 
@@ -109,12 +112,13 @@ class TreeFilter:
         for f in minimal.get_fields() if hasattr(minimal, "get_fields") else []:
             if hasattr(f, "subsumes") and f.subsumes(template):
                 paf = f.get_type() if hasattr(f, "get_type") else None
-                if isinstance(paf, PredicateArgumentFormula) and hasattr(paf, "get_arguments"):
-                    args = paf.get_arguments()
-                    if len(args) >= 2 and isinstance(args[1], Variable):
-                        from dylan.formula.ttr_label import ttr_label_from_variable
+                if not isinstance(paf, PredicateArgumentFormula):
+                    continue
+                args = getattr(paf, "arguments", None) or ()
+                if len(args) >= 2 and isinstance(args[1], Variable):
+                    from dylan.formula.ttr_label import ttr_label_from_variable
 
-                        return ttr_label_from_variable(args[1])
+                    return ttr_label_from_variable(args[1])
         return None
 
 
