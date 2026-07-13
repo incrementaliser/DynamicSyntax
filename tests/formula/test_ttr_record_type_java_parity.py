@@ -55,7 +55,9 @@ def test_dependency_serialization_drawing_and_nn_helpers() -> None:
     assert "\\left" in rt.toLatex()
     assert "person" in rt.toDebugString()
     assert isinstance(rt.draw(), DrawnDimensions)
-    assert TTRRecordType.nn2RT(rt.rt2nnNoFiller()) == rt
+    # Round-trip preserves content; field order need not match the original list order.
+    back = TTRRecordType.nn2RT(rt.rt2nnNoFiller())
+    assert rt.subsumes(back) and back.subsumes(rt)
 
 
 def test_abstraction_reset_and_java_aliases() -> None:

@@ -1,6 +1,6 @@
 data:
   # Single corpus file to shuffle and split (holdout / train_val_test / kfold)
-  corpus: data/induction-test/class1.txt
+  corpus: data/BabyDS/class1.txt
   # Split mode: holdout | train_val_test | kfold | pre_split
   split: holdout
   # Fraction held out as test; train is the remainder (must be in (0, 1))

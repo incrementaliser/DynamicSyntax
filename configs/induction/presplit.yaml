@@ -2,11 +2,9 @@ data:
   # Split mode: holdout | train_val_test | kfold | pre_split
   split: pre_split
   # Explicit train corpus path (pre_split)
-  train: data/induction-test/train.txt
+  train: data/BabyDS/class1_train_100.txt
   # Explicit test corpus path (pre_split)
-  test: data/induction-test/test.txt
-  # Explicit validation corpus path (optional for pre_split)
-  val: data/induction-test/dev.txt
+  test: data/BabyDS/class1_test_12.txt
   # Write train/test/(val) corpora under run_dir/data/
   save_splits: true
 

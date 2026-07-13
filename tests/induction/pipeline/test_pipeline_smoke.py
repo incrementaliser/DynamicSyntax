@@ -148,11 +148,11 @@ def test_reuse_existing_model_skips_train(tmp_path: Path) -> None:
 
 @pytest.mark.timeout(120)
 def test_pipeline_holdout_smoke(tmp_path: Path) -> None:
-    """End-to-end holdout on the tiny induction-test corpus."""
-    corpus = Path("data/induction-test/train.txt")
+    """End-to-end holdout on a small BabyDS train slice."""
+    corpus = Path("data/BabyDS/class1_train_100.txt")
     grammar = Path("resources/2025-seed-grammar")
     if not corpus.is_file() or not (grammar / "computational-actions.txt").is_file():
-        pytest.skip("induction fixtures missing")
+        pytest.skip("BabyDS / seed grammar fixtures missing")
 
     from dylan.induction.pipeline.runner import TrainEvalRunner
 

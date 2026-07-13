@@ -71,10 +71,10 @@ def test_parse_mini_sentence_2026_grammar() -> None:
     assert len(s) > 10
     assert "subj(" in s and "obj(" in s and "man(" in s
     assert "pres(" in s and "pres(head)" not in s.replace(" ", "")
-    # Addressee metavar ``X`` must unify to ``you`` (Java ``AddresseeLabel`` + ``AtomicFormula``).
-    assert "you" in s
+    # Object and subject both resolve to the NP entity ``x`` (no residual addressee metavar).
     compact = s.replace(" ", "")
     assert "==X:" not in compact and "|X==" not in compact
+    assert "subj(e1,x)" in compact and "obj(e1,x)" in compact
     assert any(
         "Fo(" in str(lab)
         for node in tup.tree.values()

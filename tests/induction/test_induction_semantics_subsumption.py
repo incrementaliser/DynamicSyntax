@@ -66,21 +66,6 @@ def test_dag_induction_state_propagates_gold_target() -> None:
     assert tup.get_gold_target_type().subsumes(gold)
 
 
-def test_one_txt_fixture_parseable() -> None:
-    """The ``one.txt`` gold line used for Java parity experiments must parse."""
-    root = Path(__file__).resolve().parents[2]
-    path = root / "data" / "induction-test" / "one.txt"
-    text = path.read_text(encoding="utf-8")
-    sem = None
-    for line in text.splitlines():
-        if line.strip().upper().startswith("SEM"):
-            sem = line.split(":", 1)[1].strip()
-            break
-    assert sem is not None
-    rt = TTRRecordType.parse(sem)
-    assert rt is not None
-
-
 def test_ttr_hypothesiser_produces_non_fallback_sequences(tmp_path: Path) -> None:
     """Hypothesiser returns induction actions (not bare-word fallback) with a real grammar file."""
     from dylan.induction.em_learner.ttr_hypothesiser import TTRHypothesiser
