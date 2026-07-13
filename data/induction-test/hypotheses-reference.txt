@@ -1,7 +1,0 @@
-intro-pred|anticipation0|hyp-build-cn-e-1 | hyp-sem(R1^[r0 : R1|x1==epsilon(r0.head, r0) : e|head==x1 : e]) | thinning|completion|anticipation0|hyp-sem([x0 : e|head==x0 : e|p0==obj_door(x0) : t]) | thinning|completion|elimination|thinning|completion|anticipation1|hyp-sem(R1^(R1 ++ [e0==state_opened : es|head==e0 : es|p1==obj(e0, R1.head) : t])) | thinning|
-
-intro-pred|anticipation0|hyp-build-cn-e-0 | hyp-sem([x0 : e|head==x0 : e|p0==obj_door(x0) : t]) | thinning|completion|anticipation1|hyp-sem(R1^[r0 : R1|x1==epsilon(r0.head, r0) : e|head==x1 : e]) | thinning|completion|elimination|thinning|completion|anticipation1|hyp-sem(R1^(R1 ++ [e0==state_opened : es|head==e0 : es|p1==obj(e0, R1.head) : t])) | thinning|
-
-intro-pred|anticipation1|hyp-sem(R1^(R1 ++ [e0==state_opened : es|head==e0 : es|p1==obj(e0, R1.head) : t])) | thinning|completion|anticipation0|hyp-build-cn-e-0 | hyp-sem([x0 : e|head==x0 : e|p0==obj_door(x0) : t]) | thinning|completion|anticipation1|hyp-sem(R1^[r0 : R1|x1==epsilon(r0.head, r0) : e|head==x1 : e]) | thinning|
-
-intro-pred|anticipation1|hyp-sem(R1^(R1 ++ [e0==state_opened : es|head==e0 : es|p1==obj(e0, R1.head) : t])) | thinning|completion|anticipation0|hyp-build-cn-e-1 | hyp-sem(R1^[r0 : R1|x1==epsilon(r0.head, r0) : e|head==x1 : e]) | thinning|completion|anticipation0|hyp-sem([x0 : e|head==x0 : e|p0==obj_door(x0) : t]) | thinning|

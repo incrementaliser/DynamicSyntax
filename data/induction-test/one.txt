@@ -1,2 +1,0 @@
-GoldSent : open a door
-Sem : [e0==state_opened : es|r0 : [x0 : e|p0==obj_door(x0) : t|head==x0 : e]|head==e0 : es|x1==epsilon(r0.head, r0) : e|p1==obj(e0, x1) : t]
