@@ -439,28 +439,26 @@ class TTRHypothesiser(Hypothesiser):
                 continue
             for inst, res_tree in results:
                 nm = inst.get_name() if hasattr(inst, "get_name") else str(inst)
+                # Java: adjunction skips subsumption; everything else requires maxSem.subsumes(target)
                 if nm.startswith(self.HYP_ADJUNCTION_PREFIX):
                     if nm.startswith(self.HYP_ADJ_T_PREFIX) and self.hyp_adj_t is not None:
                         self.state.add_child(res_tree, self.hyp_adj_t, None)
                     else:
                         self.state.add_child(res_tree, inst, None)
                     continue
+                # Java Tree.getMaximalSemantics() — no context argument
+                max_sem = res_tree.get_maximal_semantics()
+                if not max_sem.subsumes(self.target_type):
+                    logger.debug("failed subsumption for %s", nm)
+                    continue
                 if nm.startswith(self.HYP_SEM_PREFIX):
                     stack = self.state.word_stack
                     if not stack:
                         logger.debug("word stack empty; skip hyp-sem %s", inst)
                         continue
-                    if "R1^[" in nm:
-                        word_arg = None
-                    elif "R1^(" in nm or "obj_door" in nm:
-                        word_arg = stack[-1]
-                    else:
-                        word_arg = stack[-1]
-                    self.state.add_child(res_tree, inst, word_arg)
-                    continue
-                if not self._result_tree_subsumes_target(res_tree, cur):
-                    continue
-                self.state.add_child(res_tree, inst, None)
+                    self.state.add_child(res_tree, inst, stack[-1])
+                else:
+                    self.state.add_child(res_tree, inst, None)
 
     def _local_lexical_hyps_at(self, target: Tree, fixed_on_target: Any) -> set[LexicalHypothesis]:
         """Generate hyp-sem/copy hyps at *fixed_on_target* with freshened Fo puts (Java two-arg ``localLexicalHyps``)."""
@@ -504,12 +502,14 @@ class TTRHypothesiser(Hypothesiser):
             return result
         if self.copy_hyp is not None:
             result.add(self.copy_hyp)
+        # Java localLexicalHyps: only labels on the target terminal → put/ttrput list;
+        # hasSem = formula.hasManifestContent() (not always True).
         requirement = node.get_type_requirement() if hasattr(node, "get_type_requirement") else None
         put_list: list[Effect] = []
         manifest = False
         f: Any = None
-        for lab in target_node.labels:
-            if lab in node.labels or node.contains(lab):
+        for lab in target_node:
+            if node.contains(lab):
                 continue
             if isinstance(lab, FormulaLabel):
                 f = lab.get_formula()
@@ -517,118 +517,18 @@ class TTRHypothesiser(Hypothesiser):
                     continue
                 manifest = bool(getattr(f, "has_manifest_content", lambda: False)())
                 put_list.append(TTRFreshPut(f.clone() if hasattr(f, "clone") else f))
-            elif isinstance(lab, TypeLabel):
-                from dylan.tree.label.labels import MetaLabel
-
-                inner = getattr(requirement, "inner", None) if isinstance(requirement, Requirement) else None
-                syn_type = None
-                if isinstance(inner, TypeLabel):
-                    syn_type = inner.type
-                elif isinstance(inner, MetaLabel):
-                    syn_type = inner.type
-                if syn_type is not None and lab.type != syn_type:
-                    put_list.append(Put(TypeLabel(syn_type)))
-                else:
-                    put_list.append(EffectFactory.create(f"{Put.FUNCTOR}({lab})"))
             else:
                 put_list.append(EffectFactory.create(f"{Put.FUNCTOR}({lab})"))
-        req = node.get_required_type() or node.get_type()
-        req_str = str(req) if req is not None else ""
-        cn_e_req = req_str == "cn>e" or (
-            isinstance(requirement, Requirement)
-            and str(getattr(getattr(requirement, "inner", None), "type", "")) == "cn>e"
-        )
-        if not put_list and cn_e_req:
-            from dylan.formula.formula import Formula
-
-            cn_e_fo = Formula.create(
-                "R1^[r0 : R1|x1==epsilon(r0.head, r0) : e|head==x1 : e]",
-            )
-            if isinstance(cn_e_fo, TTRFormula):
-                f = cn_e_fo
-                manifest = bool(getattr(f, "has_manifest_content", lambda: False)())
-                put_list.append(TTRFreshPut(f.clone()))
-                if isinstance(requirement, Requirement):
-                    inner = getattr(requirement, "inner", None)
-                    if isinstance(inner, TypeLabel):
-                        put_list.insert(0, Put(TypeLabel(inner.type)))
-        if not put_list and req_str == "cn":
-            gold = cur_tuple.get_gold_target_type()
-            if gold is not None:
-                restrictor = self._cn_restrictor_formula_from_gold(gold)
-                if restrictor is not None:
-                    f = restrictor
-                    manifest = bool(getattr(restrictor, "has_manifest_content", lambda: False)())
-                    put_list.append(TTRFreshPut(restrictor.clone()))
-                    if isinstance(requirement, Requirement):
-                        inner = getattr(requirement, "inner", None)
-                        if isinstance(inner, TypeLabel):
-                            put_list.insert(0, Put(TypeLabel(inner.type)))
-        if put_list and isinstance(requirement, Requirement):
-            inner = getattr(requirement, "inner", None)
-            inner_ty = str(getattr(inner, "type", "")) if isinstance(inner, TypeLabel) else ""
-            req_ty = str(node.get_required_type() or node.get_type() or "")
-            if (inner_ty in ("e>t", "es") or req_ty in ("e>t", "es")) and f is not None and "head==e0" not in str(f):
-                gold = cur_tuple.get_gold_target_type()
-                if gold is not None:
-                    aug = self._event_hyp_sem_formula_from_gold(gold)
-                    if aug is not None:
-                        f = aug
-                        manifest = True
-                        put_list = [TTRFreshPut(aug.clone())]
-                        if isinstance(inner, TypeLabel):
-                            put_list.insert(0, Put(TypeLabel(inner.type)))
-        if put_list and isinstance(requirement, Requirement):
-            inner = getattr(requirement, "inner", None)
-            if isinstance(inner, TypeLabel) and inner.type in ("e>t", "es"):
-                has_ty_put = any(
-                    isinstance(p, Put)
-                    and isinstance(getattr(p, "label", None), TypeLabel)
-                    and getattr(p.label, "type", None) == inner.type
-                    for p in put_list
-                )
-                if not has_ty_put:
-                    put_list.insert(0, Put(TypeLabel(inner.type)))
-        if put_list:
+        if not put_list:
+            logger.info("no unification hyps")
+        else:
             key = self.HYP_SEM_PREFIX + "(" + str(f if f is not None else "?") + ")"
             if isinstance(requirement, Requirement):
-                result.add(LexicalHypothesis(key, requirement, put_list, True))
+                result.add(LexicalHypothesis(key, requirement, put_list, manifest))
             else:
-                result.add(LexicalHypothesis(key, put_list, True))
+                result.add(LexicalHypothesis(key, put_list, manifest))
         _restore_target_pointers()
         return result
-
-    def _event_hyp_sem_formula_from_gold(self, gold: TTRRecordType) -> TTRFormula | None:
-        """Build Java-style event ``hyp-sem`` from the gold record's opened-event fields."""
-        from dylan.formula.formula import Formula
-        from dylan.formula.ttr_label import TTRLabel
-
-        e0 = gold.get_field(TTRLabel("e0"))
-        head = gold.get_field(TTRLabel("head"))
-        obj = None
-        for field in gold.get_fields():
-            mt = str(field.manifest_type) if field.manifest_type is not None else ""
-            if "obj(" in mt and field.ds_type is not None and str(field.ds_type) == "t":
-                obj = field
-                break
-        if e0 is None or head is None or obj is None:
-            return None
-        es_part = str(e0)
-        head_part = str(head)
-        obj_part = f"{obj.label}==obj(e0, R1.head) : t"
-        fo = Formula.create(f"R1^(R1 ++ [{es_part}|{head_part}|{obj_part}])")
-        return fo if isinstance(fo, TTRFormula) else None
-
-    def _cn_restrictor_formula_from_gold(self, gold: TTRRecordType) -> TTRFormula | None:
-        """Return the embedded CN restrictor entity record from corpus gold."""
-        for field in gold.get_fields():
-            inner = field.get_type()
-            if field.ds_type is not None or not isinstance(inner, TTRRecordType):
-                continue
-            label = str(getattr(field, "label", ""))
-            if label.startswith("r") and inner.get_head_field() is not None:
-                return inner.clone()
-        return None
 
     def attempt_backtrack(self) -> bool:
         """TTR lattice + word-index backtrack mirroring Java ``attemptBacktrack``."""
@@ -684,45 +584,25 @@ class TTRHypothesiser(Hypothesiser):
         if not self.state.at_root():
             prev = self.state.get_prev_action()
             prev_action_name = prev.get_name() if prev is not None and hasattr(prev, "get_name") else ""
+        # Java: maxSem = state.getCurrentTuple().getSemantics()
         try:
-            max_sem = self._extraction_semantics(cur)
+            max_sem = cur.get_semantics()
         except Exception:  # noqa: BLE001
+            max_sem = TTRRecordType()
+        if not isinstance(max_sem, TTRRecordType):
             max_sem = TTRRecordType()
         done_with_branch = False
         if max_sem.subsumes(self.target_type) and self.target_type.subsumes(max_sem):
-            stack = self.state.word_stack
-            if stack:
-                # Java only extracts when the stack is empty. With an empty seed lexicon
-                # (all words unknown) the stack top is never popped by known-lex edges;
-                # hyp-sem edges consume words. If semantics already match but residual
-                # unknown words remain, treat like Java's empty-stack case only when every
-                # remaining word is unknown (same situation as a from-scratch BabyDS run).
-                def _known(w: UtteredWord) -> bool:
-                    return (
-                        self.seed_lexicon.contains_key(w.word)
-                        if hasattr(self.seed_lexicon, "contains_key")
-                        else w.word in self.seed_lexicon
-                    )
-
-                if all(not _known(w) for w in stack):
-                    self.state.word_stack.clear()
-                else:
-                    logger.warning("word stack is non-empty: %s", stack)
-            if not self.state.word_stack:
+            # Java: extract only when the word stack is empty; otherwise warn and skip.
+            if self.state.word_stack:
+                logger.warning("word stack is non-empty: %s", self.state.word_stack)
+            else:
                 result = self.extract_sequence()
                 self.hypotheses.append(result)
                 if len(self.hypotheses) > 300:
                     logger.warning("sequences exceeded 300; stopping")
                     return False
                 done_with_branch = True
-                # After extract, continue search from an earlier branch (Java relies on
-                # goFirst/attemptBacktrack alone; refill keeps word_index aligned for
-                # subsequent unknown-word hyp-sem applications on this Python DAG).
-                self.attempt_backtrack()
-                self.state.word_stack = list(
-                    reversed([UtteredWord(w.word()) for w in self.all_words]),
-                )
-                self.word_index = 0
         elif cur.get_tree().is_complete():
             logger.warning("got to complete tree, but no two-way subsumption: %s", cur.get_tree())
         if not self.state.at_root() and not prev_action_name.startswith(self.HYP_ADJUNCTION_PREFIX) and not done_with_branch:

@@ -17,6 +17,12 @@ class Predicate:
         """Surface form for infix / debug (not dataclass repr)."""
         return self.name
 
+    def java_hash_code(self) -> int:
+        """Java ``AtomicFormula.hashCode`` (``Predicate`` extends it): ``31 + name.hashCode()``."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        return _java_int_add(31, java_string_hashcode(self.name))
+
 
 def _subsumes_mapped_lists(l1: list[Formula], l2: list[Formula], map_: dict) -> bool:
     """Ordered pairwise mapped subsumption (Java ``Formula.subsumesMapped(List, List, map)``)."""
@@ -122,6 +128,26 @@ class PredicateArgumentFormula(Formula):
         if self.predicate.name != other.predicate.name or len(self.arguments) != len(other.arguments):
             return False
         return _subsumes_mapped_lists(list(self.arguments), list(other.arguments), map_)
+
+    def java_hash_code(self) -> int:
+        """Java ``PredicateArgumentFormula.hashCode``: string-hash then fold args list and predicate."""
+        from dylan.tree.label.labels import _java_int_add
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        result = super().java_hash_code()
+        args_h = 1
+        for arg in self.arguments:
+            ah = 0 if arg is None else arg.java_hash_code()
+            args_h = _java_int_add(_mul31(args_h), ah)
+        pred_h = 0 if self.predicate is None else self.predicate.java_hash_code()
+        result = _java_int_add(_mul31(result), args_h)
+        result = _java_int_add(_mul31(result), pred_h)
+        return result
 
     def __str__(self) -> str:
         """Render ``pred(arg1, arg2)`` with Java's ``", "`` separator."""

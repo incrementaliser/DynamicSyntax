@@ -286,6 +286,31 @@ class TTRField(Formula):
         rhs = "" if self.manifest_type is None else str(self.manifest_type)
         return f"{self.label} {TTR_LABEL_SEPARATOR} {rhs}"
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRField.hashCode``: fold ``dsType``, ``label``, manifest ``type`` with prime 31."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        result = 31
+        ds_h = 0 if self.ds_type is None else self.ds_type.java_hash_code()
+        lab_h = 0 if self.label is None else (
+            self.label.java_hash_code() if hasattr(self.label, "java_hash_code") else java_string_hashcode(str(self.label))
+        )
+        ty_h = 0 if self.manifest_type is None else (
+            self.manifest_type.java_hash_code()
+            if hasattr(self.manifest_type, "java_hash_code")
+            else java_string_hashcode(str(self.manifest_type))
+        )
+        result = _java_int_add(_mul31(result), ds_h)
+        result = _java_int_add(_mul31(result), lab_h)
+        result = _java_int_add(_mul31(result), ty_h)
+        return result
+
 
 TTRField.getLabel = TTRField.get_label  # type: ignore[attr-defined]
 TTRField.getType = TTRField.get_type  # type: ignore[attr-defined]

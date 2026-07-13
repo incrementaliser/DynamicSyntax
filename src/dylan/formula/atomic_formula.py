@@ -21,6 +21,12 @@ class AtomicFormula(Formula):
     def clone(self) -> Formula:
         return AtomicFormula(self.name)
 
+    def java_hash_code(self) -> int:
+        """Java ``AtomicFormula.hashCode``: ``31 * 1 + name.hashCode()``."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        return _java_int_add(31, java_string_hashcode(self.name))
+
     def instantiate(self) -> Formula:
         return AtomicFormula(self.name)
 

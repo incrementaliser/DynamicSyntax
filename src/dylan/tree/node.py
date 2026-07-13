@@ -20,8 +20,8 @@ class Node:
         self.labels: list[Label] = list(labels) if labels is not None else []
 
     def __iter__(self) -> Iterator[Label]:
-        """Iterate labels in insertion order (Java ``Node`` uses ``TreeSet``; see ``Label.compare_to``)."""
-        return iter(self.labels)
+        """Iterate labels in Java ``TreeSet`` order (``Label.compare_to``)."""
+        return iter(sorted(self.labels))
 
     def add_label(self, label: Label) -> bool:
         """Add *label*; replace same-class :class:`TypeLabel` / :class:`FormulaLabel` (Java ``Node.addLabel``)."""
@@ -29,9 +29,13 @@ class Node:
             existing = next((l for l in self.labels if type(l) is type(label)), None)
             if existing is not None:
                 self.labels.remove(existing)
-        elif label in self.labels:
-            return False
+        else:
+            # Java Node.add: equals (not TreeSet.compareTo) decides duplicates
+            for existing in self.labels:
+                if existing == label or label == existing:
+                    return False
         self.labels.append(label)
+        self.labels.sort()
         return True
 
     def remove_label(self, label: Label) -> bool:

@@ -81,13 +81,15 @@ def _utterance_from_words(words: list) -> Utterance:
 
 
 def _collect_semantics(parser: InteractiveContextParser) -> list[TTRRecordType]:
-    """Collect the current semantics plus alternate interpretations via ``parse()``."""
+    """Collect current + alternate semantics (Java ``BabyDSInduction.evaluate_model`` loop).
+
+    Matches Java: ``getSemantics()`` with no extra ``evaluate()`` pass.
+    """
     all_sem: list[TTRRecordType] = []
     try:
-        first = parser.get_state().get_current_tuple().get_semantics(parser.context)
-        ev = first.evaluate() if hasattr(first, "evaluate") else first
-        if isinstance(ev, TTRRecordType):
-            all_sem.append(ev)
+        first = parser.get_state().get_current_tuple().get_semantics()
+        if isinstance(first, TTRRecordType):
+            all_sem.append(first)
     except Exception as exc:  # noqa: BLE001
         logger.debug("Could not read primary semantics: {}", exc)
 
@@ -95,10 +97,9 @@ def _collect_semantics(parser: InteractiveContextParser) -> list[TTRRecordType]:
         try:
             if not parser.parse():
                 break
-            sem = parser.get_state().get_current_tuple().get_semantics(parser.context)
-            ev = sem.evaluate() if hasattr(sem, "evaluate") else sem
-            if isinstance(ev, TTRRecordType) and ev not in all_sem:
-                all_sem.append(ev)
+            sem = parser.get_state().get_current_tuple().get_semantics()
+            if isinstance(sem, TTRRecordType) and sem not in all_sem:
+                all_sem.append(sem)
         except Exception as exc:  # noqa: BLE001
             logger.debug("Stopped alternate-semantics loop: {}", exc)
             break
@@ -129,7 +130,7 @@ def evaluate_corpus(
             if not candidates:
                 failed_parses.append(sent)
                 continue
-            best = Evaluation.find_best_ttr_interpretation(gold, candidates)
+            best = Evaluation.find_best_ttr_interpretation(candidates, gold)
             if best is None:
                 failed_parses.append(sent)
                 continue

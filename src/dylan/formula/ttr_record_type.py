@@ -605,6 +605,20 @@ class TTRRecordType(TTRFormula):
         """Order-insensitive hash consistent with ``__eq__`` (Java ``record.hashCode()``)."""
         return hash(frozenset((str(f.label), str(f)) for f in self._fields))
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRRecordType.hashCode`` → ``LinkedHashMap`` entry-hash sum."""
+        from dylan.tree.label.labels import _java_int_add
+
+        total = 0
+        for f in self._fields:
+            key_h = f.label.java_hash_code() if hasattr(f.label, "java_hash_code") else 0
+            val_h = f.java_hash_code() if hasattr(f, "java_hash_code") else 0
+            entry = (key_h ^ val_h) & 0xFFFFFFFF
+            if entry >= 0x80000000:
+                entry -= 0x100000000
+            total = _java_int_add(total, entry)
+        return total
+
     def get_variables(self) -> set[Variable]:
         """Record types expose no variables (Java: ``Formula.variables`` never populated)."""
         return set()

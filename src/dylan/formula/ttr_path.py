@@ -76,6 +76,22 @@ class TTRPath(Formula, ABC):
         """Return the first path label (Java ``TTRPath.getFirstLabel``)."""
         return self.labels[0] if self.labels else None
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRPath.hashCode``: ``labels`` list hash (``AbstractList`` algorithm)."""
+        from dylan.tree.label.labels import _java_int_add
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        h = 1
+        for lab in self.labels:
+            lh = 0 if lab is None else lab.java_hash_code()
+            h = _java_int_add(_mul31(h), lh)
+        return h
+
     def remove_first(self) -> "TTRPath":
         """Return a path with the first label removed (Java ``TTRPath.removeFirst``)."""
         from dylan.formula.ttr_path import TTRRelativePath
@@ -198,6 +214,23 @@ class TTRAbsolutePath(TTRPath):
         nl = self.name.label if self.name else ""
         return hash((tuple(self.labels), nl))
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRAbsolutePath.hashCode``: ``super.hashCode() * 17 + name.hashCode()``."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        result = super().java_hash_code()
+        r = (result * 17) & 0xFFFFFFFF
+        if r >= 0x80000000:
+            r -= 0x100000000
+        name_h = 0
+        if self.name is not None:
+            name_h = (
+                self.name.java_hash_code()
+                if hasattr(self.name, "java_hash_code")
+                else java_string_hashcode(str(getattr(self.name, "label", self.name)))
+            )
+        return _java_int_add(r, name_h)
+
     def __str__(self) -> str:
         """Java ``TTRAbsolutePath.toString``: name.label1.label2…"""
         if self.name is None:
@@ -220,6 +253,43 @@ class TTRRelativePath(TTRPath):
         if not self.labels:
             return set()
         return {Variable(self.labels[0].label)}
+
+    def remove_first(self) -> "TTRRelativePath | None":  # type: ignore[override]
+        """Drop the first label and descend into that field's record (Java ``TTRRelativePath.removeFirst``)."""
+        from dylan.formula.ttr_record_type import TTRRecordType
+
+        path = TTRRelativePath(list(self.labels))
+        path.parent_rec_type = self.parent_rec_type
+        if len(path.labels) == 1:
+            return None
+        first = path.labels.pop(0)
+        parent = path.parent_rec_type
+        if parent is not None:
+            nested = parent.get(first)
+            path.parent_rec_type = nested if isinstance(nested, TTRRecordType) else None
+        else:
+            path.parent_rec_type = None
+        return path
+
+    def get_minimal_super_type_with(self) -> "TTRRecordType":
+        """Build the minimal super-type along this path (Java ``TTRRelativePath.getMinimalSuperTypeWith``)."""
+        from dylan.formula.ttr_field import TTRField
+        from dylan.formula.ttr_record_type import TTRRecordType
+
+        if len(self.labels) == 1:
+            parent = self.parent_rec_type
+            if parent is None:
+                return TTRRecordType()
+            field = parent.get_field(self.labels[0])
+            if field is None:
+                return TTRRecordType()
+            return parent.get_super_type_with_parents(field)
+        result = TTRRecordType()
+        sub = self.remove_first()
+        if sub is None:
+            return result
+        result.add(TTRField(self.labels[0], None, sub.get_minimal_super_type_with()))
+        return result
 
     def substitute(self, var: Formula, arg: Formula) -> Formula:
         """Rename any label equal to *var* (Java ``TTRRelativePath.substitute``)."""
@@ -301,3 +371,5 @@ TTRPath.getVariables = TTRPath.get_variables  # type: ignore[attr-defined]
 TTRPath.getFirstLabel = TTRPath.get_first_label  # type: ignore[attr-defined]
 TTRPath.getFinalLabel = TTRPath.get_final_label  # type: ignore[attr-defined]
 TTRPath.removeFirst = TTRPath.remove_first  # type: ignore[attr-defined]
+TTRRelativePath.getMinimalSuperTypeWith = TTRRelativePath.get_minimal_super_type_with  # type: ignore[attr-defined]
+TTRRelativePath.removeFirst = TTRRelativePath.remove_first  # type: ignore[attr-defined,method-assign]

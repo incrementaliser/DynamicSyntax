@@ -67,9 +67,13 @@ class WordLogProbDistribution(dict[WordHypothesis, float]):
             if hasattr(hyp, "set_log_prob"):
                 hyp.set_log_prob(log_prob)
 
-    def get_all_hyps(self) -> set[WordHypothesis]:
-        """Return the set of hypotheses (Java ``getAllHyps``)."""
-        return set(self.keys())
+    def get_all_hyps(self) -> list[WordHypothesis]:
+        """Return hypotheses in insertion order (Java ``getAllHyps`` as LinkedHashMap-like).
+
+        Returning a ``list`` (not ``set``) keeps intersect order stable — ``set(dict.keys())``
+        reshuffles and caused SI merge failures when combined with string ``Effect.equals``.
+        """
+        return list(self.keys())
 
     def add_hyp(self, hyp: WordHypothesis) -> None:
         """Insert *hyp* with placeholder ``1.0`` (positive => prob 0; Java ``addHyp``)."""
@@ -90,8 +94,15 @@ class WordLogProbDistribution(dict[WordHypothesis, float]):
         return self.max_id
 
     def get_sort_all_hyps(self) -> list[WordHypothesis]:
-        """Return hypotheses sorted by descending probability (Java ``getSortAllHyps``)."""
-        return sorted(self.keys(), key=lambda h: h.get_prob() if hasattr(h, "get_prob") else 0.0, reverse=True)
+        """Return hypotheses sorted by descending probability (Java ``getSortAllHyps``).
+
+        Ties keep insertion order (Java ``Collections.sort`` is stable; ``HashMap``
+        key order is unspecified — Python ``dict`` insertion order is the analogue).
+        """
+        return sorted(
+            self.keys(),
+            key=lambda h: -(h.get_prob() if hasattr(h, "get_prob") else 0.0),
+        )
 
     # ---------------- normalisation ----------------
 

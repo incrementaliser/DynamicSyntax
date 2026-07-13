@@ -106,13 +106,47 @@ class TTRInfixExpression(TTRFormula):
             out |= self.arg2.get_variables()
         return out
 
+    def subsumes_mapped(self, other: Formula, map_: dict) -> bool:
+        """Functor match plus mapped args (Java ``TTRInfixExpression.subsumesMapped``)."""
+        if not isinstance(other, TTRInfixExpression):
+            return False
+        if self.functor != other.functor and self.functor.name != other.functor.name:
+            return False
+        return self.arg1.subsumes_mapped(other.arg1, map_) and self.arg2.subsumes_mapped(
+            other.arg2, map_
+        )
+
     def __str__(self) -> str:
         """Render parenthesised infix form."""
         return f"({self.arg1} {self.functor} {self.arg2})"
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRInfixExpression.hashCode`` (super string-hash then fold args/functor)."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        result = super().java_hash_code()
+        a1 = 0 if self.arg1 is None else self.arg1.java_hash_code()
+        a2 = 0 if self.arg2 is None else self.arg2.java_hash_code()
+        pred = 0 if self.functor is None else (
+            self.functor.java_hash_code()
+            if hasattr(self.functor, "java_hash_code")
+            else java_string_hashcode(str(self.functor))
+        )
+        result = _java_int_add(_mul31(result), a1)
+        result = _java_int_add(_mul31(result), a2)
+        result = _java_int_add(_mul31(result), pred)
+        return result
+
 
 TTRInfixExpression.getArg1 = TTRInfixExpression.get_arg1  # type: ignore[attr-defined]
 TTRInfixExpression.getArg2 = TTRInfixExpression.get_arg2  # type: ignore[attr-defined]
+TTRInfixExpression.subsumesMapped = TTRInfixExpression.subsumes_mapped  # type: ignore[attr-defined]
 
 
 def split_top_level_merge(s: str) -> tuple[str, str] | None:

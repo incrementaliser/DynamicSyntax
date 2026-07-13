@@ -81,6 +81,10 @@ class MetaElement(Generic[X]):
             self.value = other  # type: ignore[assignment]
         return self.value == other
 
+    def __str__(self) -> str:
+        """Java ``MetaElement.toString``: ``name`` or ``name=value`` when bound."""
+        return f"{self.name}={self.value}" if self.value is not None else self.name
+
     def __repr__(self) -> str:
         return f"{self.name}={self.value!s}" if self.value is not None else self.name
 

@@ -80,8 +80,18 @@ class TTRFormula(Formula):
         raise NotImplementedError(f"removeHeadIfManifest unsupported for {type(self).__name__}")
 
     def subsumes(self, other: object) -> bool:
-        """Structural subsumption — subclasses override; default uses equality."""
-        return self == other
+        """Java ``Formula.subsumes``: string/basic equality then ``subsumesMapped``.
+
+        Subclasses override ``subsumes_basic`` / ``subsumes_mapped`` (not this method),
+        so ``TTRFreshPut`` mutual subsumption can α-rename via mapped labels.
+        """
+        if not isinstance(other, Formula):
+            return False
+        if self == other or str(self) == str(other):
+            return True
+        if self.subsumes_basic(other):
+            return True
+        return self.subsumes_mapped(other, {})
 
     def evaluate(self) -> TTRFormula:
         """Resolve metavariables / lazy ops; default returns ``self`` (Java ``TTRFormula.evaluate``)."""

@@ -51,5 +51,19 @@ class TTRFreshPut(Effect):
     def instantiate(self) -> Effect:
         return TTRFreshPut(self.ttr.clone())  # type: ignore[arg-type]
 
+    def __eq__(self, other: object) -> bool:
+        """Java ``TTRFreshPut.equals``: mutual TTR subsumption (not string identity)."""
+        if not isinstance(other, TTRFreshPut):
+            return False
+        if self.ttr is None:
+            return other.ttr is None
+        if other.ttr is None:
+            return False
+        return bool(self.ttr.subsumes(other.ttr) and other.ttr.subsumes(self.ttr))
+
+    def __hash__(self) -> int:
+        """Match Java ``Effect.hashCode`` (``toString``-based); equals may be coarser via subsumption."""
+        return hash(str(self))
+
     def __str__(self) -> str:
         return f"{self.FUNCTOR}({self.ttr})"

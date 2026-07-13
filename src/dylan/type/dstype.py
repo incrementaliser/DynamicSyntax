@@ -31,6 +31,12 @@ class DSType(ABC):
         """Return ``self``; metavariable subclasses override (Java ``DSType.instantiate``)."""
         return self
 
+    def java_hash_code(self) -> int:
+        """Java ``DSType.hashCode`` default: ``toString().hashCode()`` (subclasses override)."""
+        from dylan.tree.label.labels import java_string_hashcode
+
+        return java_string_hashcode(str(self))
+
     def to_unicode_string(self) -> str:
         """Return Unicode arrow rendering of this type."""
         return str(self).replace(TYPE_SEP, UNICODE_TYPE_SEP)
@@ -76,6 +82,12 @@ class BasicType(DSType):
     def __str__(self) -> str:
         """Return the bare type name."""
         return self.name
+
+    def java_hash_code(self) -> int:
+        """Java ``BasicType.hashCode``: ``31 * 1 + type.hashCode()``."""
+        from dylan.tree.label.labels import _java_int_add, java_string_hashcode
+
+        return _java_int_add(31, java_string_hashcode(self.name))
 
     def __hash__(self) -> int:
         """Hash by name to match Java ``BasicType.hashCode``."""
@@ -129,6 +141,23 @@ class ConstructedType(DSType):
         left = f"({self.from_type})" if isinstance(self.from_type, ConstructedType) else str(self.from_type)
         right = f"({self.to_type})" if isinstance(self.to_type, ConstructedType) else str(self.to_type)
         return f"{left}{TYPE_SEP}{right}"
+
+    def java_hash_code(self) -> int:
+        """Java ``ConstructedType.hashCode``: fold ``from`` then ``to`` with prime 31."""
+        from dylan.tree.label.labels import _java_int_add
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        result = 1
+        from_h = 0 if self.from_type is None else self.from_type.java_hash_code()
+        to_h = 0 if self.to_type is None else self.to_type.java_hash_code()
+        result = _java_int_add(_mul31(result), from_h)
+        result = _java_int_add(_mul31(result), to_h)
+        return result
 
     def __hash__(self) -> int:
         """Hash from sub-types so that ``a>b == a>b``."""

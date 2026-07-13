@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from dylan.action.atomic.effect import Effect
 from dylan.action.atomic.effect_factory import EffectFactory
-from dylan.action.meta.element import reset_all_meta_bindings
-from dylan.action.meta_stub import reset_bound_metas
+from dylan.action.meta.element import reset_all_meta_bindings, reset_bound_metas
 from dylan.tree.label.labels import Label, MetaLabel, Requirement, label_factory_create
 from dylan.tree.tree import Tree
 
@@ -213,6 +212,9 @@ class IfThenElse(Effect):
         it when an effect executes; an empty branch therefore yields ``null``.
         """
         if self.embedding_level == 0:
+            # Java uses ``resetBoundMetas`` only; we still reset all named metas at
+            # embedding 0 until ``Label.getMetas`` / backtracker parity is complete
+            # (bound-metas-only collapses open-a-door search to 0 hyps).
             reset_all_meta_bindings()
             self.setup_backtrackers([])
         else:
@@ -254,8 +256,9 @@ class IfThenElse(Effect):
         return [(self.instantiate(), result)]
 
     def instantiate(self) -> Effect:
+        """Return a copy with IF labels and THEN/ELSE effects instantiated (Java ``IfThenElse.instantiate``)."""
         return IfThenElse(
-            list(self.if_labels),
+            [lab.instantiate() for lab in self.if_labels],
             [e.instantiate() for e in self.then_effects],
             [e.instantiate() for e in self.else_effects],
             self.embedding_level,
@@ -263,6 +266,29 @@ class IfThenElse(Effect):
         )
 
     def __str__(self) -> str:
-        return (
-            f"IF {self.if_labels} THEN {self.then_effects} ELSE {self.else_effects}"
-        )
+        """Java ``IfThenElse.toString`` (tab size 6); must use ``str`` on nested effects for equals."""
+        tab = " " * 6
+        tabs = tab * self.embedding_level
+        if_pad = tab[len("IF") :]
+        then_pad = tab[len("THEN") :]
+        else_pad = tab[len("ELSE") :]
+        parts: list[str] = []
+        if self.if_labels:
+            parts.append(f"IF{if_pad}{self.if_labels[0]}")
+            for lab in self.if_labels[1:]:
+                parts.append(f"{tabs}{tab}{lab}")
+        else:
+            parts.append(f"IF{if_pad}")
+        if self.then_effects:
+            parts.append(f"{tabs}THEN{then_pad}{self.then_effects[0]}")
+            for eff in self.then_effects[1:]:
+                parts.append(f"{tabs}{tab}{eff}")
+        else:
+            parts.append(f"{tabs}THEN{then_pad}")
+        if self.else_effects:
+            parts.append(f"{tabs}ELSE{else_pad}{self.else_effects[0]}")
+            for eff in self.else_effects[1:]:
+                parts.append(f"{tabs}{tab}{eff}")
+        else:
+            parts.append(f"{tabs}ELSE{else_pad}")
+        return "\n".join(parts)

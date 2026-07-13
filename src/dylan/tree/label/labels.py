@@ -122,7 +122,7 @@ class TypeLabel(Label):
 
     def java_hash_code(self) -> int:
         """Java ``TypeLabel.hashCode``: ``31 * 1 + type.hashCode()``."""
-        type_h = 0 if self.type is None else java_string_hashcode(str(self.type))
+        type_h = 0 if self.type is None else self.type.java_hash_code()
         return _java_int_add(31, type_h)
 
     def __hash__(self) -> int:
@@ -329,7 +329,7 @@ class FormulaLabel(Label):
 
     def java_hash_code(self) -> int:
         """Java ``FormulaLabel.hashCode``: ``31 * 1 + formula.hashCode()``."""
-        form_h = 0 if self._formula is None else java_string_hashcode(str(self._formula))
+        form_h = 0 if self._formula is None else self._formula.java_hash_code()
         return _java_int_add(31, form_h)
 
     def __hash__(self) -> int:
@@ -490,7 +490,8 @@ class MetaLabel(Label):
         return hash((MetaLabel, self._meta.name))
 
     def __str__(self) -> str:
-        return self._meta.name
+        """Java ``MetaLabel.toString`` → ``MetaElement.toString`` (``X`` or ``X=value``)."""
+        return str(self._meta)
 
 
 class ModalLabel(Label):
@@ -544,6 +545,10 @@ class NegatedLabel(Label):
     def __init__(self, inner: Label) -> None:
         super().__init__()
         self.inner = inner
+
+    def instantiate(self) -> Label:
+        """Copy with inner metavariables resolved (Java ``NegatedLabel.instantiate``)."""
+        return NegatedLabel(self.inner.instantiate())
 
     def __hash__(self) -> int:
         return hash(("NOT", self.inner))

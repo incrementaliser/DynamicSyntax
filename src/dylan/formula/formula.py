@@ -76,6 +76,12 @@ class Formula(ABC):
     def clone(self) -> Formula:
         raise NotImplementedError
 
+    def java_hash_code(self) -> int:
+        """Java ``Formula.hashCode``: ``toString().hashCode()`` (subclasses may override)."""
+        from dylan.tree.label.labels import java_string_hashcode
+
+        return java_string_hashcode(str(self))
+
     def instantiate(self) -> Formula:
         """Replace metavariables with values; default is a deep copy (Java ``Formula.instantiate``)."""
         return self.clone()

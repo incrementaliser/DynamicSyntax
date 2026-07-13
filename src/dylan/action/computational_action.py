@@ -18,12 +18,17 @@ class ComputationalAction(Action):
     def __init__(
         self,
         name: str,
-        lines: list[str],
+        lines_or_effect: list[str] | Effect,
         always_good: bool = False,
         backtrack_on_success: bool = False,
     ) -> None:
-        self._source_lines = list(lines)
-        eff = EffectFactory.create_lines(lines)
+        """Construct from source *lines* or a ready *Effect* (Java constructor overloads)."""
+        if isinstance(lines_or_effect, Effect):
+            self._source_lines: list[str] = []
+            eff: Effect | None = lines_or_effect
+        else:
+            self._source_lines = list(lines_or_effect)
+            eff = EffectFactory.create_lines(self._source_lines)
         super().__init__(name, eff, backtrack_on_success)
         self.always_good = always_good
 
@@ -36,17 +41,17 @@ class ComputationalAction(Action):
         self.always_good = v
 
     def instantiate(self) -> ComputationalAction:
-        """Return a fresh copy; hyp-adj / link names skip full effect instantiation (Java parity)."""
-        if self.name.startswith(self.HYP_ADJUNCTION_PREFIX) or self.name.startswith("link"):
-            assert self.effect is not None
-            return ComputationalAction(
-                self.name, self._source_lines, self.always_good, self.backtrack_on_success
-            )
+        """Return a copy whose effect has metavariables resolved (Java ``instantiate``).
+
+        Hyp-adj / link keep the same effect object. Others use ``effect.instantiate()``
+        so DAG edges store concrete IF labels (e.g. ``Ty(e>t)`` not ``Ty(X)``).
+        """
         assert self.effect is not None
-        _ = self.effect.instantiate()
-        return ComputationalAction(
-            self.name, self._source_lines, self.always_good, self.backtrack_on_success
-        )
+        if self.name.startswith(self.HYP_ADJUNCTION_PREFIX) or self.name.startswith("link"):
+            # Java: ``new ComputationalAction(name, this.action)`` — flags default false.
+            return ComputationalAction(self.name, self.effect)
+        # Java: ``new ComputationalAction(name, this.action.instantiate())``.
+        return ComputationalAction(self.name, self.effect.instantiate())
 
     def exec_exhaustively(
         self,
@@ -62,13 +67,16 @@ class ComputationalAction(Action):
         nested = eff.exec_exhaustively(tree, context)
         if not nested:
             return None
-        rebuilt = ComputationalAction(
-            self.name,
-            list(self._source_lines),
-            self.always_good,
-            self.backtrack_on_success,
-        )
-        return [(rebuilt, t) for _ite, t in nested]
+        results: list[tuple[ComputationalAction, Tree]] = []
+        for ite, t in nested:
+            rebuilt = ComputationalAction(
+                self.name,
+                ite,
+                self.always_good,
+                self.backtrack_on_success,
+            )
+            results.append((rebuilt, t))
+        return results
 
     def __eq__(self, other: object) -> bool:
         """Java ``equals``: effect equality (name check in Java is a no-op)."""

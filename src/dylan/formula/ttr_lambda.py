@@ -92,6 +92,16 @@ class TTRLambdaAbstract(TTRFormula):
         body_vars = self.body.get_variables() if hasattr(self.body, "get_variables") else set()
         return {v for v in body_vars if v != self.variable}
 
+    def subsumes_mapped(self, other: Formula, map_: dict) -> bool:
+        """α-rename binder and body under *map_* (Java ``TTRLambdaAbstract.subsumesMapped``)."""
+        if not isinstance(other, TTRLambdaAbstract):
+            return False
+        if self.variable.subsumes_basic(other.variable) and self.body.subsumes_basic(other.body):
+            return True
+        return self.variable.subsumes_mapped(other.variable, map_) and self.body.subsumes_mapped(
+            other.body, map_
+        )
+
     def get_abstractions_basic(self, basic: Any, new_var_suffix: int = 1) -> list[Any]:
         """Delegate basic abstractions to the body (Java ``TTRLambdaAbstract.getAbstractions(BasicType, int)``)."""
         return self.body.get_abstractions_basic(basic, new_var_suffix) if hasattr(
@@ -102,6 +112,23 @@ class TTRLambdaAbstract(TTRFormula):
         """Render ``R^body`` in Java style."""
         return f"{self.variable}^{self.body}"
 
+    def java_hash_code(self) -> int:
+        """Java ``TTRLambdaAbstract.hashCode``: ``31``-fold of body then variable."""
+        from dylan.tree.label.labels import _java_int_add
+
+        def _mul31(x: int) -> int:
+            r = (31 * x) & 0xFFFFFFFF
+            if r >= 0x80000000:
+                r -= 0x100000000
+            return r
+
+        result = 1
+        body_h = 0 if self.body is None else self.body.java_hash_code()
+        var_h = 0 if self.variable is None else self.variable.java_hash_code()
+        result = _java_int_add(_mul31(result), body_h)
+        result = _java_int_add(_mul31(result), var_h)
+        return result
+
 
 TTRLambdaAbstract.getCore = TTRLambdaAbstract.get_core  # type: ignore[attr-defined]
 TTRLambdaAbstract.replaceCore = TTRLambdaAbstract.replace_core  # type: ignore[attr-defined]
@@ -109,3 +136,4 @@ TTRLambdaAbstract.getVariable = TTRLambdaAbstract.get_variable  # type: ignore[a
 TTRLambdaAbstract.getBody = TTRLambdaAbstract.get_body  # type: ignore[attr-defined]
 TTRLambdaAbstract.getVariables = TTRLambdaAbstract.get_variables  # type: ignore[attr-defined]
 TTRLambdaAbstract.betaReduce = TTRLambdaAbstract.beta_reduce  # type: ignore[attr-defined]
+TTRLambdaAbstract.subsumesMapped = TTRLambdaAbstract.subsumes_mapped  # type: ignore[attr-defined]

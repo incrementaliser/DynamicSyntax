@@ -43,6 +43,7 @@ class LexicalAction(Action):
             else:
                 ge = a.get_effect() if hasattr(a, "get_effect") else None
                 if ge is not None:
+                    # Java ``flatten`` keeps edge effects as stored (already instantiated on DAG add).
                     effects.append(ge)
         lines: list[str] = []
         for e in effects:

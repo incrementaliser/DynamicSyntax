@@ -189,14 +189,18 @@ class WordHypothesis:
             cur = self.get_dest(child_edge)
         return False
 
-    def forward_populate(self, tuple_set: DAGTupleSet, t: ParserTuple) -> None:
-        """Replay parent actions upward from *tuple_set*, seeding ancestor tuple sets (Java ``forwardPopulate``)."""
+    def forward_populate(self, tuple_set: DAGTupleSet, t: ParserTuple) -> bool:
+        """Replay parent actions upward from *tuple_set* (Java ``forwardPopulate``).
+
+        Returns ``True`` on success. On action failure Java throws; we return ``False``
+        so export-time leaf search can try another start tuple without aborting learning.
+        """
         if t not in tuple_set:
             raise UnsupportedOperationError("The tuple set does not contain the parser tuple")
         cur = tuple_set
         curt = t
         if self.get_parent(cur) is None:
-            return
+            return True
         while self.get_parent(cur) is not None:
             parent = self.get_parent(cur)
             assert parent is not None
@@ -207,14 +211,13 @@ class WordHypothesis:
             result = parent_action.exec_tuple_context(tree_clone, curt)
             logger.debug("Action: %s on tree: %s -> %s", parent_action.get_name(), curt, result)
             if result is None:
-                # Java throws; empty start tuples in unit tests / some extract paths can fail.
-                # Leave ancestor sets unpopulated rather than aborting the intersection graph.
                 logger.error("Action %s failed on tree %s", parent_action.get_name(), curt)
-                return
+                return False
             newt = ParserTuple(result)
             parent.append(newt)
             curt = newt
             cur = parent
+        return True
 
     # ---------------- core action / leaves ----------------
 
