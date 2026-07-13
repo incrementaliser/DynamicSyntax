@@ -30,7 +30,7 @@ train:
 
 eval:
   # Splits to score, e.g. [test], [val, test], or [train, test] (omit train to skip train-set eval)
-  evaluate_on: [val, test]
+  evaluate_on: [train, test]
   # Inclusive start of top-N ranks to evaluate
   top_n_start: 1
   # Inclusive end of top-N ranks (null → model.top_n)
@@ -40,7 +40,7 @@ logging:
   # Log level: DEBUG | INFO | WARNING | ERROR (loguru + stdlib intercept)
   level: INFO
   # Print logs to the CLI (stderr)
-  to_cli: true
+  to_cli: false
   # Write logs to run_dir/logs/<file_name>
   to_file: true
   # Log file name under run_dir/logs/
