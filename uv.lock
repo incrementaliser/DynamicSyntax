@@ -418,6 +418,7 @@ name = "dynamicsyntax"
 source = { editable = "." }
 dependencies = [
     { name = "loguru" },
+    { name = "numpy" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "textual" },
@@ -458,6 +459,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7" },
     { name = "manim", marker = "extra == 'video'", specifier = ">=0.20" },
     { name = "nltk", marker = "extra == 'nlp'", specifier = ">=3.9" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", marker = "extra == 'viz'", specifier = ">=2" },
     { name = "plotly", marker = "extra == 'viz'", specifier = ">=5" },
     { name = "pyyaml", specifier = ">=6.0.3" },

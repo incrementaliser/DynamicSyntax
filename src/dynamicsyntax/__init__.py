@@ -27,6 +27,19 @@ except PackageNotFoundError:  # pragma: no cover - editable checkout without met
     __version__ = "0.0.0"
 
 
+def __getattr__(name: str):
+    """Lazy access to optional subsystems (DS-VSS)."""
+    if name == "vss":
+        from dynamicsyntax import vss
+
+        return vss
+    if name == "parse_vss":
+        from dynamicsyntax.vss import parse_vss
+
+        return parse_vss
+    raise AttributeError(f"module 'dynamicsyntax' has no attribute {name!r}")
+
+
 def icp(
     grammar: str | Path | None = None,
     *,
@@ -68,5 +81,7 @@ __all__ = [
     "get_grammars",
     "icp",
     "parse",
+    "parse_vss",
     "to_manim",
+    "vss",
 ]

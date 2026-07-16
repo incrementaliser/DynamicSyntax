@@ -70,4 +70,3 @@ Thumbs.db
 
 # JetBrains / PyCharm
 .idea/
-src/dylan/vss/.gitignore
