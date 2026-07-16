@@ -401,10 +401,20 @@ class TTRRecordType(TTRFormula):
         return n
 
     def substitute(self, var: Variable, arg: Formula) -> Formula:
-        """Substitute through every field."""
+        """Substitute through every field.
+
+        When label substitution collides (e.g. renaming ``e1`` to ``head`` while a
+        ``head==e1`` field becomes ``head==head``), keep the first field for that
+        label so the record stays well-formed for round-trip parse/export.
+        """
         n = TTRRecordType()
         for f in self._fields:
-            n.add_field(f.substitute(var, arg))  # type: ignore[arg-type]
+            subst = f.substitute(var, arg)
+            if not isinstance(subst, TTRField):
+                continue
+            if n.has_label(subst.label):
+                continue
+            n.add_field(subst)
         return n
 
     def substitute_formula(self, f1: Formula, f2: Formula) -> TTRRecordType:
@@ -724,10 +734,88 @@ class TTRRecordType(TTRFormula):
         basic_ds_type: DSType,
         new_var_suffix: int = 1,
     ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
-        """Java ``TTRRecordType.getAbstractions(BasicType, int)`` — full port with cn/t branches and AA hacks.
+        """Java ``TTRRecordType.getAbstractions(BasicType, int)`` — profile-gated.
+
+        * **childes:** pre-BabyDS peel (``62df057d^``): cn-restrictor/cn OR ``f.dsType == basic``.
+        * **babyds:** tip BabyDS peels (cn/t expansions, recurse, AA subst hacks).
+        """
+        from dylan.induction.corpus_profile import get_active_profile
+
+        if get_active_profile().name == "childes":
+            return self._get_abstractions_basic_pre_babyds(basic_ds_type, new_var_suffix)
+        return self._get_abstractions_basic_babyds(basic_ds_type, new_var_suffix)
+
+    def _get_abstractions_basic_pre_babyds(
+        self,
+        basic_ds_type: DSType,
+        new_var_suffix: int = 1,
+    ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
+        """Pre-BabyDS field peel (Java before ``62df057d``)."""
+        from dylan.formula.predicate_argument import Predicate
+        from dylan.formula.ttr_infix_expression import TTRInfixExpression
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+        from dylan.formula.ttr_path import parse_ttr_path
+
+        result: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
+        logger.debug("extracting %s from %s (pre-BabyDS peel)", basic_ds_type, self)
+        head = self.get_head_field()
+
+        for f in self._fields:
+            field_dst = f.ds_type
+            if basic_ds_type == DSType.cn and (field_dst is None or field_dst == DSType.cn):
+                arg = f.manifest_type
+                if not isinstance(arg, TTRRecordType):
+                    continue
+                v = Variable(f"R{new_var_suffix}")
+                core = TTRRecordType()
+                for cf in self._fields:
+                    core.add_field(cf.clone())
+                sub = core.substitute_formula(arg, v)
+                result.append((arg, TTRLambdaAbstract(v, sub)))
+                continue
+
+            if field_dst is not None and field_dst == basic_ds_type:
+                if f.label == HEAD and f.manifest_type is not None:
+                    continue
+                logger.debug("extracting field: %s", f)
+                arg = self.get_super_type_with_parents(f)
+                try:
+                    start = self._fields.index(f) + 1
+                except ValueError:
+                    start = len(self._fields)
+                for cur in self._fields[start:]:
+                    if not cur.depends_on(f):
+                        continue
+                    if head is None or (not cur.depends_on(head) and cur.label != HEAD):
+                        arg.put_at_end(cur.clone())
+                v = Variable(f"R{new_var_suffix}")
+                core = TTRRecordType()
+                for cf in self._fields:
+                    core.add_field(cf.clone())
+                core.remove_fields(arg)
+                if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                    continue
+                head_path = parse_ttr_path(f"{v.name}.head")
+                assert head_path is not None
+                sub_core = core.substitute(Variable(f.label.label), head_path)
+                assert isinstance(sub_core, TTRRecordType)
+                core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                lam = TTRLambdaAbstract(v, core_final)
+                arg.deem_head(f.label)
+                result.append((arg, lam))
+
+        logger.debug("Total number of abstractions (pre-BabyDS): %d", len(result))
+        return result
+
+    def _get_abstractions_basic_babyds(
+        self,
+        basic_ds_type: DSType,
+        new_var_suffix: int = 1,
+    ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
+        """BabyDS-tip field peel (Java after Dec 2024 / class-2 expansions).
 
         Returns ``[(rt, TTRLambdaAbstract(R, asym_merge(R, substCore))), …]`` pairs.
-        Mirrors the four big branches of the Java method:
+        Mirrors the tip Java branches:
 
         1. ``basicDSType == cn`` and field is restrictor (no ``ds_type``).
         2. ``basicDSType == cn`` and field has ``ds_type == cn``.
@@ -743,10 +831,9 @@ class TTRRecordType(TTRFormula):
         result: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
         logger.debug("extracting %s from %s", basic_ds_type, self)
         head = self.get_head_field()
-        head_label = head.label if head is not None else None
 
         def add_dependents(arg: TTRRecordType, src_field: TTRField) -> None:
-            """Append fields from *self* dependent on *src_field* but not on head (Java add-dependents block)."""
+            """Append fields from *self* dependent on *src_field* but not on head."""
             try:
                 start = self._fields.index(src_field) + 1
             except ValueError:
@@ -765,7 +852,7 @@ class TTRRecordType(TTRFormula):
                     arg.put_at_end(cur.clone())
 
         def build_subst_core(core: TTRRecordType, f: TTRField, v: Variable) -> TTRRecordType:
-            """Java AA substitution: subF is sole variable in fType -> sub it; else fall back to f.label."""
+            """Java AA substitution: sole variable in fType, else f.label."""
             f_type = f.manifest_type
             head_path = parse_ttr_path(f"{v.name}.head")
             assert head_path is not None
@@ -835,7 +922,6 @@ class TTRRecordType(TTRFormula):
                     continue
 
                 if field_dst == DSType.t:
-                    # The "AA: not sure about THIS PART" cn-from-t branch.
                     if f.label == HEAD and f.manifest_type is not None:
                         continue
                     arg = self.get_super_type_with_parents(f)

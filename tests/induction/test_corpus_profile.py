@@ -64,12 +64,12 @@ def test_babyds_profile_type_map_et_has_no_subj() -> None:
     assert "subj(" not in formula
 
 
-def test_childes_lattice_priority_templates_omit_ind_obj() -> None:
-    """CHILDES lattice priorities drop the ditransitive ``ind_obj`` tier."""
+def test_childes_lattice_priority_templates_include_ind_obj() -> None:
+    """CHILDES lattice priorities match Java (include ``ind_obj`` tier)."""
     set_active_profile("childes")
     TypeLattice()
     joined = " | ".join(str(t) for t in TypeLattice.priority_templates)
-    assert "ind_obj" not in joined
+    assert "ind_obj" in joined
     assert "subj" in joined
 
 
@@ -148,6 +148,51 @@ def test_childes_i_took_it_hypothesise_nonempty() -> None:
     h.load_training_example(corpus[0][0], corpus[0][1])
     seqs = h.hypothesise()
     assert len(seqs) >= 1
+
+
+def test_label_disjunction_ty_t_matches_type_label() -> None:
+    """Bracketed ``||`` IF specs parse as LabelDisjunction and match ``Ty(t)``."""
+    from dylan.tree.label.labels import LabelDisjunction, TypeLabel, label_factory_create
+    from dylan.tree.node import Node
+    from dylan.type.dstype import DSType as _DS
+
+    lab = label_factory_create("(?ty(t) || ty(t) || ?ty(e>t))")
+    assert isinstance(lab, LabelDisjunction)
+    node = Node(NodeAddress("0"), [TypeLabel(_DS.t)])
+    assert lab.check(node) is True
+
+
+def test_childes_core_fixture_suite_hypothesise_and_split() -> None:
+    """SVO, aux SVO, intransitive, and NP fixtures all hypothesise and split."""
+    set_active_profile("childes")
+    gdir = Path("resources/2023-english-ttr-induction-seed")
+    if not (gdir / "computational-actions.txt").is_file():
+        return
+    fixtures = [
+        (
+            "i took it",
+            "[x1==it : e|x==i : e|e1==take : es|p2==subj(e1, x) : t|"
+            "p3==obj(e1, x1) : t|head==e1 : es]",
+        ),
+        (
+            "you are doing what",
+            "[x==what : e|e1==do : es|x1==you : e|head==e1 : es|"
+            "p3==be_aux_feature(e1) : t|p7==obj(e1, x) : t|p6==subj(e1, x1) : t]",
+        ),
+        ("you go", "[x==you : e|e1==go : es|p1==subj(e1, x) : t|head==e1 : es]"),
+        ("HumptyDumpty", "[x==humpty_dumpty : e|head==x : e]"),
+    ]
+    from dylan.induction.em_learner.ttr_word_learner import TTRWordLearner
+
+    learner = TTRWordLearner(None, RecordTypeCorpus(), gdir, top_n=3)
+    h = learner.hypothesiser
+    for sent, sem in fixtures:
+        rt = TTRRecordType.parse(sem)
+        assert rt is not None, sent
+        h.load_training_example(sent, rt)
+        seqs = h.hypothesise()
+        assert len(seqs) >= 1, sent
+        assert any(cs.split() for cs in seqs), sent
 
 
 def test_childes_you_go_abstractions_nonempty() -> None:

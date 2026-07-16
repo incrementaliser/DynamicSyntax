@@ -12,10 +12,10 @@ class TTR2TreeCorpusConverter:
     """Convert :class:`RecordTypeCorpus` examples into tree-target examples."""
 
     def convert_corpus(self, corpus: RecordTypeCorpus) -> Corpus[object]:
-        """Return a corpus whose targets are first maximal abstraction trees."""
+        """Return a corpus whose targets are first induction abstraction trees."""
         out: Corpus[object] = Corpus()
         for words, rt in corpus:
-            trees = rt.get_maximal_filtered_abstractions(NodeAddress(), DSType.t, False)
+            trees = rt.get_induction_abstractions(NodeAddress(), DSType.t, False)
             if trees:
                 out.append((words, trees[0]))
         return out

@@ -590,6 +590,65 @@ class GenericLabel(Label):
         return self.spec
 
 
+class LabelDisjunction(Label):
+    """Disjunction of labels, e.g. ``(?ty(t) || ty(t) || ?ty(e>t))`` (Java ``LabelDisjunction``).
+
+    Brackets are compulsory. True if any disjunct checks successfully.
+    """
+
+    DISJ_FUNCTOR = "||"
+
+    def __init__(self, labels: list[Label]) -> None:
+        """Build a disjunction over *labels*."""
+        super().__init__()
+        self.labels = list(labels)
+
+    @classmethod
+    def parse(cls, s1: str, ite: Any = None) -> "LabelDisjunction | None":
+        """Parse a bracketed ``||``-separated label group (Java ``LabelDisjunction.parse``)."""
+        s = s1.strip()
+        if not (s.startswith("(") and s.endswith(")")):
+            return None
+        if cls.DISJ_FUNCTOR not in s:
+            return None
+        inner = s[1:-1]
+        parts = [p.strip() for p in inner.split(cls.DISJ_FUNCTOR)]
+        if len(parts) < 2:
+            return None
+        labels = [label_factory_create(p, ite) for p in parts if p]
+        if len(labels) < 2:
+            return None
+        return cls(labels)
+
+    def instantiate(self) -> Label:
+        """Return a copy with each disjunct instantiated."""
+        return LabelDisjunction([lab.instantiate() for lab in self.labels])
+
+    def check(self, node: Any) -> bool:
+        """True if any disjunct checks against *node* (Java ``checkLabelsDisj``)."""
+        return any(lab.check(node) for lab in self.labels)
+
+    def check_with_tuple_as_context(self, tree: Any, context: Any) -> bool:
+        """True if any disjunct checks with tuple context (Java ``checkLabelsDisj``)."""
+        return any(lab.check_with_tuple_as_context(tree, context) for lab in self.labels)
+
+    def __hash__(self) -> int:
+        result = 1
+        for lab in self.labels:
+            result = 17 * result + (0 if lab is None else hash(lab))
+        return 17 * result + hash(self.DISJ_FUNCTOR)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LabelDisjunction):
+            return False
+        if len(other.labels) != len(self.labels):
+            return False
+        return all(lab in other.labels for lab in self.labels)
+
+    def __str__(self) -> str:
+        return "(" + " || ".join(str(lab) for lab in self.labels) + ")"
+
+
 # ── factory ──────────────────────────────────────────────────────────
 
 _NEG = "\u00ac"
@@ -671,7 +730,11 @@ def label_factory_create(
     """Parse label specs used in IF clauses (partial Java ``LabelFactory.create``)."""
     s = string.strip()
 
+    # Java LabelFactory: try LabelDisjunction.parse for bracketed || groups.
     if s.startswith("(") and _DISJUNCTION_SEP in s:
+        disj = LabelDisjunction.parse(s, ite)
+        if disj is not None:
+            return disj
         return GenericLabel(s)
 
     if s.startswith(_NEG):

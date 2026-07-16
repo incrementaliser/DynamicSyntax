@@ -70,12 +70,14 @@ CHILDES_PROFILE = InductionCorpusProfile(
         "e>cn",
     ),
     priority_template_specs=(
+        "[e1:es|x1:e|x2:e|p1==subj(e1,x1):t|p2==obj(e1,x2):t|p3==ind_obj(e1, e2):t]",
         "[e1:es|x1:e|x2:e|p1==subj(e1,x1):t|p2==obj(e1,x2):t]",
         "[e1:es|x1:e|p1==subj(e1,x1):t]",
     ),
     priority_field_specs=(
         "p==subj(e,x):t",
         "p==obj(e,x):t",
+        "p==ind_obj(e1,e2):t",
     ),
     static_type_map_overrides={
         "e>t": "R1^(R1 ++ [e1:es|p==subj(e1,R1.head):t|head==e1:es])",

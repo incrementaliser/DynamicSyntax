@@ -201,12 +201,19 @@ class TTRFormula(Formula):
         root: NodeAddress,
         root_type: DSType,
     ) -> list[Tree]:
-        """Main Java loop — recursively build abstraction trees decorated with TTR labels."""
+        """Main Java loop — recursively build abstraction trees decorated with TTR labels.
+
+        Under the ``childes`` profile, cn nesting matches pre-BabyDS Java
+        (``argumentAbstracts.size() == 1`` only, no premature multi-cn trees).
+        BabyDS keeps the tip ``!isEmpty()`` + premature path.
+        """
+        from dylan.induction.corpus_profile import get_active_profile
         from dylan.tree.basic_operator import BasicOperator
         from dylan.tree.label.labels import FormulaLabel, Requirement, TypeLabel
         from dylan.tree.tree import Tree
         from dylan.type.dstype import DSType as _DST
 
+        pre_babyds_cn = get_active_profile().name == "childes"
         result: list[Tree] = []
         logger.debug("Abstractions for: %s", types)
         logger.debug("on: %s", self)
@@ -233,7 +240,6 @@ class TTRFormula(Formula):
             local.make(BasicOperator.DOWN_0)
             local.go_op(BasicOperator.DOWN_0)
 
-            # cn-abstracts on the right side; cached by (rt, cn).
             key = (rt, _DST.cn)
             cache = self.abstracts_cache
             if key in cache:
@@ -244,7 +250,12 @@ class TTRFormula(Formula):
             logger.debug("cn abstracts size: %d", len(argument_abstracts))
 
             premature_tree_copies: list[Tree] = []
-            if argument_abstracts:
+            nest_cn = (
+                len(argument_abstracts) == 1
+                if pre_babyds_cn
+                else bool(argument_abstracts)
+            )
+            if nest_cn:
                 arg0_rt, arg0_lam = argument_abstracts[0]
                 local.make(BasicOperator.DOWN_1)
                 local.go_op(BasicOperator.DOWN_1)
@@ -258,52 +269,53 @@ class TTRFormula(Formula):
                 local.put(FormulaLabel(arg0_rt))
                 local.go_op(BasicOperator.UP_0)
 
-                for i in range(1, len(argument_abstracts)):
-                    copy_local = local.clone()
-                    child_rt, child_lam = argument_abstracts[i]
-                    copy_local.go_op(BasicOperator.DOWN_0)
-                    copy_local.make(BasicOperator.DOWN_1)
-                    copy_local.go_op(BasicOperator.DOWN_1)
-                    copy_local.put(FormulaLabel(child_lam))
-                    abstracted_type2 = _DST.create(_DST.cn, _DST.cn)
-                    copy_local.put(TypeLabel(abstracted_type2))
-                    copy_local.go_op(BasicOperator.UP_1)
-                    copy_local.make(BasicOperator.DOWN_0)
-                    copy_local.go_op(BasicOperator.DOWN_0)
-                    copy_local.put(TypeLabel(_DST.cn))
-                    copy_local.put(FormulaLabel(child_rt))
+                if not pre_babyds_cn:
+                    for i in range(1, len(argument_abstracts)):
+                        copy_local = local.clone()
+                        child_rt, child_lam = argument_abstracts[i]
+                        copy_local.go_op(BasicOperator.DOWN_0)
+                        copy_local.make(BasicOperator.DOWN_1)
+                        copy_local.go_op(BasicOperator.DOWN_1)
+                        copy_local.put(FormulaLabel(child_lam))
+                        abstracted_type2 = _DST.create(_DST.cn, _DST.cn)
+                        copy_local.put(TypeLabel(abstracted_type2))
+                        copy_local.go_op(BasicOperator.UP_1)
+                        copy_local.make(BasicOperator.DOWN_0)
+                        copy_local.go_op(BasicOperator.DOWN_0)
+                        copy_local.put(TypeLabel(_DST.cn))
+                        copy_local.put(FormulaLabel(child_rt))
 
-                    copy_local.go_op(BasicOperator.UP_0)
-                    logger.debug("constructed: %s", copy_local)
-                    result.append(copy_local)
-                    copy_local.go_op(BasicOperator.UP_0)
+                        copy_local.go_op(BasicOperator.UP_0)
+                        logger.debug("constructed: %s", copy_local)
+                        result.append(copy_local)
+                        copy_local.go_op(BasicOperator.UP_0)
 
-                    copy_local.put(TypeLabel(basic))
-                    copy_local.put(FormulaLabel(rt))
-                    copy_local.go_op(BasicOperator.UP_0)
-                    copy_local.make(BasicOperator.DOWN_1)
-                    copy_local.go_op(BasicOperator.DOWN_1)
-                    copy_local.put(FormulaLabel(lam))
-                    abstracted_type_left = _DST.create(basic, root_type)
-                    copy_local.put(TypeLabel(abstracted_type_left))
-                    logger.debug("constructed left: %s", copy_local)
+                        copy_local.put(TypeLabel(basic))
+                        copy_local.put(FormulaLabel(rt))
+                        copy_local.go_op(BasicOperator.UP_0)
+                        copy_local.make(BasicOperator.DOWN_1)
+                        copy_local.go_op(BasicOperator.DOWN_1)
+                        copy_local.put(FormulaLabel(lam))
+                        abstracted_type_left = _DST.create(basic, root_type)
+                        copy_local.put(TypeLabel(abstracted_type_left))
+                        logger.debug("constructed left: %s", copy_local)
 
-                    try:
-                        lower_abstracts = lam.get_abstractions(
-                            types[1:], copy_local.get_pointer(), abstracted_type_left,
-                        )
-                    except Exception:  # noqa: BLE001 - mirrors Java try/catch
-                        logger.warning("AA lower abstractions empty (caught exception).")
-                        lower_abstracts = []
+                        try:
+                            lower_abstracts = lam.get_abstractions(
+                                types[1:], copy_local.get_pointer(), abstracted_type_left,
+                            )
+                        except Exception:  # noqa: BLE001 - mirrors Java try/catch
+                            logger.warning("AA lower abstractions empty (caught exception).")
+                            lower_abstracts = []
 
-                    logger.debug("lower abstracts: %s", lower_abstracts)
-                    for lower in lower_abstracts:
-                        merged = copy_local.merge_tree(lower)
-                        if merged.get_pointer().down1() in merged.key_set():
-                            merged.go_op(BasicOperator.DOWN_1)
-                        premature_tree_copies.append(merged)
-                    if not lower_abstracts:
-                        premature_tree_copies.append(copy_local)
+                        logger.debug("lower abstracts: %s", lower_abstracts)
+                        for lower in lower_abstracts:
+                            merged = copy_local.merge_tree(lower)
+                            if merged.get_pointer().down1() in merged.key_set():
+                                merged.go_op(BasicOperator.DOWN_1)
+                            premature_tree_copies.append(merged)
+                        if not lower_abstracts:
+                            premature_tree_copies.append(copy_local)
 
             logger.debug("len of prematureTreeCopies: %d", len(premature_tree_copies))
             local.put(TypeLabel(basic))
