@@ -1,0 +1,42 @@
+# CHILDES induction: Java LC 3200 train / 800 test (2013-scale protocol).
+#
+# Run from repo root:
+#   uv run dsttr-induction -c configs/induction/childes-3200-800.yaml
+#
+# Compare Top-1/2/3 coverage to z-myfiles/2013-results.txt (59 / 85 / 92).
+
+data:
+  profile: childes
+  split: pre_split
+  train: data/CHILDES/LC-CHILDESconversion3200TrainFinal.txt
+  test: data/CHILDES/LC-CHILDESconversion800TestFinal.txt
+  save_splits: true
+
+model:
+  # 2023 seed ≈ Java 2013-english-ttr-induction-seed (not 2025 BabyDS seed)
+  seed_grammar: resources/2023-english-ttr-induction-seed
+  use_previous_model: false
+  previous_model: null
+  top_n: 3
+
+train:
+  show_progress: true
+  force_train: false
+  reuse_existing_model: false
+
+eval:
+  evaluate_on: [train, test]
+  top_n_start: 1
+  top_n_end: null
+
+logging:
+  level: INFO
+  to_cli: false
+  to_file: true
+  file_name: run.log
+
+output:
+  run_dir: out/runs
+  name: induction-childes-3200-800
+  write_tsv: true
+  write_report: true
