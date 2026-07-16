@@ -28,7 +28,7 @@ except PackageNotFoundError:  # pragma: no cover - editable checkout without met
 
 
 def __getattr__(name: str):
-    """Lazy access to optional subsystems (DS-VSS)."""
+    """Lazy access to optional subsystems (DS-VSS, probabilistic circuits)."""
     if name == "vss":
         from dynamicsyntax import vss
 
@@ -37,6 +37,10 @@ def __getattr__(name: str):
         from dynamicsyntax.vss import parse_vss
 
         return parse_vss
+    if name == "pc":
+        from dynamicsyntax import pc
+
+        return pc
     raise AttributeError(f"module 'dynamicsyntax' has no attribute {name!r}")
 
 
@@ -82,6 +86,7 @@ __all__ = [
     "icp",
     "parse",
     "parse_vss",
+    "pc",
     "to_manim",
     "vss",
 ]
