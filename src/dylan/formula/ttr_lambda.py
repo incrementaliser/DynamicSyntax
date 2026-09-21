@@ -102,11 +102,42 @@ class TTRLambdaAbstract(TTRFormula):
             other.body, map_
         )
 
+    def num_variables(self) -> int:
+        """Count nested lambda binders (Java ``TTRLambdaAbstract.numVariables``)."""
+        if not isinstance(self.body, TTRLambdaAbstract):
+            return 1
+        return self.body.num_variables() + 1
+
+    def get_types(self) -> list[Any]:
+        """Record-type cores under this lambda (Java ``TTRLambdaAbstract.getTypes``)."""
+        core = self.get_core()
+        if hasattr(core, "get_types"):
+            return list(core.get_types())
+        return []
+
     def get_abstractions_basic(self, basic: Any, new_var_suffix: int = 1) -> list[Any]:
-        """Delegate basic abstractions to the body (Java ``TTRLambdaAbstract.getAbstractions(BasicType, int)``)."""
-        return self.body.get_abstractions_basic(basic, new_var_suffix) if hasattr(
-            self.body, "get_abstractions_basic",
-        ) else []
+        """Abstract over the core, then rewrap (Java ``TTRLambdaAbstract.getAbstractions``).
+
+        Unlike a naive body delegate, Java peels ``getCore()`` with suffix
+        ``numVariables() + 1`` and rebuilds each result as
+        ``Λ(pair.var, this.replaceCore(pair.core))``.
+        """
+        core = self.get_core()
+        if not hasattr(core, "get_abstractions_basic"):
+            return []
+        # ``new_var_suffix`` is ignored; Java always uses ``numVariables()+1``.
+        _ = new_var_suffix
+        core_abstractions = core.get_abstractions_basic(basic, self.num_variables() + 1)
+        result: list[Any] = []
+        for argument, abs_lambda in core_abstractions:
+            if not isinstance(abs_lambda, TTRLambdaAbstract):
+                continue
+            rewrapped = TTRLambdaAbstract(
+                abs_lambda.get_variable(),
+                self.replace_core(abs_lambda.get_core()),
+            )
+            result.append((argument, rewrapped))
+        return result
 
     def __str__(self) -> str:
         """Render ``R^body`` in Java style."""
@@ -135,5 +166,7 @@ TTRLambdaAbstract.replaceCore = TTRLambdaAbstract.replace_core  # type: ignore[a
 TTRLambdaAbstract.getVariable = TTRLambdaAbstract.get_variable  # type: ignore[attr-defined]
 TTRLambdaAbstract.getBody = TTRLambdaAbstract.get_body  # type: ignore[attr-defined]
 TTRLambdaAbstract.getVariables = TTRLambdaAbstract.get_variables  # type: ignore[attr-defined]
+TTRLambdaAbstract.numVariables = TTRLambdaAbstract.num_variables  # type: ignore[attr-defined]
+TTRLambdaAbstract.getTypes = TTRLambdaAbstract.get_types  # type: ignore[attr-defined]
 TTRLambdaAbstract.betaReduce = TTRLambdaAbstract.beta_reduce  # type: ignore[attr-defined]
 TTRLambdaAbstract.subsumesMapped = TTRLambdaAbstract.subsumes_mapped  # type: ignore[attr-defined]

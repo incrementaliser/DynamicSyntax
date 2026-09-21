@@ -93,7 +93,17 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
         self.hb.forget_current_dist()
         try:
             for cs in hyps:
-                splits = cs.split()
+                try:
+                    splits = cs.split()
+                except Exception as exc:  # noqa: BLE001
+                    # Some DAG paths (esp. hyp-adj replay) fail to re-exec during split;
+                    # skip that sequence rather than aborting the whole corpus run.
+                    logger.warning(
+                        "skipping sequence that failed to split (%s): %s",
+                        exc,
+                        cs.to_short_string() if hasattr(cs, "to_short_string") else cs,
+                    )
+                    continue
                 self.hb.add_sequence_tuples(splits)
             self.hb.update_dists_end_of_example(unknown_words)
         except Exception as exc:  # noqa: BLE001

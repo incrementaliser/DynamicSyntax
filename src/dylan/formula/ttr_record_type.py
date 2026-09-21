@@ -292,6 +292,47 @@ class TTRRecordType(TTRFormula):
         ds = pointed.ds_type if pointed is not None else None
         self.add(TTRField(HEAD, ds, Variable(label.label)))
 
+    def ensure_induction_head(self) -> TTRLabel | None:
+        """Deem a head when missing so TypeLattice can initialise (CHILDES headless RTs).
+
+        Java CHILDES conversion always writes ``head==eN:es`` (CorpusConverter). Raw
+        ``data/CHILDES/data.txt`` often omits the top-level head; without it the lattice
+        stays empty and every example is skipped. Prefer an ``es`` field with dependents,
+        else any ``es``, else any ``e``.
+        """
+        if self.get_head_field() is not None:
+            hf = self.get_head_field()
+            return hf.label if hf is not None else None
+
+        es_candidates: list[TTRField] = []
+        e_candidates: list[TTRField] = []
+        for f in self._fields:
+            if f.label == HEAD or f.ds_type is None:
+                continue
+            if f.ds_type == DSType.es:
+                es_candidates.append(f)
+            elif f.ds_type == DSType.e:
+                e_candidates.append(f)
+
+        chosen: TTRField | None = None
+        for f in es_candidates:
+            if self.has_dependent(f):
+                chosen = f
+                break
+        if chosen is None and es_candidates:
+            chosen = es_candidates[0]
+        if chosen is None and e_candidates:
+            for f in e_candidates:
+                if self.has_dependent(f):
+                    chosen = f
+                    break
+            if chosen is None:
+                chosen = e_candidates[0]
+        if chosen is None or chosen.label is None:
+            return None
+        self.deem_head(chosen.label)
+        return chosen.label
+
     def get_head_field(self) -> TTRField | None:
         """Return the field pointed to by ``head`` (Java ``getHeadField``)."""
         from dylan.formula.ttr_path import TTRAbsolutePath
@@ -360,10 +401,20 @@ class TTRRecordType(TTRFormula):
         return n
 
     def substitute(self, var: Variable, arg: Formula) -> Formula:
-        """Substitute through every field."""
+        """Substitute through every field.
+
+        When label substitution collides (e.g. renaming ``e1`` to ``head`` while a
+        ``head==e1`` field becomes ``head==head``), keep the first field for that
+        label so the record stays well-formed for round-trip parse/export.
+        """
         n = TTRRecordType()
         for f in self._fields:
-            n.add_field(f.substitute(var, arg))  # type: ignore[arg-type]
+            subst = f.substitute(var, arg)
+            if not isinstance(subst, TTRField):
+                continue
+            if n.has_label(subst.label):
+                continue
+            n.add_field(subst)
         return n
 
     def substitute_formula(self, f1: Formula, f2: Formula) -> TTRRecordType:
@@ -683,10 +734,88 @@ class TTRRecordType(TTRFormula):
         basic_ds_type: DSType,
         new_var_suffix: int = 1,
     ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
-        """Java ``TTRRecordType.getAbstractions(BasicType, int)`` — full port with cn/t branches and AA hacks.
+        """Java ``TTRRecordType.getAbstractions(BasicType, int)`` — profile-gated.
+
+        * **childes:** pre-BabyDS peel (``62df057d^``): cn-restrictor/cn OR ``f.dsType == basic``.
+        * **babyds:** tip BabyDS peels (cn/t expansions, recurse, AA subst hacks).
+        """
+        from dylan.induction.corpus_profile import get_active_profile
+
+        if get_active_profile().name == "childes":
+            return self._get_abstractions_basic_pre_babyds(basic_ds_type, new_var_suffix)
+        return self._get_abstractions_basic_babyds(basic_ds_type, new_var_suffix)
+
+    def _get_abstractions_basic_pre_babyds(
+        self,
+        basic_ds_type: DSType,
+        new_var_suffix: int = 1,
+    ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
+        """Pre-BabyDS field peel (Java before ``62df057d``)."""
+        from dylan.formula.predicate_argument import Predicate
+        from dylan.formula.ttr_infix_expression import TTRInfixExpression
+        from dylan.formula.ttr_lambda import TTRLambdaAbstract
+        from dylan.formula.ttr_path import parse_ttr_path
+
+        result: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
+        logger.debug("extracting %s from %s (pre-BabyDS peel)", basic_ds_type, self)
+        head = self.get_head_field()
+
+        for f in self._fields:
+            field_dst = f.ds_type
+            if basic_ds_type == DSType.cn and (field_dst is None or field_dst == DSType.cn):
+                arg = f.manifest_type
+                if not isinstance(arg, TTRRecordType):
+                    continue
+                v = Variable(f"R{new_var_suffix}")
+                core = TTRRecordType()
+                for cf in self._fields:
+                    core.add_field(cf.clone())
+                sub = core.substitute_formula(arg, v)
+                result.append((arg, TTRLambdaAbstract(v, sub)))
+                continue
+
+            if field_dst is not None and field_dst == basic_ds_type:
+                if f.label == HEAD and f.manifest_type is not None:
+                    continue
+                logger.debug("extracting field: %s", f)
+                arg = self.get_super_type_with_parents(f)
+                try:
+                    start = self._fields.index(f) + 1
+                except ValueError:
+                    start = len(self._fields)
+                for cur in self._fields[start:]:
+                    if not cur.depends_on(f):
+                        continue
+                    if head is None or (not cur.depends_on(head) and cur.label != HEAD):
+                        arg.put_at_end(cur.clone())
+                v = Variable(f"R{new_var_suffix}")
+                core = TTRRecordType()
+                for cf in self._fields:
+                    core.add_field(cf.clone())
+                core.remove_fields(arg)
+                if core.is_empty() or (core.num_fields() == 1 and core.has_label(HEAD)):
+                    continue
+                head_path = parse_ttr_path(f"{v.name}.head")
+                assert head_path is not None
+                sub_core = core.substitute(Variable(f.label.label), head_path)
+                assert isinstance(sub_core, TTRRecordType)
+                core_final = TTRInfixExpression(Predicate("++"), v, sub_core)
+                lam = TTRLambdaAbstract(v, core_final)
+                arg.deem_head(f.label)
+                result.append((arg, lam))
+
+        logger.debug("Total number of abstractions (pre-BabyDS): %d", len(result))
+        return result
+
+    def _get_abstractions_basic_babyds(
+        self,
+        basic_ds_type: DSType,
+        new_var_suffix: int = 1,
+    ) -> list[tuple["TTRRecordType", "TTRLambdaAbstract"]]:
+        """BabyDS-tip field peel (Java after Dec 2024 / class-2 expansions).
 
         Returns ``[(rt, TTRLambdaAbstract(R, asym_merge(R, substCore))), …]`` pairs.
-        Mirrors the four big branches of the Java method:
+        Mirrors the tip Java branches:
 
         1. ``basicDSType == cn`` and field is restrictor (no ``ds_type``).
         2. ``basicDSType == cn`` and field has ``ds_type == cn``.
@@ -702,10 +831,9 @@ class TTRRecordType(TTRFormula):
         result: list[tuple[TTRRecordType, TTRLambdaAbstract]] = []
         logger.debug("extracting %s from %s", basic_ds_type, self)
         head = self.get_head_field()
-        head_label = head.label if head is not None else None
 
         def add_dependents(arg: TTRRecordType, src_field: TTRField) -> None:
-            """Append fields from *self* dependent on *src_field* but not on head (Java add-dependents block)."""
+            """Append fields from *self* dependent on *src_field* but not on head."""
             try:
                 start = self._fields.index(src_field) + 1
             except ValueError:
@@ -724,7 +852,7 @@ class TTRRecordType(TTRFormula):
                     arg.put_at_end(cur.clone())
 
         def build_subst_core(core: TTRRecordType, f: TTRField, v: Variable) -> TTRRecordType:
-            """Java AA substitution: subF is sole variable in fType -> sub it; else fall back to f.label."""
+            """Java AA substitution: sole variable in fType, else f.label."""
             f_type = f.manifest_type
             head_path = parse_ttr_path(f"{v.name}.head")
             assert head_path is not None
@@ -794,7 +922,6 @@ class TTRRecordType(TTRFormula):
                     continue
 
                 if field_dst == DSType.t:
-                    # The "AA: not sure about THIS PART" cn-from-t branch.
                     if f.label == HEAD and f.manifest_type is not None:
                         continue
                     arg = self.get_super_type_with_parents(f)
@@ -929,22 +1056,72 @@ class TTRRecordType(TTRFormula):
         type_: DSType,
         filtering: bool,
     ) -> list["Tree"]:
-        """Java port of ``TTRRecordType.getFilteredAbstractions`` — DSType-driven template trees plus subj/obj filtering."""
+        """Java ``TTRRecordType.getFilteredAbstractions`` — profile-gated control flow.
+
+        * **childes / pre-BabyDS:** early-return on the first non-empty template
+          (unfiltered) or first non-empty TreeFilter hit.
+        * **babyds:** accumulate across templates and force-add max-node trees
+          when the filter is empty (BabyDS rewrite).
+        """
+        from dylan.induction.corpus_profile import get_active_profile
         from dylan.induction.em_learner.tree_filter import TreeFilter
 
-        result: list = []
         filt = TreeFilter(self)
         templates: list[DSType] = []
+        profile = get_active_profile()
         if type_ == DSType.t:
-            for spec in ("e>(e>(e>t))", "e>(e>t)", "e>t"):
-                ds = DSType.parse(spec)
-                if ds is not None:
-                    templates.append(ds)
+            specs = profile.filtered_abstraction_templates_t
         elif type_ == DSType.cn:
-            ds = DSType.parse("cn>cn")
+            specs = profile.filtered_abstraction_templates_cn
+        else:
+            specs = ()
+        for spec in specs:
+            ds = DSType.parse(spec)
             if ds is not None:
                 templates.append(ds)
 
+        if profile.name == "childes":
+            return self._get_filtered_abstractions_early_return(prefix, templates, filt, filtering)
+        return self._get_filtered_abstractions_accumulate(prefix, templates, filt, filtering)
+
+    def _get_filtered_abstractions_early_return(
+        self,
+        prefix: "NodeAddress",
+        templates: list[DSType],
+        filt: Any,
+        filtering: bool,
+    ) -> list["Tree"]:
+        """Pre-BabyDS Filtered: first successful template wins.
+
+        When the TreeFilter has argument-position constraints, trees that fail
+        the filter are skipped even if ``filtering`` is False — otherwise
+        BabyDS-era ``es>(e>(e>t))`` peels win before the classic ``e>(e>t)``
+        SVO template. With no constraints, behaviour matches Java early-return.
+        """
+        has_constraints = bool(getattr(filt, "minimal_sub_types", None))
+        for ds_type in templates:
+            cur_trees = self.get_abstractions(ds_type, prefix)
+            if not cur_trees:
+                continue
+            filtered = filt.filter(cur_trees)
+            if filtered:
+                return list(filtered)
+            if has_constraints:
+                # Rejected by subj/obj map — try the next (shallower) template.
+                continue
+            if not filtering:
+                return list(cur_trees)
+        return self.get_empty_abstractions(prefix)
+
+    def _get_filtered_abstractions_accumulate(
+        self,
+        prefix: "NodeAddress",
+        templates: list[DSType],
+        filt: Any,
+        filtering: bool,
+    ) -> list["Tree"]:
+        """BabyDS Filtered: accumulate templates and force-add max-node trees."""
+        result: list = []
         max_num_nodes = 0
         for ds_type in templates:
             cur_trees = self.get_abstractions(ds_type, prefix)
@@ -968,31 +1145,19 @@ class TTRRecordType(TTRFormula):
             return self.get_empty_abstractions(prefix)
         return result
 
-    def get_maximal_filtered_abstractions(
-        self,
-        prefix: "NodeAddress",
-        type_: DSType,
-        filtering: bool,
-    ) -> list["Tree"]:
-        """Return maximally-extended abstraction trees (Java ``getMaximalFilteredAbstractions``).
+    @staticmethod
+    def _swap_r2_r1_merge_order(trees: list["Tree"]) -> list["Tree"]:
+        """AA ``R2^R1`` swap so merge order matches Tree typeMap (Java Maximal hack).
 
-        Picks the trees with the highest ``getNumNodes`` from
-        :meth:`get_filtered_abstractions`, then performs the Java
-        ``R2^R1`` argument-swap hack so abstraction-order matches the
-        Tree typeMap (BabyDS templates).
+        Rewrites ``R2^R1^(R2 ++ (R1 ++ core))`` to ``R2^R1^(R1 ++ (R2 ++ core))``
+        using ``get_core()`` (not the immediate body).
         """
         from dylan.formula.predicate_argument import Predicate
         from dylan.formula.ttr_infix_expression import TTRInfixExpression
         from dylan.formula.ttr_lambda import TTRLambdaAbstract
+        from dylan.tree.label.labels import FormulaLabel
 
-        filtered = self.get_filtered_abstractions(prefix, type_, filtering)
-        max_num = 0
-        for t in filtered:
-            n = t.get_num_nodes()
-            if n > max_num:
-                max_num = n
-        maximal = [t for t in filtered if t.get_num_nodes() == max_num]
-        for tree in maximal:
+        for tree in trees:
             for node in tree.get_nodes():
                 fo = node.get_formula()
                 if fo is None or not str(fo).startswith("R2^R1"):
@@ -1000,7 +1165,7 @@ class TTRRecordType(TTRFormula):
                 if not isinstance(fo, TTRLambdaAbstract):
                     continue
                 v_outer = fo.variable
-                core_outer = fo.body
+                core_outer = fo.get_core()
                 if not isinstance(core_outer, TTRInfixExpression):
                     continue
                 inner_expr = core_outer.arg2
@@ -1015,11 +1180,47 @@ class TTRRecordType(TTRFormula):
                 new_inner = TTRInfixExpression(Predicate("++"), v_outer, core_inner)
                 new_outer = TTRInfixExpression(Predicate("++"), v_inner_obj, new_inner)
                 swapped = TTRLambdaAbstract(v_outer, TTRLambdaAbstract(v_inner_obj, new_outer))
-                from dylan.tree.label.labels import FormulaLabel
-
                 node.remove_formula_label()
                 node.add_label(FormulaLabel(swapped))
-        return maximal
+        return trees
+
+    def get_maximal_filtered_abstractions(
+        self,
+        prefix: "NodeAddress",
+        type_: DSType,
+        filtering: bool,
+    ) -> list["Tree"]:
+        """Return maximally-extended abstraction trees (Java ``getMaximalFilteredAbstractions``).
+
+        Picks the trees with the highest ``getNumNodes`` from
+        :meth:`get_filtered_abstractions`, then applies the ``R2^R1`` swap.
+        """
+        filtered = self.get_filtered_abstractions(prefix, type_, filtering)
+        max_num = 0
+        for t in filtered:
+            n = t.get_num_nodes()
+            if n > max_num:
+                max_num = n
+        maximal = [t for t in filtered if t.get_num_nodes() == max_num]
+        return self._swap_r2_r1_merge_order(maximal)
+
+    def get_induction_abstractions(
+        self,
+        prefix: "NodeAddress",
+        type_: DSType,
+        filtering: bool,
+    ) -> list["Tree"]:
+        """Profile-gated trees for :class:`~dylan.induction.em_learner.ttr_hypothesiser.TTRHypothesiser`.
+
+        * **childes:** pre-BabyDS Filtered + ``R2^R1`` merge-order post-pass.
+        * **babyds:** Maximal Filtered (max nodes + swap).
+        """
+        from dylan.induction.corpus_profile import get_active_profile
+
+        if get_active_profile().name == "childes":
+            trees = self.get_filtered_abstractions(prefix, type_, filtering)
+            return self._swap_r2_r1_merge_order(trees)
+        return self.get_maximal_filtered_abstractions(prefix, type_, filtering)
 
     def get_ttr_paths(self) -> list["TTRPath"]:
         """Return manifest TTR paths across fields (Java ``getTTRPaths``)."""
@@ -1152,9 +1353,8 @@ class TTRRecordType(TTRFormula):
         return out
 
     def get_types(self) -> list[TTRRecordType]:
-        """Return nested record types plus this record."""
-        nested = [f.manifest_type for f in self._fields if isinstance(f.manifest_type, TTRRecordType)]
-        return [self, *nested]
+        """Return this record only (Java ``TTRRecordType.getTypes``)."""
+        return [self]
 
     def replace_content(self, core: TTRRecordType) -> None:
         """Replace this record's fields with a clone of *core*."""

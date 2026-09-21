@@ -1,0 +1,46 @@
+# BabyDS neuro-symbolic (cirkit / SPL) induction MVP vs EM baseline.
+#
+# Run:
+#   uv sync --extra nesy --extra pc
+#   uv run python scripts/nesy_induction_mvp.py
+
+data:
+  split: pre_split
+  train: data/BabyDS/class1_train_100.txt
+  test: data/BabyDS/class1_test_12.txt
+  save_splits: true
+
+model:
+  seed_grammar: resources/2025-seed-grammar
+  use_previous_model: false
+  previous_model: null
+  top_n: 3
+
+train:
+  show_progress: true
+  force_train: false
+  reuse_existing_model: false
+
+eval:
+  evaluate_on: [train, test]
+  top_n_start: 1
+  top_n_end: 1
+
+logging:
+  level: INFO
+  to_cli: false
+  to_file: true
+  file_name: run.log
+
+output:
+  run_dir: out/runs
+  name: nesy-induction-mvp
+  write_tsv: true
+  write_report: true
+
+nesy:
+  learner: circuit
+  epochs: 30
+  lr: 0.05
+  use_vss_gate: true
+  compare_em_baseline: true

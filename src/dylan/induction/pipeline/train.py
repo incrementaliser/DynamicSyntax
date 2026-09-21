@@ -66,6 +66,7 @@ def train_model(
     show_progress: bool = True,
     force_train: bool = False,
     reuse_existing_model: bool = False,
+    corpus_profile: str | None = None,
 ) -> tuple[Path, float]:
     """Train (or reuse) and save ``lexicon-top-N.txt`` under *model_dir*.
 
@@ -74,9 +75,17 @@ def train_model(
     *previous_model* is an optional seed lexicon in another directory (continue
     learning). It is independent of whether *model_dir* already has outputs.
 
+    *corpus_profile* when set activates the named induction corpus profile
+    (``babyds`` / ``childes``) before learning.
+
     Precedence: ``force_train`` always trains/overwrites. ``reuse_existing_model``
     skips EM only when ``force_train`` is false and current-dir lexicons exist.
     """
+    if corpus_profile is not None:
+        from dylan.induction.corpus_profile import set_active_profile
+
+        set_active_profile(corpus_profile)
+
     model_dir.mkdir(parents=True, exist_ok=True)
     comp_src = seed_grammar / "computational-actions.txt"
     if not comp_src.is_file():
@@ -115,5 +124,16 @@ def train_model(
     learner.learn(show_progress=show_progress)
     learner.save_model(lexicon_prefix, top_n=top_n)
     elapsed = time.perf_counter() - t0
+    if not lexicon_files_exist(model_dir, top_n):
+        raise RuntimeError(f"Training finished but no lexicon-top-*.txt under {model_dir}")
+    # Empty files (all examples skipped) break eval with a confusing 0-word load.
+    top1 = model_dir / "lexicon-top-1.txt"
+    if top1.is_file() and top1.stat().st_size == 0:
+        skipped = len(getattr(learner, "skipped", []) or [])
+        raise RuntimeError(
+            f"Learnt lexicon is empty after training ({skipped} examples skipped). "
+            "Check induction corpus profile, seed grammar, and that gold RTs have "
+            "(or can deem) a head field for TypeLattice.",
+        )
     logger.info("Saved lexicons under {}-top-*.txt (train {})", lexicon_prefix, elapsed)
     return lexicon_prefix, elapsed

@@ -69,11 +69,16 @@ class RecordTypeCorpus(Corpus[TTRRecordType]):
         logger.info("Successfully loaded TTR corpus with %d entries", i)
 
     def _consume_block(self, block: list[str]) -> bool:
+        """Parse one ``Sent``/``GoldSent`` + ``Sem`` block into a corpus example."""
         if len(block) < 2:
             return False
         sent_line = block[0]
         sem_line = block[1]
         if ":" not in sent_line or ":" not in sem_line:
+            return False
+        sent_key = sent_line.split(":", 1)[0].strip().lower().replace(" ", "")
+        sem_key = sem_line.split(":", 1)[0].strip().lower().replace(" ", "")
+        if sent_key not in ("sent", "goldsent") or sem_key != "sem":
             return False
         sentence = sent_line.split(":", 1)[1].strip()
         semantics = sem_line.split(":", 1)[1].strip()

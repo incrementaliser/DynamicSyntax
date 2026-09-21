@@ -1,0 +1,7 @@
+Alias for the 2013 CHILDES induction seed.
+
+Java ships `resource/2013-english-ttr-induction-seed`. Stripped of comments, its
+computational-actions / lexical-actions / lexicon match
+`resources/2023-english-ttr-induction-seed` (the 2023 copy only relocates CHILDES
+comments). Use the 2023 directory in configs; do not use `2025-seed-grammar`
+(BabyDS) for CHILDES 2013 parity.

@@ -11,17 +11,19 @@ import yaml
 
 SplitMode = Literal["holdout", "train_val_test", "kfold", "pre_split"]
 LogLevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+CorpusProfileName = Literal["babyds", "childes"]
 
 
 @dataclass
 class DataConfig:
-    """Corpus path(s) and split strategy."""
+    """Corpus path(s), split strategy, and induction corpus profile."""
 
     corpus: str | None = None
     train: str | None = None
     val: str | None = None
     test: str | None = None
     split: SplitMode = "holdout"
+    profile: CorpusProfileName = "babyds"
     test_ratio: float = 0.15
     val_ratio: float = 0.0
     folds: int = 5

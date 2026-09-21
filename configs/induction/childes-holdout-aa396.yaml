@@ -1,0 +1,40 @@
+# CHILDES AA unique-top3 set (filename says 396; file has fewer Sent lines).
+#
+# Run:
+#   uv run dsttr-induction -c configs/induction/childes-holdout-aa396.yaml
+
+data:
+  profile: childes
+  corpus: data/CHILDES/AA-train-lower-396-unique-top3.txt
+  split: holdout
+  test_ratio: 0.10
+  seed: 42
+  save_splits: true
+
+model:
+  seed_grammar: resources/2023-english-ttr-induction-seed
+  use_previous_model: false
+  previous_model: null
+  top_n: 3
+
+train:
+  show_progress: true
+  force_train: false
+  reuse_existing_model: false
+
+eval:
+  evaluate_on: [train, test]
+  top_n_start: 1
+  top_n_end: null
+
+logging:
+  level: INFO
+  to_cli: false
+  to_file: true
+  file_name: run.log
+
+output:
+  run_dir: out/runs
+  name: induction-childes-aa396
+  write_tsv: true
+  write_report: true

@@ -1,0 +1,3 @@
+Copied from Java DyLan resource/2023-english-ttr-induction-seed for CHILDES induction.
+Use this as model.seed_grammar with data.profile: childes.
+Do not confuse with resources/2025-seed-grammar (BabyDS) or parsing grammars.

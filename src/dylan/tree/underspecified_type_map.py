@@ -1,4 +1,9 @@
-"""Static underspecified-type → formula map (Java ``Tree`` static ``typeMap``)."""
+"""Static underspecified-type → formula map (Java ``Tree`` static ``typeMap``).
+
+Base entries match the BabyDS / no-arg Java map. Active
+:class:`~dylan.induction.corpus_profile.InductionCorpusProfile` overrides
+(e.g. CHILDES ``e>t`` with embedded ``subj``) are applied on top.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def build_static_type_map() -> dict[DSType, Formula]:
-    """Mirror Java ``Tree`` static initializer (``resource/2016`` … TTR grammars)."""
+    """Build the underspecified-type map, applying active corpus-profile overrides."""
     m: dict[DSType, Formula] = {}
     _put = m.__setitem__
 
@@ -36,6 +41,16 @@ def build_static_type_map() -> dict[DSType, Formula]:
     _put(DSType.parse("cn>e"), _f("R1^[r:R1|x:e|head==x:e]"))
     _put(DSType.parse("cn>es"), _f("R1^[r:R1|e1:es|head==e1:es]"))
     _put(DSType.parse("cn>cn"), _f("R1^(R1 ++ [head==R1.head:e|p:t])"))
+
+    try:
+        from dylan.induction.corpus_profile import get_active_profile
+
+        for type_spec, formula_spec in get_active_profile().static_type_map_overrides.items():
+            ds = DSType.parse(type_spec)
+            if ds is not None:
+                _put(ds, _f(formula_spec))
+    except Exception:  # noqa: BLE001 - keep base map if profile import fails early
+        pass
     return m
 
 

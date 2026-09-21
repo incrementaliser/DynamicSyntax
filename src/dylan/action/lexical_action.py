@@ -33,7 +33,12 @@ class LexicalAction(Action):
 
     @classmethod
     def from_action_spine(cls, word: str, actions: list[Action]) -> "LexicalAction":
-        """Build from a flattened action spine like Java ``LexicalAction(String, ArrayList<Action>)``."""
+        """Build from a flattened action spine like Java ``LexicalAction(String, ArrayList<Action>)``.
+
+        Keeps Effect objects directly (Java ``flatten``) and only derives source
+        lines for file export — avoids re-parsing THEN formulae that can contain
+        transient duplicate-head records.
+        """
         from dylan.induction.em_learner.lexicon_export import effect_to_lexical_lines
 
         effects: list[Effect] = []
@@ -43,7 +48,6 @@ class LexicalAction(Action):
             else:
                 ge = a.get_effect() if hasattr(a, "get_effect") else None
                 if ge is not None:
-                    # Java ``flatten`` keeps edge effects as stored (already instantiated on DAG add).
                     effects.append(ge)
         lines: list[str] = []
         for e in effects:
@@ -51,10 +55,17 @@ class LexicalAction(Action):
             if block:
                 lines.extend(block)
         fallback = ["IF    ?Ty(t)", "THEN  abort", "ELSE  abort"]
-        inst = cls(word, lines if lines else fallback, None)
+        # Construct without EffectFactory re-parse (Java keeps Effect[] as-is).
+        inst = object.__new__(cls)
+        Action.__init__(inst, word, None)
+        inst.word = word
+        inst._source_lines = list(lines if lines else fallback)
+        inst.action_type = None
+        inst.no_left_adjustment = False
         if effects:
             inst.effects = list(effects)
-            inst._source_lines = lines
+        else:
+            inst.effects = EffectFactory.create_multiple(inst._source_lines, EffectFactory.get_if_indices(inst._source_lines))
         return inst
 
     def get_lexical_action_type(self) -> str | None:

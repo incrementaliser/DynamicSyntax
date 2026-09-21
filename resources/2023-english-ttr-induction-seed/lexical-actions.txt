@@ -1,0 +1,140 @@
+// Lexical actions for English
+// as per Dynamics of Conversational Dialogue project, 2009
+
+// Rule metavariables: uppercase rule spec arguments
+// Formula metavariables: A,B,C
+// Bottom requirement: !
+
+proper(NAME,PERSON,CLASS)
+IF      ?ty(e)
+THEN    put(ty(e))
+        put(fo(NAME))
+        put(!)
+ELSE    abort
+
+//*
+proper(NAME,PERSON,CLASS)
+IF      ?ty(e)
+THEN    make(\/1)
+        go(\/1)
+        put(ty(cn>e))
+        put(fo(x^(iota,x)))
+        go(/\)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+        make(\/0)
+        go(\/0)
+        put(ty(e))
+        freshput(S,entity)
+        go(/\)
+        make(\/1)
+        go(\/1)
+        put(ty(e>cn))
+        put(fo(y^y, NAME(y)))
+        go(/\)
+ELSE    abort
+
+*//
+
+mass(NAME,PERSON,CLASS)
+IF      ?ty(e)
+THEN    put(ty(e))
+        put(fo(NAME))
+        //put(+PERSON)
+        //put(+CLASS)
+        put(!)
+ELSE    abort
+
+count(PRED,PERSON,CLASS)
+IF      ?ty(cn)
+		//</\0>?ty(e)
+THEN    make(\/0)
+        go(\/0)
+        freshput(S,entity)
+        put(ty(e))      
+        put(!)
+        go(/\0)
+        make(\/1)
+        go(\/1)
+        put(fo(x^x,PRED(x)))
+        put(ty(e>cn))
+        put(!)
+        go(/\1)
+        go(\/0)
+ELSE    abort
+
+pron_whrel(CLASS)
+IF      ?ty(e)
+        [/\*/\L]fo(X)
+THEN    put(ty(e))
+        put(fo(X))
+ELSE    abort
+
+
+v_intran_fin(PRED,TENSE,PERSON)
+IF      ?ty(e>t)
+        //*     [/\1\/0]+PERSON // case-matching not working yet *//
+THEN    put(+PERSON)
+        put(fo(x^PRED(x)))
+        put(ty(e>t))
+        put(!)
+ELSE    abort
+
+v_intran_inf(PRED,TENSE,PERSON)
+IF      ty(e>t)
+        Ex.?fo(x)
+THEN    put(fo(x^PRED(x)))
+        put(!)
+ELSE    abort
+
+v_tran_fin(PRED,TENSE,PERSON)
+IF      ?ty(e>t)
+        //*     [/\1\/0]+PERSON // case-matching not working yet *//
+THEN    make(\/1)
+        go(\/1)
+        put(+PERSON)
+        put(fo(y^x^PRED(x,y)))
+        put(ty(e>(e>t)))
+        put(!)
+        go(/\)
+        make(\/0)
+        go(\/0)
+        put(?ty(e))
+ELSE    abort
+
+v_tran_inf(PRED,TENSE,PERSON)
+IF      ?ty(e>t)
+        Ex.?fo(x)
+THEN    make(\/1)
+        go(\/1)
+        put(fo(y^x^PRED(x,y)))
+        put(ty(e>(e>t)))
+        put(!)
+        go(/\)
+        make(\/0)
+        go(\/0)
+        put(?ty(e))
+ELSE    abort
+
+v_aux_fin(PRED,TENSE,PERSON)
+IF		?ty(e>t)
+THEN	put(ty(e>t))
+		put(?Ex.fo(x))
+ELSE	abort
+
+det_quant(QUANT)
+IF      ?ty(e)
+THEN   	make(\/1)
+        go(\/1)
+        put(fo(x^(QUANT, x)))
+        put(ty(cn>e))
+        put(!)
+        go(/\1)
+        make(\/0)
+        go(\/0)
+        put(?ty(cn))
+ELSE    abort
+
+
+
