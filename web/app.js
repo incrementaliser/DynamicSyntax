@@ -13,8 +13,8 @@
     "computational-actions.txt",
   ];
 
-  /** @type {{ pyodide: object | null, apiJson: ((a: string, p: string) => string) | null }} */
-  const state = { pyodide: null, apiJson: null };
+  /** @type {{ pyodide: object | null, apiJson: ((a: string, p: string) => string) | null, interpretationIndex: number }} */
+  const state = { pyodide: null, apiJson: null, interpretationIndex: 0 };
 
   function metaBasePath() {
     const m = document.querySelector('meta[name="dylan-base-path"]');
@@ -36,17 +36,66 @@
     el.classList.toggle("error", !!isError);
   }
 
+  function logLineElement(line) {
+    const row = document.createElement("div");
+    row.className = "log-line";
+    const lower = line.toLowerCase();
+    const failed = lower.includes(" failed") || lower.endsWith("failed") || lower.includes("load a grammar first");
+    if (failed) {
+      row.classList.add("log-error");
+      row.textContent = line;
+      return row;
+    }
+    if (line.endsWith(" parsed")) {
+      row.append(document.createTextNode(line.slice(0, -" parsed".length) + " "));
+      const word = document.createElement("span");
+      word.className = "log-parsed";
+      word.textContent = "parsed";
+      row.append(word);
+      return row;
+    }
+    row.textContent = line;
+    return row;
+  }
+
+  function appendLogBlock(el, text) {
+    const lines = String(text || "").split("\n");
+    for (const line of lines) {
+      if (!line) continue;
+      el.append(logLineElement(line));
+    }
+  }
+
   function setLog(text) {
     const el = document.getElementById("log-text");
-    el.value = text;
+    el.replaceChildren();
+    if (text) appendLogBlock(el, text);
     console.log(text);
   }
 
   function appendLog(text) {
     const el = document.getElementById("log-text");
-    const cur = (el.value || "").replace(/\s+$/, "");
-    el.value = cur ? cur + "\n\n" + text : text;
+    if (text) appendLogBlock(el, text);
+    el.scrollTop = el.scrollHeight;
     console.log(text);
+  }
+
+  function applyInterpretation(payload) {
+    if (!payload || payload.interpretation_count == null) return;
+    const index = Number(payload.interpretation_index) || 0;
+    const count = Number(payload.interpretation_count) || 0;
+    const capped = !!payload.interpretation_capped;
+    state.interpretationIndex = index;
+    const el = document.getElementById("interp-readout");
+    if (count <= 0) el.textContent = "#interpretations: 0";
+    else el.textContent = "#interpretations: " + index + " / " + (capped ? count + "+" : String(count));
+    document.getElementById("btn-interp-prev").disabled = index <= 1;
+    document.getElementById("btn-interp-next").disabled = count <= 0 || index >= count;
+  }
+
+  function applySessionInfo(info) {
+    if (info == null || info === "") return;
+    document.getElementById("info-text").value = info;
   }
 
   function applyViews(views) {
@@ -151,7 +200,7 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     state.apiJson = pyodide.globals.get("api_json");
 
     const info = callApi("info_help", {});
-    document.getElementById("info-text").value = info.help || "";
+    applySessionInfo(info.session_info || info.help);
 
     setStatus("Ready — load a grammar folder or the sample grammar.");
     document.getElementById("btn-load-grammar").disabled = false;
@@ -159,7 +208,6 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     document.getElementById("btn-init").disabled = false;
     document.getElementById("btn-new-sentence").disabled = false;
     document.getElementById("btn-parse").disabled = false;
-    document.getElementById("btn-step-through").disabled = false;
   }
 
   async function loadGrammarFromVirtualPath() {
@@ -168,9 +216,12 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     const repairing = document.getElementById("chk-repair").checked;
     const r = callApi("set_grammar", { path: "/grammar", repairing });
     setLog(r.grammar_log || "");
+    applySessionInfo(r.session_info);
+    applyInterpretation(r);
     if (r.parser_ready) {
       const v = callApi("current_views", {});
       applyViews(v.views);
+      applySessionInfo(v.session_info || r.session_info);
     }
   }
 
@@ -259,9 +310,14 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     document.getElementById("btn-init").addEventListener("click", () => {
       try {
         const r = callApi("init", {});
-        if (r.error) appendLog(r.error);
-        else {
+        if (r.error) {
+          appendLog(r.error);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
+        } else {
           applyViews(r.views);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
           if (r.log_message) appendLog(r.log_message);
         }
       } catch (err) {
@@ -271,9 +327,14 @@ await micropip.install(${JSON.stringify(wheelUrl)})
     document.getElementById("btn-new-sentence").addEventListener("click", () => {
       try {
         const r = callApi("new_sentence", {});
-        if (r.error) appendLog(r.error);
-        else {
+        if (r.error) {
+          appendLog(r.error);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
+        } else {
           applyViews(r.views);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
           if (r.log_message) appendLog(r.log_message);
         }
       } catch (err) {
@@ -285,26 +346,47 @@ await micropip.install(${JSON.stringify(wheelUrl)})
         const sentence = document.getElementById("sentence").value || "";
         const resetBefore = document.getElementById("chk-reset-before").checked;
         const r = callApi("parse", { sentence, reset_before: resetBefore });
-        if (r.error) appendLog(r.error);
-        else {
+        if (r.error) {
+          appendLog(r.error);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
+        } else {
           applyViews(r.views);
-          if (r.log_message) appendLog(r.log_message);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
+          const lines = Array.isArray(r.log_messages)
+            ? r.log_messages
+            : r.log_message
+              ? [r.log_message]
+              : [];
+          for (const line of lines) appendLog(line);
         }
       } catch (err) {
         appendLog(String(err));
       }
     });
-    document.getElementById("btn-step-through").addEventListener("click", () => {
+    function selectInterpretation(index) {
       try {
-        const r = callApi("step_through", {});
-        if (r.error) appendLog(r.error);
-        else {
-          applyViews(r.views);
-          if (r.log_message) appendLog(r.log_message);
+        const r = callApi("select_interpretation", { index });
+        if (r.error) {
+          appendLog(r.error);
+          applySessionInfo(r.session_info);
+          applyInterpretation(r);
+          return;
         }
+        applyViews(r.views);
+        applySessionInfo(r.session_info);
+        applyInterpretation(r);
+        if (r.log_message) appendLog(r.log_message);
       } catch (err) {
         appendLog(String(err));
       }
+    }
+    document.getElementById("btn-interp-prev").addEventListener("click", () => {
+      if (state.interpretationIndex > 1) selectInterpretation(state.interpretationIndex - 1);
+    });
+    document.getElementById("btn-interp-next").addEventListener("click", () => {
+      selectInterpretation(state.interpretationIndex + 1);
     });
   }
 

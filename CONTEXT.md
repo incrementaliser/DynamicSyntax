@@ -1,0 +1,45 @@
+# DyLan / Dynamic Syntax
+
+Python port of DyLan, an incremental Dynamic Syntax (DS) parser with Type Theory with Records (TTR). The package parses utterances into decorated trees and a word-level derivation DAG, and can induce a DS-TTR lexicon from examples.
+
+## Structure
+
+- `src/dylan/` — parser, tree, DAG, actions, TTR, induction, Flet GUI, Pyodide façade
+- `src/dynamicsyntax/` — public package entry (`icp`, bundled grammars)
+- `web/` — static Pyodide UI that calls `dylan.pyodide_api` (same `ParseSession` as the Flet app)
+- `tests/` — pytest suite
+
+## Language
+
+**DS Tree**:
+A decorated Dynamic Syntax tree: node addresses, type and formula labels, and a distinguished pointer.
+_Avoid_: parse tree, constituency tree
+
+**DAG tuple**:
+One interpretation node in the word-level context DAG; the current tuple is the parser’s live derivation state.
+_Avoid_: parse, hypothesis (when you mean this DAG node)
+
+**Viewport**:
+The Output pane that shows the DS Tree canvas, not the OS screen or device.
+_Avoid_: device, window (when you mean the tree pane)
+
+**Camera**:
+The Output pane's scroll position over a natural-size DS Tree. A tree that fits the pane is centred; Fit scrolls a larger tree so its middle is in view.
+_Avoid_: scale-to-fit layout, stretch, zoom
+
+**Fit-to-pane**:
+Scrolling a natural-size DS Tree so its middle sits in the Viewport. Node boxes stay at their intrinsic size.
+_Avoid_: zoom, fit-to-viewport layout
+
+**Interpretation**:
+One DAG tuple in the sequence reached by stepping the parser after a sentence, shown as an index in 1 / N.
+_Avoid_: step, hypothesis, reading
+
+**Info**:
+The live session card (how-to plus grammar path, last action, warnings, pointer, current DAG tuple).
+_Avoid_: help pane, loguru log
+
+**Logs**:
+The append-only event history (grammar-load warnings, parse/step lines).
+_Avoid_: loguru log, Info
+

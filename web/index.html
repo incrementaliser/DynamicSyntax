@@ -41,7 +41,7 @@
             </button>
           </div>
           <div class="sentence-row">
-            <div class="caption-box" style="flex: 1">
+            <div class="caption-box sentence-box">
               <span class="caption-label">Sentence</span>
               <div class="caption-body">
                 <textarea
@@ -51,12 +51,30 @@
                 ></textarea>
               </div>
             </div>
-            <button type="button" class="btn btn-primary" id="btn-parse" disabled style="align-self: center">
-              Parse
-            </button>
-            <button type="button" class="btn btn-secondary" id="btn-step-through" disabled style="align-self: center">
-              Step Through
-            </button>
+            <div class="parse-cluster">
+              <button type="button" class="btn btn-primary" id="btn-parse" disabled>Parse</button>
+              <div class="interp-row">
+                <button
+                  type="button"
+                  class="btn btn-secondary interp-arrow"
+                  id="btn-interp-prev"
+                  disabled
+                  aria-label="Previous interpretation"
+                >
+                  ←
+                </button>
+                <div class="interp-box" id="interp-readout">#interpretations: 0</div>
+                <button
+                  type="button"
+                  class="btn btn-secondary interp-arrow"
+                  id="btn-interp-next"
+                  disabled
+                  aria-label="Next interpretation"
+                >
+                  →
+                </button>
+              </div>
+            </div>
           </div>
           <div class="tabs">
             <div class="tab-bar">
@@ -93,7 +111,7 @@
           <div class="caption-box" style="flex: 1; min-height: 200px">
             <span class="caption-label">Logs</span>
             <div class="caption-body" style="min-height: 0">
-              <textarea id="log-text" class="field mono" readonly style="min-height: 160px"></textarea>
+              <div id="log-text" class="log-lines" role="log"></div>
             </div>
           </div>
         </aside>

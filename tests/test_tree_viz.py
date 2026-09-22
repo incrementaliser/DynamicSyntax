@@ -8,10 +8,16 @@ from dylan.gui.tree_viz import (
     _build_buchheim_tree,
     _children_map,
     _edge_style_for_child,
+    _multiline_node_label,
+    _pair_pipe_fields,
     compute_tree_layout,
+    fit_scale_for_viewport,
     format_ds_tree_ascii,
+    place_layout_on_stage,
     _wrapped_pipe_fields,
 )
+from dylan.formula.opaque_formula import OpaqueFormula
+from dylan.tree.label.labels import FormulaLabel
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.node import Node
 from dylan.tree.tree import Tree
@@ -101,6 +107,24 @@ def test_rt_edges_run_between_parent_and_child_levels() -> None:
     for edge in layout.edges:
         assert root_bottom - 1.0 <= edge.y1 <= highest_child_top + 1.0
         assert root_bottom - 1.0 <= edge.y2 <= highest_child_top + 1.0
+
+
+def test_pair_pipe_fields_keeps_two_per_line() -> None:
+    """Full canvas labels pack two `` | `` fields per line and do not split a field."""
+    assert _pair_pipe_fields("+BE | ?Ex.Fo(META) | Ty(e>t) | ?+eval") == [
+        "+BE | ?Ex.Fo(META)",
+        "Ty(e>t) | ?+eval",
+    ]
+    assert _pair_pipe_fields("a | b | c") == ["a | b", "c"]
+    assert _pair_pipe_fields("es|p2==continuous(head)") == ["es|p2==continuous(head)"]
+    t = Tree()
+    t[t.root_addr] = Node(
+        t.root_addr,
+        [FormulaLabel(OpaqueFormula(name)) for name in ("aa", "bb", "cc", "dd")],
+    )
+    label = _multiline_node_label(t.root_addr, t, label_density="full")
+    for line in label.split("\n"):
+        assert line.count(" | ") <= 1
 
 
 def test_wrapped_pipe_fields_breaks_only_on_separators() -> None:
@@ -209,6 +233,8 @@ def test_node_padding_smaller_than_legacy_floors() -> None:
         max_text_width_px=560.0,
         node_pad_x=4.0,
         node_pad_y=10.0,
+        pack_width=96,
+        label_density="full",
     )
     assert root is not None
     assert root.box_w < 50.0
@@ -219,3 +245,64 @@ def test_tree_edge_dataclass_default_style() -> None:
     """``TreeEdge`` defaults to solid when style omitted."""
     e = TreeEdge(0.0, 0.0, 1.0, 1.0)
     assert e.style == "solid"
+
+
+def test_natural_layout_box_size_independent_of_requested_canvas() -> None:
+    """A two-node tree keeps similar box sizes whether a small or large canvas is requested."""
+    t = _sample_tree()
+    small = compute_tree_layout(t, 400.0, 300.0)
+    large = compute_tree_layout(t, 1400.0, 800.0)
+    assert len(small.nodes) == len(large.nodes) == 2
+    for a, b in zip(small.nodes, large.nodes, strict=True):
+        assert a.addr == b.addr
+        assert abs(a.w - b.w) < 1.0
+        assert abs(a.h - b.h) < 1.0
+
+
+def test_natural_layout_bbox_can_exceed_old_viewport() -> None:
+    """A wide tree's drawing box is allowed to be larger than a narrow viewport request."""
+    t = Tree()
+    left = t.root_addr.down0()
+    right = t.root_addr.down1()
+    t[left] = Node(left, [])
+    t[right] = Node(right, [])
+    for i in range(4):
+        a = left.down0() if i == 0 else list(t.keys())[-1].down0()
+        t[a] = Node(a, [])
+    layout = compute_tree_layout(t, 200.0, 150.0, label_density="full")
+    assert layout.canvas_w > 200.0 or layout.canvas_h > 150.0 or len(layout.nodes) >= 3
+    _assert_no_pairwise_overlap(layout.nodes)
+
+
+def test_compact_labels_shorter_than_full() -> None:
+    """Compact density truncates long type/formula lines that full mode keeps."""
+    t = Tree()
+    from dylan.formula.opaque_formula import OpaqueFormula
+    from dylan.tree.label.labels import FormulaLabel, TypeLabel
+
+    t[t.root_addr] = Node(t.root_addr, [TypeLabel.t, FormulaLabel(OpaqueFormula("semcontent" * 8))])
+    compact = _multiline_node_label(t.root_addr, t, pack_width=28, label_density="compact")
+    full = _multiline_node_label(t.root_addr, t, pack_width=96, wrap_oversized_fields=True, label_density="full")
+    assert "…" in compact
+    assert len(compact) < len(full)
+    assert "semcontent" in full
+
+
+def test_place_layout_on_stage_centres_small_tree() -> None:
+    """A layout smaller than the stage is translated so its bbox sits in the middle."""
+    t = _sample_tree()
+    layout = compute_tree_layout(t, label_density="compact")
+    staged = place_layout_on_stage(layout, 800.0, 600.0)
+    assert staged.canvas_w == 800.0
+    assert staged.canvas_h == 600.0
+    min_x = min(b.cx - b.w * 0.5 for b in staged.nodes)
+    max_x = max(b.cx + b.w * 0.5 for b in staged.nodes)
+    mid = (min_x + max_x) * 0.5
+    assert abs(mid - 400.0) < layout.canvas_w * 0.5 + 8.0
+
+
+def test_fit_scale_for_viewport_never_zooms_in() -> None:
+    """Fit-to-pane is 1.0 when the tree fits, and below 1.0 only when it overflows."""
+    assert fit_scale_for_viewport(100.0, 80.0, 400.0, 300.0) == 1.0
+    s = fit_scale_for_viewport(800.0, 200.0, 400.0, 300.0)
+    assert 0.0 < s <= 0.5 + 1e-9

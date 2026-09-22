@@ -10,6 +10,9 @@ from dylan.gui.formatting import node_address_type_formula_strings
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
 
+LabelDensity = Literal["compact", "full"]
+COMPACT_PACK_WIDTH: int = 28
+
 
 def _node_depth(addr: NodeAddress) -> int:
     """Depth of *addr* with root at 0 (``len(address) - 1``)."""
@@ -45,6 +48,31 @@ def _children_map(tree: Tree) -> dict[NodeAddress, list[NodeAddress]]:
 _FIELD_SEP = " | "
 
 
+def _truncate_ellipsis(text: str, max_chars: int) -> str:
+    """Return *text* if it fits *max_chars*, otherwise a prefix plus an ellipsis."""
+    s = text.strip() if text.strip() else "—"
+    limit = max(1, int(max_chars))
+    if len(s) <= limit:
+        return s
+    if limit == 1:
+        return "…"
+    return s[: limit - 1] + "…"
+
+
+def _pair_pipe_fields(s: str) -> list[str]:
+    """Split *s* on `` | `` and keep two fields on each line.
+
+    A pipe inside a field (``es|p2``) is not a separator. Fields are never broken.
+    """
+    text = s.strip()
+    if not text or text == "—":
+        return ["—"]
+    parts = [part.strip() for part in text.split(_FIELD_SEP) if part.strip()]
+    if not parts:
+        return ["—"]
+    return [_FIELD_SEP.join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+
+
 def _wrapped_pipe_fields(
     s: str,
     pack_width: int,
@@ -53,9 +81,9 @@ def _wrapped_pipe_fields(
 ) -> list[str]:
     """Break *s* on `` | `` boundaries; pack lines up to *pack_width* characters.
 
-    When *wrap_oversized_fields* is true and a single field exceeds *pack_width*,
-    that field is further split with :mod:`textwrap` so narrow slots still show
-    full content across extra lines.
+    Canvas labels use :func:`_pair_pipe_fields` instead. This helper remains for
+    width-based packing. When *wrap_oversized_fields* is true and a single field
+    exceeds *pack_width*, that field is further split with :mod:`textwrap`.
     """
     s = s.strip()
     if not s or s == "—":
@@ -95,23 +123,27 @@ def _multiline_node_label(
     *,
     pack_width: int = 96,
     wrap_oversized_fields: bool = False,
+    label_density: LabelDensity = "full",
 ) -> str:
-    """Multi-line label: full address plus type/formula blocks with pipe-aware (and optional) wrapping."""
+    """Multi-line label: address, then type and formula at two fields per line.
+
+    Compact density truncates each of those three lines. Full density keeps every
+    field, pairing them on `` | `` without breaking inside a field. The address
+    stays on one line.
+    """
     a, t, f = node_address_type_formula_strings(addr, tree[addr])
     addr_line = a.strip() if str(a).strip() else "—"
-    if wrap_oversized_fields and len(addr_line) > pack_width:
-        sub_a = textwrap.wrap(
-            addr_line,
-            width=max(8, pack_width),
-            break_long_words=True,
-            break_on_hyphens=False,
+    if label_density == "compact":
+        width = max(4, int(pack_width))
+        return "\n".join(
+            (
+                _truncate_ellipsis(addr_line, width),
+                _truncate_ellipsis(t, width),
+                _truncate_ellipsis(f, width),
+            ),
         )
-        addr_lines = sub_a if sub_a else [addr_line]
-    else:
-        addr_lines = [addr_line]
-    lines = list(addr_lines)
-    lines.extend(_wrapped_pipe_fields(t, pack_width, wrap_oversized_fields=wrap_oversized_fields))
-    lines.extend(_wrapped_pipe_fields(f, pack_width, wrap_oversized_fields=wrap_oversized_fields))
+    _ = wrap_oversized_fields
+    lines = [addr_line, *_pair_pipe_fields(t), *_pair_pipe_fields(f)]
     return "\n".join(lines)
 
 
@@ -224,7 +256,7 @@ def _edge_style_for_child(child_addr: NodeAddress) -> TreeEdgeStyle:
 
 @dataclass
 class TreeLayout:
-    """Final pixel layout for a :class:`~dylan.tree.tree.Tree` inside a canvas viewport."""
+    """Pixel layout for a :class:`~dylan.tree.tree.Tree`; ``canvas_w`` / ``canvas_h`` are the drawing bbox."""
 
     nodes: list[NodeBox]
     edges: list[TreeEdge]
@@ -440,36 +472,43 @@ def _recenter_parents_on_children_x(
             b.cx = float(sum(cb.cx for cb in child_boxes) / len(child_boxes))
 
 
-def _reflow_resize_and_relayer_rows(
+def _boxes_bbox(boxes: list[NodeBox]) -> tuple[float, float, float, float]:
+    """Return ``(min_x, min_y, max_x, max_y)`` of axis-aligned node boxes."""
+    min_x = min(b.cx - b.w * 0.5 for b in boxes)
+    max_x = max(b.cx + b.w * 0.5 for b in boxes)
+    min_y = min(b.cy - b.h * 0.5 for b in boxes)
+    max_y = max(b.cy + b.h * 0.5 for b in boxes)
+    return min_x, min_y, max_x, max_y
+
+
+def _stack_rows_natural(
     boxes: list[NodeBox],
     *,
     font_size: float,
     node_pad_x: float,
     node_pad_y: float,
     margin: float,
-    inner_w: float,
-    inner_h: float,
-    cw: float,
-    ch: float,
-    v_gap_min: float,
+    v_gap: float,
+    reflow_labels: bool,
 ) -> None:
-    """Re-wrap labels to final box width, grow heights, and stack rows by measured layer height."""
+    """Optionally re-wrap labels to box width, then stack rows with a fixed vertical gap."""
     px = max(0.0, float(node_pad_x))
     py = max(0.0, float(node_pad_y))
-    for b in boxes:
-        inner_tw = max(8.0, b.w - 2.0 * px)
-        reflowed = _reflow_label_for_render_width(
-            b.label,
-            font_size=font_size,
-            max_text_width_px=inner_tw,
-        )
-        mh = _measure_label_box(
-            reflowed,
-            font_size=font_size,
-            max_text_width_px=inner_tw,
-        )[1]
-        b.h = float(max(b.h, mh + 2.0 * py))
-        b.label = reflowed
+    if reflow_labels:
+        for b in boxes:
+            inner_tw = max(8.0, b.w - 2.0 * px)
+            reflowed = _reflow_label_for_render_width(
+                b.label,
+                font_size=font_size,
+                max_text_width_px=inner_tw,
+            )
+            mh = _measure_label_box(
+                reflowed,
+                font_size=font_size,
+                max_text_width_px=inner_tw,
+            )[1]
+            b.h = float(max(b.h, mh + 2.0 * py))
+            b.label = reflowed
 
     by_depth: dict[int, list[NodeBox]] = {}
     for b in boxes:
@@ -477,15 +516,7 @@ def _reflow_resize_and_relayer_rows(
         by_depth.setdefault(d, []).append(b)
     max_d = max(by_depth, default=0)
     layer_h = [max(b.h for b in by_depth[d]) for d in range(max_d + 1)]
-    sum_layers = sum(layer_h)
-    available = max(1.0, float(inner_h))
-    min_gap = max(2.0, float(v_gap_min) * 0.28)
-    n_gaps = max_d
-    if n_gaps <= 0:
-        gap = 0.0
-    else:
-        gap_raw = (available - sum_layers) / float(n_gaps)
-        gap = max(min_gap, gap_raw) if gap_raw >= min_gap else max(0.0, gap_raw)
+    gap = max(2.0, float(v_gap))
     y_top = margin
     for d in range(max_d + 1):
         rh = layer_h[d]
@@ -493,26 +524,6 @@ def _reflow_resize_and_relayer_rows(
         for b in by_depth[d]:
             b.cy = float(cy_row)
         y_top += rh + (gap if d < max_d else 0.0)
-
-    xs2 = [b.cx for b in boxes]
-    ys2 = [b.cy for b in boxes]
-    ws = [b.w for b in boxes]
-    hs = [b.h for b in boxes]
-    min_cx = min(x - w * 0.5 for x, w in zip(xs2, ws, strict=True))
-    max_cx = max(x + w * 0.5 for x, w in zip(xs2, ws, strict=True))
-    min_cy = min(y - h * 0.5 for y, h in zip(ys2, hs, strict=True))
-    max_cy = max(y + h * 0.5 for y, h in zip(ys2, hs, strict=True))
-    span_x2 = max(max_cx - min_cx, 1e-6)
-    span_y2 = max(max_cy - min_cy, 1e-6)
-    fit_scale = min(inner_w / span_x2, inner_h / span_y2, 1.0)
-    if fit_scale < 0.999:
-        mid_x = (min_cx + max_cx) * 0.5
-        mid_y = (min_cy + max_cy) * 0.5
-        for b in boxes:
-            b.cx = (b.cx - mid_x) * fit_scale + cw * 0.5
-            b.cy = (b.cy - mid_y) * fit_scale + ch * 0.5
-            b.w *= fit_scale
-            b.h *= fit_scale
 
 
 def _flatten_buchheim(v: _BuchheimNode, out: list[_BuchheimNode]) -> None:
@@ -531,6 +542,8 @@ def _build_buchheim_tree(
     max_text_width_px: float,
     node_pad_x: float,
     node_pad_y: float,
+    pack_width: int,
+    label_density: LabelDensity,
 ) -> _BuchheimNode | None:
     """Build ordered binary Buchheim tree (sorted children → left-to-right)."""
     if root_addr not in tree:
@@ -541,8 +554,8 @@ def _build_buchheim_tree(
         label = _multiline_node_label(
             addr,
             tree,
-            pack_width=max(12, int(max_text_width_px / _char_metrics(font_size=font_size)[0])),
-            wrap_oversized_fields=True,
+            pack_width=pack_width,
+            label_density=label_density,
         )
         bw, bh = _measure_label_box(label, font_size=font_size, max_text_width_px=max_text_width_px)
         bw = max(bw, 28.0)
@@ -592,8 +605,8 @@ def _resolve_overlaps(nodes: list[NodeBox], *, gap: float, iterations: int = 8) 
 
 def compute_tree_layout(
     tree: Tree,
-    canvas_w: float,
-    canvas_h: float,
+    canvas_w: float = 0.0,
+    canvas_h: float = 0.0,
     *,
     font_size: float = 12.0,
     margin: float = 16.0,
@@ -601,27 +614,33 @@ def compute_tree_layout(
     node_pad_x: float = 4.0,
     node_pad_y: float = 10.0,
     v_gap_min: float = 24.0,
+    label_density: LabelDensity = "full",
 ) -> TreeLayout:
-    """Lay out *tree* with Buchheim (Reingold–Tilford) and scale to fit *(canvas_w, canvas_h)*.
+    """Lay out *tree* at intrinsic box size (Buchheim / Reingold–Tilford).
 
-    Root is drawn toward the top; children below. Internal nodes stay centred on
-    their direct children (standard Buchheim). *h_gap* controls horizontal spacing
-    between subtrees; *node_pad_x* / *node_pad_y* are in-box padding (tight
-    horizontally, roomier vertically). After scaling, labels are re-wrapped to
-    the final box width and row *cy* is recomputed from layer heights so text fits.
+    *canvas_w* and *canvas_h* are ignored for fitting; the returned
+    ``canvas_w`` / ``canvas_h`` are the drawing bounding box. *label_density*
+    ``compact`` truncates node text; ``full`` keeps every field, two per line.
+    Root is toward the top.
     """
     if not isinstance(tree, Tree):
         raise TypeError(f"expected Tree, got {type(tree).__name__}")
-    cw = max(40.0, float(canvas_w))
-    ch = max(40.0, float(canvas_h))
-    inner_w = max(20.0, cw - 2.0 * margin)
-    inner_h = max(20.0, ch - 2.0 * margin)
+    _ = (canvas_w, canvas_h)
+    m = max(0.0, float(margin))
 
     if not tree or tree.root_addr not in tree:
-        return TreeLayout(nodes=[], edges=[], canvas_w=cw, canvas_h=ch)
+        return TreeLayout(nodes=[], edges=[], canvas_w=40.0, canvas_h=40.0)
+
+    char_w, _line_h = _char_metrics(font_size=font_size)
+    if label_density == "compact":
+        pack_width = COMPACT_PACK_WIDTH
+        max_text_w = max(40.0, float(pack_width) * char_w)
+    else:
+        pack_width = 96
+        # Wide enough that two full fields stay on one line instead of being split.
+        max_text_w = 20000.0
 
     ch_map = _children_map(tree)
-    max_text_w = min(560.0, inner_w * 0.95)
     root = _build_buchheim_tree(
         tree,
         tree.root_addr,
@@ -630,9 +649,11 @@ def compute_tree_layout(
         max_text_width_px=max_text_w,
         node_pad_x=node_pad_x,
         node_pad_y=node_pad_y,
+        pack_width=pack_width,
+        label_density=label_density,
     )
     if root is None:
-        return TreeLayout(nodes=[], edges=[], canvas_w=cw, canvas_h=ch)
+        return TreeLayout(nodes=[], edges=[], canvas_w=40.0, canvas_h=40.0)
 
     distance = max(h_gap, 8.0)
     _buchheim_first_walk(root, distance)
@@ -642,69 +663,42 @@ def compute_tree_layout(
 
     flat: list[_BuchheimNode] = []
     _flatten_buchheim(root, flat)
-    max_depth = int(max(n.y for n in flat)) if flat else 0
-    xs = [n.x for n in flat]
-    span_x = max(xs) - min(xs) if xs else 1.0
-    span_x = max(span_x, 1e-6)
-
-    max_bw = max(n.box_w for n in flat) if flat else 1.0
-    scale_x = min(inner_w / span_x, inner_w / max(span_x, max_bw * 0.5))
-
-    row_count = max_depth + 1
-    row_h = max(v_gap_min, inner_h / float(row_count))
 
     boxes: list[NodeBox] = []
     addr_to_box: dict[NodeAddress, NodeBox] = {}
     for n in flat:
-        cx = margin + (n.x - min(xs)) * scale_x
-        cy = margin + (n.y + 0.5) * row_h
         nb = NodeBox(
             addr=n.addr,
-            cx=float(cx),
-            cy=float(cy),
-            w=float(n.box_w * scale_x),
+            cx=float(n.x),
+            cy=0.0,
+            w=float(n.box_w),
             h=float(n.box_h),
             label=n.label,
         )
         boxes.append(nb)
         addr_to_box[n.addr] = nb
 
-    _resolve_overlaps(boxes, gap=h_gap * 0.5)
-
-    xs2 = [b.cx for b in boxes]
-    ys2 = [b.cy for b in boxes]
-    ws = [b.w for b in boxes]
-    hs = [b.h for b in boxes]
-    min_cx = min(x - w * 0.5 for x, w in zip(xs2, ws, strict=True))
-    max_cx = max(x + w * 0.5 for x, w in zip(xs2, ws, strict=True))
-    min_cy = min(y - h * 0.5 for y, h in zip(ys2, hs, strict=True))
-    max_cy = max(y + h * 0.5 for y, h in zip(ys2, hs, strict=True))
-    span_x2 = max(max_cx - min_cx, 1e-6)
-    span_y2 = max(max_cy - min_cy, 1e-6)
-    fit_scale = min(inner_w / span_x2, inner_h / span_y2, 1.0)
-    if fit_scale < 0.999:
-        mid_x = (min_cx + max_cx) * 0.5
-        mid_y = (min_cy + max_cy) * 0.5
-        for b in boxes:
-            b.cx = (b.cx - mid_x) * fit_scale + cw * 0.5
-            b.cy = (b.cy - mid_y) * fit_scale + ch * 0.5
-            b.w *= fit_scale
-            b.h *= fit_scale
-
-    _reflow_resize_and_relayer_rows(
+    _stack_rows_natural(
         boxes,
         font_size=font_size,
         node_pad_x=node_pad_x,
         node_pad_y=node_pad_y,
-        margin=margin,
-        inner_w=inner_w,
-        inner_h=inner_h,
-        cw=cw,
-        ch=ch,
-        v_gap_min=v_gap_min,
+        margin=m,
+        v_gap=v_gap_min,
+        reflow_labels=False,
     )
     _resolve_overlaps(boxes, gap=h_gap * 0.5)
     _recenter_parents_on_children_x(boxes, ch_map)
+    _resolve_overlaps(boxes, gap=h_gap * 0.5)
+
+    min_bx, min_by, max_bx, max_by = _boxes_bbox(boxes)
+    dx = m - min_bx
+    dy = m - min_by
+    for b in boxes:
+        b.cx += dx
+        b.cy += dy
+    cw = (max_bx - min_bx) + 2.0 * m
+    ch = (max_by - min_by) + 2.0 * m
 
     edges: list[TreeEdge] = []
     for n in flat:
@@ -721,7 +715,44 @@ def compute_tree_layout(
             edges.append(TreeEdge(pb.cx, mid_y, cb.cx, mid_y, style=estyle))
             edges.append(TreeEdge(cb.cx, mid_y, cb.cx, y_child, style=estyle))
 
-    return TreeLayout(nodes=boxes, edges=edges, canvas_w=cw, canvas_h=ch)
+    return TreeLayout(nodes=boxes, edges=edges, canvas_w=float(cw), canvas_h=float(ch))
+
+
+def place_layout_on_stage(
+    layout: TreeLayout,
+    stage_w: float,
+    stage_h: float,
+) -> TreeLayout:
+    """Return a copy of *layout* centred on a *stage_w* × *stage_h* canvas."""
+    sw = max(float(stage_w), float(layout.canvas_w), 40.0)
+    sh = max(float(stage_h), float(layout.canvas_h), 40.0)
+    dx = (sw - layout.canvas_w) * 0.5
+    dy = (sh - layout.canvas_h) * 0.5
+    if not layout.nodes:
+        return TreeLayout(nodes=[], edges=[], canvas_w=sw, canvas_h=sh)
+    nodes = [
+        NodeBox(addr=b.addr, cx=b.cx + dx, cy=b.cy + dy, w=b.w, h=b.h, label=b.label)
+        for b in layout.nodes
+    ]
+    edges = [
+        TreeEdge(e.x1 + dx, e.y1 + dy, e.x2 + dx, e.y2 + dy, style=e.style)
+        for e in layout.edges
+    ]
+    return TreeLayout(nodes=nodes, edges=edges, canvas_w=sw, canvas_h=sh)
+
+
+def fit_scale_for_viewport(
+    bbox_w: float,
+    bbox_h: float,
+    viewport_w: float,
+    viewport_h: float,
+) -> float:
+    """Return 1.0 if the bbox fits the viewport, otherwise the Fit-to-pane zoom factor."""
+    bw = max(1e-6, float(bbox_w))
+    bh = max(1e-6, float(bbox_h))
+    vw = max(1e-6, float(viewport_w))
+    vh = max(1e-6, float(viewport_h))
+    return float(min(1.0, vw / bw, vh / bh))
 
 
 @dataclass(frozen=True)

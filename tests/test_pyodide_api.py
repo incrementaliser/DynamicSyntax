@@ -19,6 +19,8 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
         )
     assert load_out.get("parser_ready") is True
     assert "grammar_log" in load_out
+    assert "session_info" in load_out
+    assert "Parser object created" not in (load_out.get("grammar_log") or "")
 
     init_out = pyodide_api.dispatch("init", {})
     assert init_out.get("error") is None
@@ -26,6 +28,8 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     assert isinstance(views, dict)
     for key in ("semantics", "parse_tree_ascii", "dag", "address_order"):
         assert key in views
+    assert "session_info" in init_out
+    assert "Grammar:" in (init_out.get("session_info") or "")
 
     parse_out = pyodide_api.dispatch(
         "parse",
@@ -36,11 +40,25 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     pv = parse_out.get("views")
     assert isinstance(pv, dict)
     assert "man(" in pv.get("semantics", "") and "arrive" in pv.get("semantics", "")
+    log_msg = parse_out.get("log_message") or ""
+    lines = parse_out.get("log_messages")
+    assert "=== " not in log_msg
+    assert isinstance(lines, list)
+    assert lines == ["a parsed", "man parsed", "arrives parsed"]
+    assert "session_info" in parse_out
+    assert parse_out.get("interpretation_index") == 1
+    assert int(parse_out.get("interpretation_count") or 0) >= 1
+    assert isinstance(parse_out.get("interpretation_capped"), bool)
 
-    step_out = pyodide_api.dispatch("step_through", {})
-    assert step_out.get("error") is None
-    assert "step_ok" in step_out
-    assert isinstance(step_out.get("views"), dict)
+    count = int(parse_out["interpretation_count"])
+    sel = pyodide_api.dispatch("select_interpretation", {"index": 2})
+    assert sel.get("error") is None
+    if count >= 2:
+        assert str(sel.get("log_message") or "").startswith("Interpretation 2 /")
+        assert sel.get("interpretation_index") == 2
+    else:
+        assert sel.get("log_message") is None
+        assert sel.get("interpretation_index") == 1
 
 
 def test_api_json_round_trip() -> None:

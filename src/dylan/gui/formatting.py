@@ -57,24 +57,31 @@ def format_ds_tree(tree: Tree) -> str:
 
 
 def format_dag_overview(dag: WordLevelContextDAG) -> str:
-    """Summarise tuples and outgoing edges (partial substitute for JUNG `DAGViewer`)."""
+    """Summarise tuples and outgoing edges; mark the current tuple for scanning."""
+    current_id = dag.get_current_tuple().tuple_id
     lines: list[str] = []
-    lines.append(f"Current tuple id: {dag.get_current_tuple().tuple_id}")
-    lines.append(f"Exhausted: {dag.is_exhausted()}  repair_processing: {dag.repair_processing_enabled()}")
+    lines.append(f"Current tuple id: {current_id}")
+    lines.append(
+        f"Exhausted: {dag.is_exhausted()}  repair_processing: {dag.repair_processing_enabled()}",
+    )
     lines.append("")
     ordered = _bfs_tuples(dag)
     for tup in ordered:
-        lines.append(f"Tuple #{tup.tuple_id} depth={tup.get_depth()}")
+        is_current = tup.tuple_id == current_id
+        prefix = "▶ " if is_current else "  "
+        mark = "  ← current" if is_current else ""
+        lines.append(f"{prefix}Tuple #{tup.tuple_id} depth={tup.get_depth()}{mark}")
         outs = dag.get_out_edges(tup)
         if not outs:
-            lines.append("  (no outgoing edges)")
+            lines.append("    (no outgoing edges)")
         for e in outs:
-            lines.append(f"  → #{e.dst.tuple_id}  { _edge_line(e)}")
+            lines.append(f"    → #{e.dst.tuple_id}  {_edge_line(e)}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
 
 def _edge_line(edge: GroundableEdge) -> str:
+    """Format one DAG edge as word plus action names."""
     w = edge.word.word if edge.word and edge.word.word is not None else "—"
     names = [a.get_name() for a in edge.actions]
     acts = " ".join(names) if names else "(no actions)"

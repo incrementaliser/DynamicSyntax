@@ -119,12 +119,22 @@ def test_parse_session_step_through_advances_current_interpretation() -> None:
     session = ParseSession()
     session.set_grammar(str(GRAMMAR_2026), repairing=False)
     assert session.parser is not None
-    err, ok = session.run_parse("a man knows you", reset_before=True)
+    err, ok, events = session.run_parse("a man knows you", reset_before=True)
     assert err is None and ok is True
+    assert events and all(line.endswith("parsed") for line in events)
     before = session.parser.get_state().get_current_tuple().tuple_id
+
+    assert session.interpretation_index == 1
+    assert session.interpretation_count >= 2
 
     err, stepped = session.run_step_through()
 
     assert err is None and stepped is True
+    assert session.last_event.startswith("Interpretation 2 /")
     assert session.parser.get_state().get_current_tuple().tuple_id != before
     assert session.current_view_strings() is not None
+
+    back_err, back_log = session.select_interpretation(1)
+    assert back_err is None and back_log is not None
+    assert back_log.startswith("Interpretation 1 /")
+    assert session.parser.get_state().get_current_tuple().tuple_id == before

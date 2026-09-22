@@ -18,11 +18,17 @@ def _point(x_px: float, y_px: float, *, width_px: float, height_px: float) -> tu
 
 
 def serialize_tree(tree: Tree, *, width_px: float = 1000.0, height_px: float = 640.0) -> dict[str, Any]:
-    """Return JSON-friendly node/edge layout data for *tree*."""
-    layout = compute_tree_layout(tree, width_px, height_px, font_size=12.0)
+    """Return JSON-friendly node/edge layout data for *tree*.
+
+    Mapping uses the natural layout bounding box. *width_px* / *height_px* are
+    unused fallbacks when that box is empty.
+    """
+    layout = compute_tree_layout(tree, font_size=12.0, label_density="full")
+    map_w = float(layout.canvas_w) if layout.canvas_w > 1.0 else float(width_px)
+    map_h = float(layout.canvas_h) if layout.canvas_h > 1.0 else float(height_px)
     nodes: list[dict[str, Any]] = []
     for node in layout.nodes:
-        x, y = _point(node.cx, node.cy, width_px=width_px, height_px=height_px)
+        x, y = _point(node.cx, node.cy, width_px=map_w, height_px=map_h)
         nodes.append(
             {
                 "id": node.addr.address or "root",
@@ -35,8 +41,8 @@ def serialize_tree(tree: Tree, *, width_px: float = 1000.0, height_px: float = 6
         )
     edges: list[dict[str, Any]] = []
     for edge in layout.edges:
-        x1, y1 = _point(edge.x1, edge.y1, width_px=width_px, height_px=height_px)
-        x2, y2 = _point(edge.x2, edge.y2, width_px=width_px, height_px=height_px)
+        x1, y1 = _point(edge.x1, edge.y1, width_px=map_w, height_px=map_h)
+        x2, y2 = _point(edge.x2, edge.y2, width_px=map_w, height_px=map_h)
         edges.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2, "style": edge.style})
     return {"nodes": nodes, "edges": edges}
 
