@@ -59,3 +59,13 @@ _Avoid_: Init
 A sentence whose words start with the words already in the derivation.
 _Avoid_: prefix
 
+## LaTeX and Manim export
+
+`ParseResult.to_latex` and `ParseResult.to_manim` render a DS-TTR parse. Formulae are walked as objects (`dylan.formula.latex.formula_tex`), not pasted from `str(...)`.
+
+- `to_latex("semantics")` — two-column record: manifest values are subscripts (`e_{1}{}_{=\mathit{arrive}}`), types use `e_{s}` and `\rightarrow`.
+- `to_latex("tree")` — one `rtrees` tree. Node cells are type/requirement decorations, `\ptr` on the pointer, and the formula. Node addresses are not printed.
+- `to_latex("incremental")` — word snapshots stacked vertically (a horizontal row overflows once records are real). Each arrow caption is the actions for that word, then the word in quotes.
+- Compilation is `latexmk -pdfps` (latex → dvips → ps2pdf). `pdflatex` does not draw the PSTricks trees. `dsttr.sty` loads `ecltree` only when that file exists.
+- `to_manim` — each surface word is written once (`show_word` / `token_index`). The scene measures node cards and scales the tree into the left pane; actions sit in the right column and scroll upward if they would leave the frame. Final semantics replace the tree instead of covering it. Node text is the Unicode display form (`≔`, `→`, `eₛ`), not the address-order GUI dump.
+

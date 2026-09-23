@@ -16,4 +16,5 @@ class ParseActionStep:
     before_tree: Tree
     after_tree: Tree
     edge_id: int | None = None
+    token_index: int | None = None
 

@@ -71,6 +71,32 @@ class ParseResult:
             max_cell_width=max_cell_width,
         )
 
+    def _incremental_step_captions(self) -> tuple[str, ...]:
+        """Return one arrow caption per word: computational actions, then the word in quotes."""
+        grouped: dict[int, list[str]] = {}
+        for step in self.action_steps:
+            if step.token_index is None:
+                continue
+            for part in step.action_name.split(";"):
+                name = part.strip()
+                if not name or name == "(no action)":
+                    continue
+                word = self.trace_step_labels[step.token_index] if step.token_index < len(self.trace_step_labels) else ""
+                if word and name.casefold() == word.casefold():
+                    continue
+                bucket = grouped.setdefault(step.token_index, [])
+                if not bucket or bucket[-1] != name:
+                    bucket.append(name)
+        captions: list[str] = []
+        for index, word in enumerate(self.trace_step_labels):
+            actions = grouped.get(index, [])
+            quoted = f"``{word}''"
+            if actions:
+                captions.append("; ".join(actions) + "; " + quoted)
+            else:
+                captions.append(quoted)
+        return tuple(captions)
+
     def to_latex(
         self,
         kind: Literal["semantics", "tree", "incremental"],
@@ -88,7 +114,7 @@ class ParseResult:
             from :func:`dynamicsyntax.parse` with ``trace=True``.
         :param title: Section title in the wrapper document (default from *kind*).
         :param write_tex: If set, write the full ``.tex`` source to this path.
-        :param compile_tex: If ``True``, run ``latexmk`` or ``pdflatex`` (requires local TeX).
+        :param compile_tex: If ``True``, run ``latexmk -pdfps`` (PSTricks trees; requires local TeX).
         :param image_path: When set with ``compile_tex=True``, write ``.png`` or ``.pdf`` from the PDF.
         :param pdf_out: Optional explicit output path for the compiled PDF.
         :raises ValueError: When *kind* is incompatible with available data.
@@ -111,7 +137,11 @@ class ParseResult:
                 )
             if len(self.trace_step_labels) != len(self.trace_trees) - 1:
                 raise ValueError("trace_step_labels length must match len(trace_trees) - 1")
-            body = trace_figure_tex(self.trace_trees, self.trace_step_labels)
+            body = trace_figure_tex(
+                self.trace_trees,
+                self._incremental_step_captions(),
+                sentence=self.sentence,
+            )
         else:
             raise ValueError(f"unknown kind {kind!r}")
         return run_latex_pipeline(

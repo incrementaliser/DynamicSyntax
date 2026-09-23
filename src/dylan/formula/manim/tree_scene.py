@@ -5,46 +5,57 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from dylan.formula.latex.formula_tex import node_display_lines, record_display_lines
 from dylan.formula.ttr_record_type import TTRRecordType
-from dylan.gui.tree_viz import compute_tree_layout
+from dylan.tree.node_address import NodeAddress
 from dylan.tree.tree import Tree
 
 
-def _point(x_px: float, y_px: float, *, width_px: float, height_px: float) -> tuple[float, float]:
-    """Map GUI-layout pixels to Manim scene coordinates."""
-    x = -5.8 + (x_px / width_px) * 7.0
-    y = 2.4 - (y_px / height_px) * 4.8
-    return (round(x, 3), round(y, 3))
+def _parent_in_tree(addr: NodeAddress, tree: Tree) -> NodeAddress | None:
+    """Return the nearest ancestor of *addr* present in *tree*, or ``None`` for the root."""
+    if addr.is_root():
+        return None
+    cur = addr.up()
+    while cur is not None:
+        if cur in tree:
+            return cur
+        cur = cur.up()
+    return None
 
 
-def serialize_tree(tree: Tree, *, width_px: float = 1000.0, height_px: float = 640.0) -> dict[str, Any]:
-    """Return JSON-friendly node/edge layout data for *tree*.
+def _edge_style(addr: NodeAddress) -> str:
+    """Map the last address character to a stroke style (linked nodes are dashed)."""
+    last = addr.address[-1] if addr.address else ""
+    if last in ("L", "C"):
+        return "dashed"
+    if last in ("*", "U"):
+        return "dotted"
+    return "solid"
 
-    Mapping uses the natural layout bounding box. *width_px* / *height_px* are
-    unused fallbacks when that box is empty.
+
+def serialize_tree(tree: Tree) -> dict[str, Any]:
+    """Return parent-linked node lines for *tree* (no pre-baked pixel layout).
+
+    The generated scene measures the text and lays the tree out itself, then scales
+    that group into the left pane. Baking GUI pixel boxes and squeezing each label
+    into them made the formulae unreadable.
     """
-    layout = compute_tree_layout(tree, font_size=12.0, label_density="full")
-    map_w = float(layout.canvas_w) if layout.canvas_w > 1.0 else float(width_px)
-    map_h = float(layout.canvas_h) if layout.canvas_h > 1.0 else float(height_px)
+    if not tree or tree.root_addr not in tree:
+        return {"root": "", "nodes": []}
     nodes: list[dict[str, Any]] = []
-    for node in layout.nodes:
-        x, y = _point(node.cx, node.cy, width_px=map_w, height_px=map_h)
+    for addr in tree:
+        parent = _parent_in_tree(addr, tree)
         nodes.append(
             {
-                "id": node.addr.address or "root",
-                "label": node.label[:260],
-                "x": x,
-                "y": y,
-                "w": round(max(0.55, min(2.25, node.w / 120.0)), 3),
-                "h": round(max(0.35, min(1.4, node.h / 80.0)), 3),
+                "id": addr.address or "root",
+                "parent": None if parent is None else (parent.address or "root"),
+                "lines": node_display_lines(tree[addr], pointed=addr == tree.pointer),
+                "pointer": addr == tree.pointer,
+                "edge": "solid" if parent is None else _edge_style(addr),
             },
         )
-    edges: list[dict[str, Any]] = []
-    for edge in layout.edges:
-        x1, y1 = _point(edge.x1, edge.y1, width_px=map_w, height_px=map_h)
-        x2, y2 = _point(edge.x2, edge.y2, width_px=map_w, height_px=map_h)
-        edges.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2, "style": edge.style})
-    return {"nodes": nodes, "edges": edges}
+    nodes.sort(key=lambda item: (len(str(item["id"])), str(item["id"])))
+    return {"root": tree.root_addr.address or "root", "nodes": nodes}
 
 
 def serialize_action_steps(
@@ -53,20 +64,31 @@ def serialize_action_steps(
     semantics: TTRRecordType | None,
     sentence: str,
 ) -> dict[str, Any]:
-    """Return JSON-friendly animation data from action-step objects."""
+    """Return JSON-friendly animation data from action-step objects.
+
+    ``show_word`` is true only for the first step of each surface token, so a word
+    that triggers several actions is written once in the utterance line.
+    """
+    shown_tokens: set[int] = set()
     out_steps: list[dict[str, Any]] = []
     for step in steps:
+        word = getattr(step, "word", None) or ""
+        token_index = getattr(step, "token_index", None)
+        show_word = bool(word) and isinstance(token_index, int) and token_index not in shown_tokens
+        if show_word:
+            shown_tokens.add(token_index)
         out_steps.append(
             {
-                "word": getattr(step, "word", None) or "",
+                "word": word,
+                "show_word": show_word,
                 "action": getattr(step, "action_name", ""),
                 "before": serialize_tree(getattr(step, "before_tree")),
                 "after": serialize_tree(getattr(step, "after_tree")),
             },
         )
+    semantics_lines = record_display_lines(semantics) if semantics is not None else []
     return {
         "sentence": sentence,
         "steps": out_steps,
-        "semantics_tex": semantics.to_latex() if semantics is not None else "",
+        "semantics_lines": semantics_lines,
     }
-

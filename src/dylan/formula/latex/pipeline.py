@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 from dylan.formula.latex.build_result import LaTeXBuildResult
-from dylan.formula.latex.compile import compile_main_tex, copy_latex_assets, pdf_to_png
+from dylan.formula.latex.compile import compile_main_tex, copy_latex_assets, latex_log_excerpt, pdf_to_png
 from dylan.formula.latex.document import build_standalone_document
 
 
@@ -45,6 +45,7 @@ def run_latex_pipeline(
     if write_tex is not None:
         write_tex.parent.mkdir(parents=True, exist_ok=True)
         write_tex.write_text(full_tex, encoding="utf-8")
+        copy_latex_assets(write_tex.parent)
         tex_path = write_tex
 
     if not do_compile:
@@ -68,9 +69,12 @@ def run_latex_pipeline(
         code, pdf = compile_main_tex(work)
         exit_code = code
         if pdf is None or not pdf.is_file():
+            excerpt = latex_log_excerpt(work)
+            detail = f"\n{excerpt}" if excerpt else ""
             raise RuntimeError(
                 f"LaTeX compilation failed (exit {code}); "
-                "install latexmk or pdflatex and ensure dsttr/rtrees dependencies resolve.",
+                "install latexmk (pdfps/dvips route) so PSTricks trees can be drawn."
+                + detail,
             )
         shutil.copy(pdf, dest_pdf)
         pdf_path = dest_pdf

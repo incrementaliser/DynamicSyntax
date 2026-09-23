@@ -6,92 +6,100 @@ import json
 import re
 from typing import Any
 
-
-def scene_class_name(name: str) -> str:
-    """Return a valid Manim scene class name derived from *name*."""
-    parts = re.findall(r"[A-Za-z0-9]+", name)
-    base = "".join(p[:1].upper() + p[1:] for p in parts) or "DynamicSyntaxParse"
-    if base[0].isdigit():
-        base = "Scene" + base
-    return base + "Scene"
-
-
-def build_manim_scene_code(data: dict[str, Any], *, class_name: str = "DynamicSyntaxParseScene") -> str:
-    """Return Python source for a Manim ``Scene`` rendering *data*."""
-    payload = json.dumps(data, ensure_ascii=True)
-    return f'''"""Auto-generated Manim scene for a dynamicsyntax parse."""
+_SCENE_TEMPLATE = '''"""Auto-generated Manim scene for a dynamicsyntax parse."""
 
 from __future__ import annotations
 
 import json
+
 from manim import *
 
-DATA = json.loads(r"""{payload}""")
+DATA = json.loads(__PAYLOAD__)
 
 
-class {class_name}(Scene):
+class __CLASS_NAME__(Scene):
     """Action-level Dynamic Syntax parse animation."""
 
-    def _tex_escape(self, value: str) -> str:
-        """Return *value* escaped for simple Manim Tex text labels."""
-        parts = []
-        for char in value:
-            if char == "\\\\":
-                parts.append(r"\\textbackslash{{}}")
-            elif char == "&":
-                parts.append(r"\\&")
-            elif char == "%":
-                parts.append(r"\\%")
-            elif char == "$":
-                parts.append(r"\\$")
-            elif char == "#":
-                parts.append(r"\\#")
-            elif char == "_":
-                parts.append(r"\\_")
-            elif char == "{{":
-                parts.append(r"\\{{")
-            elif char == "}}":
-                parts.append(r"\\}}")
-            elif char == "^":
-                parts.append(r"\\textasciicircum{{}}")
-            elif char == "~":
-                parts.append(r"\\textasciitilde{{}}")
-            else:
-                parts.append(char)
-        return "".join(parts)
+    def _card(self, lines: list[str], *, pointer: bool) -> VGroup:
+        """Return a labelled node card; the pointer node uses a gold stroke."""
+        text = VGroup(
+            *[Text(line, font_size=20, color=WHITE) for line in lines],
+        ).arrange(DOWN, buff=0.05, aligned_edge=LEFT)
+        rect = SurroundingRectangle(
+            text,
+            buff=0.12,
+            color="#ffca28" if pointer else "#b0bec5",
+            fill_color="#102027" if pointer else "#263238",
+            fill_opacity=1,
+            stroke_width=3 if pointer else 1.6,
+        )
+        return VGroup(rect, text)
+
+    def _edge(self, parent: Mobject, child: Mobject, style: str) -> Mobject:
+        """Return a connector from the bottom of *parent* to the top of *child*."""
+        start = parent.get_bottom()
+        end = child.get_top()
+        if style == "dashed":
+            line = DashedLine(start, end, dash_length=0.08, stroke_width=2)
+        elif style == "dotted":
+            line = DashedLine(start, end, dash_length=0.04, stroke_width=2)
+        else:
+            line = Line(start, end, stroke_width=2)
+        line.set_color("#b2dfdb")
+        return line
 
     def _tree_group(self, tree_data: dict) -> VGroup:
-        """Return a Manim group containing plain tree labels and connecting edges."""
-        group = VGroup()
-        edge_group = VGroup()
-        for edge in tree_data.get("edges", []):
-            start = [edge["x1"], edge["y1"], 0]
-            end = [edge["x2"], edge["y2"], 0]
-            line = Line(start=start, end=end, stroke_width=2)
-            if edge.get("style") == "dashed":
-                line = DashedLine(start=start, end=end, stroke_width=2)
-            elif edge.get("style") == "dotted":
-                line = DashedLine(start=start, end=end, dash_length=0.04, stroke_width=2)
-            line.set_color("#9dfcf9")
-            edge_group.add(line)
-        node_group = VGroup()
+        """Lay *tree_data* out from measured cards and scale it into the left pane."""
+        specs = {node["id"]: node for node in tree_data.get("nodes", [])}
+        children: dict[str, list[str]] = {}
         for node in tree_data.get("nodes", []):
-            label = Text(node["label"], font_size=16, line_spacing=0.8)
-            label.set_color(WHITE)
-            label.move_to([node["x"], node["y"], 0])
-            label.scale_to_fit_width(max(0.3, node["w"]))
-            if label.height > node["h"]:
-                label.scale_to_fit_height(max(0.1, node["h"]))
-            node_group.add(label)
-        group.add(edge_group, node_group)
-        return group
+            parent = node.get("parent")
+            if parent:
+                children.setdefault(parent, []).append(node["id"])
+        for kids in children.values():
+            kids.sort(key=lambda item: (len(item), item))
+        root = tree_data.get("root") or ""
+        if root not in specs:
+            return VGroup(Text("empty tree", font_size=24, color=RED))
+
+        def build(node_id: str) -> tuple[VGroup, VGroup]:
+            """Return ``(card, subtree)`` for *node_id*."""
+            spec = specs[node_id]
+            card = self._card(spec.get("lines") or ["·"], pointer=bool(spec.get("pointer")))
+            kid_ids = children.get(node_id, [])
+            if not kid_ids:
+                return card, VGroup(card)
+            built = [build(kid) for kid in kid_ids]
+            row = VGroup(*[group for _card, group in built]).arrange(RIGHT, buff=0.55)
+            card.next_to(row, UP, buff=0.48)
+            card.set_x(row.get_center()[0])
+            edges = VGroup()
+            for kid_id, (kid_card, _group) in zip(kid_ids, built, strict=True):
+                edges.add(self._edge(card, kid_card, specs[kid_id].get("edge") or "solid"))
+            return card, VGroup(edges, row, card)
+
+        _root_card, tree = build(root)
+        max_w, max_h = 9.0, 5.15
+        if tree.width > max_w:
+            tree.scale_to_fit_width(max_w)
+        if tree.height > max_h:
+            tree.scale_to_fit_height(max_h)
+        tree.move_to([-1.85, -0.55, 0])
+        return tree
+
+    def _fit_block(self, block: VGroup, width: float) -> VGroup:
+        """Scale *block* down so it stays inside the action column."""
+        if block.width > width:
+            block.scale_to_fit_width(width)
+        return block
 
     def construct(self) -> None:
-        """Animate the parse in the handwritten example layout."""
-        self.camera.background_color = "#263238"
-        green_latest = "#49b372"
-        blue_lines = "#9dfcf9"
-        blue_font = "#1e6b69"
+        """Animate the parse: utterance across the top, tree on the left, actions on the right."""
+        self.camera.background_color = "#101820"
+        latest = "#69f0ae"
+        ink = "#e0f2f1"
+        muted = "#eceff1"
+        rule = "#80cbc4"
 
         steps = DATA.get("steps", [])
         if not steps:
@@ -100,60 +108,87 @@ class {class_name}(Scene):
             self.wait(1)
             return
 
-        utterance_label = MarkupText("Utterance: ", weight=HEAVY)
-        utterance_label.set_color(blue_font).scale(0.6).to_corner(UP + LEFT)
-        hline = Line(start=LEFT * 7.5, end=RIGHT * 7.5)
-        hline.next_to(utterance_label, DOWN, buff=0.25).set_color(blue_lines)
-        vline = Line(start=UP * 3.8, end=DOWN * 4.0)
-        vline.set_x(3.2).set_color(blue_lines)
-        actions_header = MarkupText("<u>Actions</u>", weight=HEAVY)
-        actions_header.set_color(blue_font).scale(0.6)
-        actions_header.next_to(vline, RIGHT, buff=0.2).align_to(utterance_label, UP)
-        self.play(Write(utterance_label), Create(hline), Create(vline), Write(actions_header))
+        utterance_label = Text("Utterance", font_size=26, weight=BOLD).set_color(ink)
+        utterance_label.to_corner(UP + LEFT)
+        hline = Line(start=LEFT * 7.1, end=RIGHT * 7.1)
+        hline.next_to(utterance_label, DOWN, buff=0.18).set_color(rule)
+        vline = Line(start=UP * 3.15, end=DOWN * 3.7)
+        vline.set_x(3.15).set_color(rule)
+        actions_header = Text("Actions", font_size=26, weight=BOLD).set_color(ink)
+        actions_header.next_to(vline, RIGHT, buff=0.18).align_to(utterance_label, UP)
+        self.play(FadeIn(utterance_label), Create(hline), Create(vline), FadeIn(actions_header))
 
         current_tree = self._tree_group(steps[0]["before"])
         self.play(FadeIn(current_tree))
-        self.wait(0.4)
+        self.wait(0.3)
 
-        words = []
-        action_labels = []
+        words: list[Mobject] = []
+        action_group = VGroup()
+        column_width = 3.4
         for step in steps:
-            word = step.get("word", "")
-            if word:
+            if step.get("show_word") and step.get("word"):
                 word_ref = words[-1] if words else utterance_label
-                new_word = Tex(self._tex_escape(word)).scale(0.75).set_color(green_latest)
-                new_word.next_to(word_ref, RIGHT, buff=0.1)
-                word_anims = [Write(new_word)]
+                new_word = Text(step["word"], font_size=28).set_color(latest)
+                new_word.next_to(word_ref, RIGHT, buff=0.16)
+                anims: list[Animation] = [FadeIn(new_word)]
                 if words:
-                    word_anims.append(words[-1].animate.set_color(WHITE))
-                self.play(*word_anims)
+                    anims.append(words[-1].animate.set_color(muted))
+                self.play(*anims)
                 words.append(new_word)
 
-            action_name = step.get("action", "")
-            if action_name:
-                action_ref = action_labels[-1] if action_labels else actions_header
-                new_action = Tex(self._tex_escape(action_name)).scale(0.38).set_color(green_latest)
-                new_action.next_to(action_ref, DOWN, buff=0.22)
-                action_anims = [Write(new_action)]
-                if action_labels:
-                    action_anims.append(action_labels[-1].animate.set_color(WHITE))
-                self.play(*action_anims)
-                action_labels.append(new_action)
-                self.wait(1.0)
+            action_name = step.get("action") or ""
+            parts = [part.strip() for part in action_name.split(";") if part.strip()]
+            if parts:
+                lines = VGroup(
+                    *[Text(part, font_size=18, color=latest) for part in parts],
+                ).arrange(DOWN, buff=0.06, aligned_edge=LEFT)
+                self._fit_block(lines, column_width)
+                anchor = action_group if len(action_group) else actions_header
+                lines.next_to(anchor, DOWN, buff=0.16, aligned_edge=LEFT)
+                self.play(FadeIn(lines))
+                if len(action_group):
+                    action_group.set_color(muted)
+                action_group.add(lines)
+                if action_group.get_bottom()[1] < -3.45:
+                    shift = -3.45 - action_group.get_bottom()[1]
+                    self.play(action_group.animate.shift(UP * shift))
+                self.wait(0.35)
 
             next_tree = self._tree_group(step["after"])
-            self.play(FadeOut(current_tree), FadeIn(next_tree), run_time=0.75)
+            self.play(FadeOut(current_tree), FadeIn(next_tree), run_time=0.6)
             current_tree = next_tree
-            self.wait(1.5)
+            self.wait(0.7)
 
-        sem = DATA.get("semantics_tex", "")
-        if sem:
-            sem_title = Text("Final semantics", font_size=24, weight=BOLD).set_color("#1e6b69")
-            sem_tex = MathTex(sem, font_size=30)
-            sem_tex.scale_to_fit_width(6.0)
-            sem_group = VGroup(sem_title, sem_tex).arrange(DOWN, buff=0.25)
-            sem_group.to_edge(DOWN)
-            self.play(FadeIn(sem_group))
+        semantics_lines = DATA.get("semantics_lines") or []
+        if semantics_lines:
+            self.play(FadeOut(current_tree))
+            title = Text("Final semantics", font_size=28, weight=BOLD).set_color(ink)
+            body = VGroup(
+                *[Text(line, font_size=24, color=muted) for line in semantics_lines],
+            ).arrange(DOWN, buff=0.08, aligned_edge=LEFT)
+            if body.width > 10.5:
+                body.scale_to_fit_width(10.5)
+            panel = VGroup(title, body).arrange(DOWN, buff=0.28)
+            panel.move_to([-1.7, -0.45, 0])
+            self.play(FadeIn(panel))
         self.wait(1)
 '''
 
+
+def scene_class_name(name: str) -> str:
+    """Return a valid Manim scene class name derived from *name*."""
+    parts = re.findall(r"[A-Za-z0-9]+", name)
+    base = "".join(part[:1].upper() + part[1:] for part in parts) or "DynamicSyntaxParse"
+    if base[0].isdigit():
+        base = "Scene" + base
+    return base + "Scene"
+
+
+def build_manim_scene_code(
+    data: dict[str, Any], *, class_name: str = "DynamicSyntaxParseScene"
+) -> str:
+    """Return Python source for a Manim ``Scene`` rendering *data*."""
+    payload = json.dumps(data, ensure_ascii=False)
+    return _SCENE_TEMPLATE.replace("__CLASS_NAME__", class_name).replace(
+        "__PAYLOAD__", repr(payload)
+    )

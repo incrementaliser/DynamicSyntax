@@ -37,8 +37,17 @@ def _active_path_edges(parser: InteractiveContextParser) -> list[GroundableEdge]
     return edges
 
 
-def _steps_from_edge(parser: InteractiveContextParser, edge: GroundableEdge) -> list[ParseActionStep]:
-    """Replay one active edge into action-level tree transitions."""
+def _steps_from_edge(
+    parser: InteractiveContextParser,
+    edge: GroundableEdge,
+    *,
+    token_index: int | None = None,
+) -> list[ParseActionStep]:
+    """Replay one active edge into action-level tree transitions.
+
+    *token_index* is the position of the surface word being parsed, so later
+    export can show that word once even when the edge splits into several actions.
+    """
     if not isinstance(edge.src, DAGTuple) or not isinstance(edge.dst, DAGTuple):
         return []
     word = edge.word.word if edge.word is not None else None
@@ -51,6 +60,7 @@ def _steps_from_edge(parser: InteractiveContextParser, edge: GroundableEdge) -> 
                 before_tree=edge.src.get_tree().clone(),
                 after_tree=edge.dst.get_tree().clone(),
                 edge_id=edge.edge_id,
+                token_index=token_index,
             ),
         ]
     steps: list[ParseActionStep] = []
@@ -66,6 +76,7 @@ def _steps_from_edge(parser: InteractiveContextParser, edge: GroundableEdge) -> 
                     before_tree=edge.src.get_tree().clone(),
                     after_tree=edge.dst.get_tree().clone(),
                     edge_id=edge.edge_id,
+                    token_index=token_index,
                 ),
             ]
         steps.append(
@@ -75,6 +86,7 @@ def _steps_from_edge(parser: InteractiveContextParser, edge: GroundableEdge) -> 
                 before_tree=before,
                 after_tree=after.clone(),
                 edge_id=edge.edge_id,
+                token_index=token_index,
             ),
         )
         cur = after
@@ -102,14 +114,14 @@ def _run_parse_core(
     action_steps: list[ParseActionStep] = []
     seen_edge_ids: set[int] = set()
     ok = True
-    for uw in utt.words:
+    for token_index, uw in enumerate(utt.words):
         labels.append(uw.word)
         if parser.parse_word(uw) is None:
             ok = False
         for edge in _active_path_edges(parser):
             if edge.edge_id in seen_edge_ids:
                 continue
-            action_steps.extend(_steps_from_edge(parser, edge))
+            action_steps.extend(_steps_from_edge(parser, edge, token_index=token_index))
             seen_edge_ids.add(edge.edge_id)
         trace_list.append(parser.get_best_tuple().get_tree().clone())
     tree = parser.get_best_tuple().get_tree()

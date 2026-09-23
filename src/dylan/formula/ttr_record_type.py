@@ -649,11 +649,10 @@ class TTRRecordType(TTRFormula):
         return "{" + items + "}"
 
     def to_latex(self) -> str:
-        """Return a simple LaTeX record rendering."""
-        if self.is_empty():
-            return r"\left[\right]"
-        rows = [str(f).replace("==", r"\mathrel{:=}").replace(":", r" : ") for f in self._fields]
-        return r"\left[\begin{array}{l}" + r" \\ ".join(rows) + r"\end{array}\right]"
+        """Return math-mode LaTeX: a two-column record, manifest values as subscripts."""
+        from dylan.formula.latex.formula_tex import record_to_latex
+
+        return record_to_latex(self)
 
     def to_debug_string(self) -> str:
         """Return a debug representation with one field per line."""

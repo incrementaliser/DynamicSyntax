@@ -196,19 +196,31 @@ def test_parse_trace_snapshots() -> None:
 
 
 def test_to_latex_semantics_document() -> None:
-    """Semantics export wraps a full LaTeX document."""
+    """Semantics export is a two-column record, not a broken ``:=`` string replace."""
     p = ds.parse("a man arrives", "ttr")
     r = p.to_latex("semantics", title="test semantics")
     assert "\\documentclass" in r.tex
     assert "dsttr" in r.tex or "input" in r.tex
     assert "\\[" in r.tex
+    assert r"\begin{array}" in r.tex
+    assert "&" in r.tex
+    assert r"\mathit{arrive}" in r.tex
+    assert "e_{s}" in r.tex
+    assert r"\mathrel{ : =" not in r.tex
+    assert "==" not in r.tex.split(r"\begin{document}", 1)[-1]
 
 
 def test_to_latex_tree_has_rtrees() -> None:
-    """Tree export includes a ``tree`` environment."""
+    """Tree export uses rtrees nodes with types and formulae, not escaped GUI dumps."""
     p = ds.parse("a man arrives", "ttr")
     r = p.to_latex("tree")
     assert "\\begin{tree}" in r.tex
+    assert r"\rightarrow" in r.tex
+    assert r"\left[" in r.tex
+    assert r"\ptr" in r.tex
+    assert r"{\n" not in r.tex
+    assert "Fo([" not in r.tex
+    assert r"\_" not in r.tex
 
 
 def test_to_latex_incremental_requires_trace() -> None:
@@ -219,11 +231,14 @@ def test_to_latex_incremental_requires_trace() -> None:
 
 
 def test_to_latex_incremental_with_trace() -> None:
-    """Incremental layout references ``figure*`` and tabular."""
+    """Incremental layout stacks snapshots and names the word on each arrow."""
     p = ds.parse("a man arrives", "ttr", trace=True)
     r = p.to_latex("incremental")
     assert "figure*" in r.tex
     assert "tabular" in r.tex
+    assert r"\Rightarrow" in r.tex
+    assert "``arrives''" in r.tex
+    assert r"{\n" not in r.tex
 
 
 def test_compile_tex_smoke_if_latexmk_available(tmp_path: Path) -> None:
@@ -255,6 +270,9 @@ def test_parse_result_to_manim_render_free() -> None:
     assert "from manim import" in r.scene_code
     assert "Dynamic Syntax parse" in r.scene_code
     assert "a man arrives" in r.scene_code
+    assert r.scene_code.count('"show_word": true') == 3
+    assert "Fo([" not in r.scene_code
+    assert "Ty(" in r.scene_code
 
 
 def test_top_level_to_manim_render_free() -> None:
@@ -273,11 +291,9 @@ def test_to_manim_requires_action_trace() -> None:
 
 
 def test_manim_render_smoke_if_available(tmp_path: Path) -> None:
-    """When Manim and LaTeX are available, smoke-render a low-quality MP4."""
+    """When Manim is available, smoke-render a low-quality MP4 (node labels are Text)."""
     if shutil.which("manim") is None and importlib.util.find_spec("manim") is None:
         pytest.skip("manim not available")
-    if shutil.which("latex") is None and shutil.which("pdflatex") is None:
-        pytest.skip("latex not available for Manim MathTex")
     out = tmp_path / "parse.mp4"
     p = ds.parse("a man arrives", "ttr", trace=True)
     r = p.to_manim(output_path=out, quality="l")

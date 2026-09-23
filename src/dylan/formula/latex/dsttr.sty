@@ -1,5 +1,7 @@
 \usepackage{rtrees}
-\usepackage{epic,ecltree}
+% ecltree is not part of a default TeX Live install; DS bundle/chunk macros need it
+% when it is present, but record and rtrees export must still load without it.
+\IfFileExists{ecltree.sty}{\usepackage{epic,ecltree}}{}
 \usepackage{array}
 \usepackage{pstricks}
 \usepackage{txfonts}
