@@ -59,3 +59,25 @@ _Avoid_: Init
 A sentence whose words start with the words already in the derivation.
 _Avoid_: prefix
 
+### RDF
+
+**RDF formula**:
+A semantic formula whose content is RDF: either an RDF graph or an RDF lambda.
+_Avoid_: Jena model, triple store
+
+**RDF graph**:
+A ground RDF formula: a set of triples.
+_Avoid_: record type, model
+
+**RDF lambda**:
+An RDF formula that binds ``G``, ``G1``, … over an RDF formula.
+_Avoid_: FOL lambda, TTR lambda
+
+**Root**:
+The distinguished node of an RDF graph that is plugged into a placeholder when that graph is applied as an argument.
+_Avoid_: head, TTR head
+
+**Placeholder**:
+The node in an RDF graph that stands for one bound RDF-lambda variable.
+_Avoid_: blank node, SPARQL variable
+

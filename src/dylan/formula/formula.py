@@ -135,7 +135,7 @@ class Formula(ABC):
 
     @staticmethod
     def create(string: str, in_ex_conj: bool = False) -> Formula | None:
-        """Parse formula specs from lexicon / TTR (partial implementation)."""
+        """Parse formula specs from lexicon strings, including TTR and delimited RDF."""
         from dylan.formula.bound_formula_variable import BoundFormulaVariable
         from dylan.formula.ttr_record_type import TTRRecordType
         from dylan.formula.variable import Variable
@@ -173,6 +173,25 @@ class Formula(ABC):
         ttrp = parse_ttr_path(s)
         if ttrp is not None:
             return ttrp
+        from dylan.formula.rdf.syntax import RDFSyntaxError, split_rdf_graph, split_rdf_lambda
+
+        turtle = split_rdf_graph(s)
+        if turtle is not None:
+            from dylan.formula.rdf.graph import RDFGraph
+
+            return RDFGraph.parse(turtle)
+        binder = split_rdf_lambda(s)
+        if binder is not None:
+            from dylan.formula.rdf.formula import RDFFormula
+            from dylan.formula.rdf.lambda_abstract import RDFLambdaAbstract
+
+            binder_name, body_src = binder
+            body = Formula.create(body_src, in_ex_conj)
+            if not isinstance(body, RDFFormula):
+                raise RDFSyntaxError(
+                    f"RDF lambda body must be an RDF formula, got {type(body).__name__}",
+                )
+            return RDFLambdaAbstract(Variable(binder_name), body)
         if "^" in s:
             caret = s.find("^")
             var_s = s[:caret].strip()
