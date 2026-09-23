@@ -22,9 +22,13 @@ from loguru import logger
 from dylan.logging_config import configure_logging
 
 from dylan.gui.parse_session import (
+    FLET_INFO_HELP_LINES,
     ParseSession,
+    SessionStatus,
+    StatusField,
     format_event_log,
     format_interpretation_readout,
+    is_action_log_line,
     resolve_grammar_directory,
 )
 from dylan.gui.tree_viz import (
@@ -89,13 +93,9 @@ def main() -> None:
         MONO_FONT_SIZE = 13
         CAPTION_FONT_SIZE = 12
         MONO_FONT_FAMILY = "Consolas, monospace"
-        PROSE_LINE_HEIGHT = 1.35
+        LEFT_COLUMN_EXPAND = 80
+        LOGS_COLUMN_EXPAND = 20
 
-        body_text_style = ft.TextStyle(
-            size=BODY_FONT_SIZE,
-            color=BODY_TEXT_COLOR,
-            height=PROSE_LINE_HEIGHT,
-        )
         mono_text_style = ft.TextStyle(
             font_family=MONO_FONT_FAMILY,
             size=MONO_FONT_SIZE,
@@ -146,8 +146,14 @@ def main() -> None:
             expand: bool = False,
             title_color: str | None = None,
             fill_vertical: bool = False,
+            content_height: int | None = None,
         ) -> ft.Container:
-            """Outlined box with *title* on the top border; use *fill_vertical* only inside bounded flex areas (tabs/logs)."""
+            """Outlined box with *title* on the top border.
+
+            Use *fill_vertical* only inside a bounded flex area (tabs, logs).
+            *content_height* fixes the border height for a loose stack so sibling
+            cards stay the same height without an expanding stack.
+            """
             bc = border_color if border_color is not None else BOX_BORDER_COLOR
             tc = title_color if title_color is not None else MUTED_TEXT_COLOR
             pad = content_padding if content_padding is not None else ft.Padding.all(10)
@@ -186,6 +192,7 @@ def main() -> None:
             else:
                 bordered = ft.Container(
                     margin=ft.Margin.only(top=8),
+                    height=content_height,
                     border=ft.Border.all(width=1, color=bc),
                     border_radius=4,
                     bgcolor=fill_color,
@@ -238,27 +245,76 @@ def main() -> None:
             sentence_field,
             caption_bg=BOX_BACKGROUND_COLOR,
             fill_color=BOX_BACKGROUND_COLOR,
-            expand=True,
         )
-        info_field = _dark_borderless_textfield(
-            value=session.session_info_text(),
-            read_only=True,
-            multiline=True,
-            min_lines=8,
-            max_lines=14,
-            expand=True,
-            text_style=body_text_style,
-            dense=True,
+
+        def _status_value_text() -> ft.Text:
+            """One Status value, updated in place when the session changes."""
+            return ft.Text(
+                "—",
+                size=BODY_FONT_SIZE,
+                color=MUTED_TEXT_COLOR,
+                expand=True,
+                selectable=True,
+            )
+
+        status_values: dict[str, ft.Text] = {
+            "grammar": _status_value_text(),
+            "repair": _status_value_text(),
+            "last": _status_value_text(),
+            "warnings": _status_value_text(),
+            "pointer": _status_value_text(),
+            "dag_tuple": _status_value_text(),
+        }
+
+        def _status_row(key: str, label: str) -> ft.Row:
+            """A muted label beside a coloured Status value."""
+            return ft.Row(
+                [
+                    ft.Text(
+                        label,
+                        width=78,
+                        size=11,
+                        color=MUTED_TEXT_COLOR,
+                        weight=ft.FontWeight.W_600,
+                    ),
+                    status_values[key],
+                ],
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+
+        status_column = ft.Column(
+            [
+                _status_row("grammar", "Grammar"),
+                _status_row("repair", "Repair"),
+                _status_row("last", "Last"),
+                _status_row("warnings", "Load warnings"),
+                _status_row("pointer", "Pointer"),
+                _status_row("dag_tuple", "DAG tuple"),
+            ],
+            spacing=4,
+            tight=True,
         )
-        info_box = _border_caption_box(
-            "Info",
-            info_field,
+        status_box = _border_caption_box(
+            "Status",
+            status_column,
             caption_bg=BOX_BACKGROUND_COLOR,
             fill_color=BOX_BACKGROUND_COLOR,
-            expand=True,
+            title_color=BODY_TEXT_COLOR,
         )
         LOG_ERROR_COLOR = "#ef5350"
         LOG_PARSED_COLOR = "#66bb6a"
+        LOG_ACTION_COLOR = "#4fc3f7"
+        LOG_INTERP_COLOR = "#ffe082"
+        STATUS_AMBER = "#ffb74d"
+        _STATUS_TONE_COLOR = {
+            "muted": MUTED_TEXT_COLOR,
+            "amber": STATUS_AMBER,
+            "ok": LOG_PARSED_COLOR,
+            "error": LOG_ERROR_COLOR,
+            "body": BODY_TEXT_COLOR,
+            "mono": BODY_TEXT_COLOR,
+        }
         log_scroll = ft.Column(
             controls=[],
             scroll=ft.ScrollMode.AUTO,
@@ -375,23 +431,18 @@ def main() -> None:
             expand=True,
             text_style=mono_text_style,
         )
-        reset_before = ft.Checkbox(
-            label="Reset state before parse",
-            value=True,
-            tooltip="If on, Init runs before each Parse so the sentence is not appended to the previous derivation.",
-            label_style=toolbar_label_style,
-        )
         repair_cb = ft.Checkbox(
-            label="Repair processing (partial — may fail)",
+            label="Repair",
             value=False,
             tooltip="Repair path is only partially ported; leave off unless you are testing repairs.",
             label_style=toolbar_label_style,
+            visual_density=ft.VisualDensity.COMPACT,
         )
         show_logs_toggle = ft.Checkbox(
             label="Logs",
             value=True,
             label_style=ft.TextStyle(color=BODY_TEXT_COLOR, size=11),
-            tooltip="Show or hide Info and Logs (right panel)",
+            tooltip="Show or hide Status and Logs (right panel)",
             visual_density=ft.VisualDensity.COMPACT,
         )
 
@@ -438,9 +489,27 @@ def main() -> None:
 
         tree_stage.on_size_change = on_tree_stage_size
 
-        def _sync_info() -> None:
-            """Refresh the Info card from the live session."""
-            info_field.value = session.session_info_text()
+        def _apply_status_field(key: str, field: StatusField) -> None:
+            """Paint one Status value in the colour for its tone."""
+            text = status_values[key]
+            text.value = field.value
+            text.color = _STATUS_TONE_COLOR[field.tone]
+            text.font_family = MONO_FONT_FAMILY if field.tone == "mono" else None
+            text.weight = (
+                ft.FontWeight.W_600
+                if field.tone in {"ok", "error", "amber"}
+                else ft.FontWeight.W_400
+            )
+
+        def _sync_status() -> None:
+            """Refresh the Status card from the live session. Info stays the how-to."""
+            status: SessionStatus = session.session_status()
+            _apply_status_field("grammar", status.grammar)
+            _apply_status_field("repair", status.repair)
+            _apply_status_field("last", status.last)
+            _apply_status_field("warnings", status.warnings)
+            _apply_status_field("pointer", status.pointer)
+            _apply_status_field("dag_tuple", status.dag_tuple)
 
         def _sync_interpretation_controls() -> None:
             """Show ``#interpretations: index / N`` and disable arrows at the ends."""
@@ -488,11 +557,36 @@ def main() -> None:
                                 font_family=MONO_FONT_FAMILY,
                                 size=MONO_FONT_SIZE,
                                 color=LOG_PARSED_COLOR,
+                                weight=ft.FontWeight.W_600,
                             ),
                         ),
                     ],
                     selectable=True,
                 )
+            if "\n" not in block and is_action_log_line(block):
+                action_style = ft.TextStyle(
+                    font_family=MONO_FONT_FAMILY,
+                    size=MONO_FONT_SIZE,
+                    color=LOG_ACTION_COLOR,
+                )
+                if block.startswith("(interp ") and ") " in block:
+                    prefix, rest = block.split(") ", 1)
+                    return ft.Text(
+                        spans=[
+                            ft.TextSpan(
+                                text=f"{prefix}) ",
+                                style=ft.TextStyle(
+                                    font_family=MONO_FONT_FAMILY,
+                                    size=MONO_FONT_SIZE,
+                                    color=LOG_INTERP_COLOR,
+                                    weight=ft.FontWeight.W_700,
+                                ),
+                            ),
+                            ft.TextSpan(text=rest, style=action_style),
+                        ],
+                        selectable=True,
+                    )
+                return ft.Text(value=block, style=action_style, selectable=True)
             return ft.Text(value=block, style=mono, selectable=True)
 
         def set_log(text: str) -> None:
@@ -517,7 +611,7 @@ def main() -> None:
                 return w, h
             win_w = float(page.window.width or page.width or 1400)
             win_h = float(page.window.height or page.height or 900)
-            left_ratio = 0.65 if bool(show_logs_toggle.value) else 1.0
+            left_ratio = 0.80 if bool(show_logs_toggle.value) else 1.0
             vw = max(320.0, win_w * left_ratio - 80.0)
             vh = max(240.0, win_h - 320.0)
             return vw, vh
@@ -655,7 +749,7 @@ def main() -> None:
         def apply_grammar(path_str: str) -> None:
             """Load a grammar directory into a fresh parser."""
             report = session.set_grammar(path_str, repairing=bool(repair_cb.value))
-            _sync_info()
+            _sync_status()
             _sync_interpretation_controls()
             set_log(report)
             if session.last_tree is not None:
@@ -675,9 +769,9 @@ def main() -> None:
             _paint_parse_tree_canvas(hold=hold)
 
         def _refresh_views(msg: str | None) -> None:
-            """Populate the tree / semantics / DAG fields and Info card from current parser state."""
+            """Refresh the tree, semantics, DAG, and Status from the current parser."""
             vs = session.current_view_strings()
-            _sync_info()
+            _sync_status()
             if vs is None:
                 if msg:
                     append_log(msg)
@@ -710,33 +804,24 @@ def main() -> None:
                 return
             apply_grammar(str(resolve_grammar_directory(path)))
 
-        def do_init(_: ft.ControlEvent | None = None) -> None:
-            """Re-initialise the parser to the axiom state."""
-            err = session.run_init()
+        def do_reset(_: ft.ControlEvent | None = None) -> None:
+            """Clear the derivation back to the empty axiom. The grammar stays loaded."""
+            err = session.run_init(success_event="Reset — axiom state.")
             if err is not None:
-                _sync_info()
-                append_log(err)
-                return
-            _refresh_views(session.last_event)
-
-        def do_new_sentence(_: ft.ControlEvent | None = None) -> None:
-            """Reset the DAG for a fresh sentence."""
-            err = session.run_new_sentence()
-            if err is not None:
-                _sync_info()
+                _sync_status()
                 append_log(err)
                 return
             _refresh_views(session.last_event)
 
         def do_parse(_: ft.ControlEvent | None = None) -> None:
-            """Parse the sentence in the text field, logging one line per word."""
+            """Parse the sentence, logging only words that are new to the derivation."""
             err, _ok, events = session.run_parse(
                 sentence_field.value or "",
-                reset_before=bool(reset_before.value),
+                reset_before=False,
                 speaker=DEFAULT_SPEAKER,
             )
             if err is not None:
-                _sync_info()
+                _sync_status()
                 append_log(err)
                 return
             _refresh_views(None)
@@ -747,7 +832,7 @@ def main() -> None:
             """Show interpretation *index* without adding a Logs line."""
             err, log = session.select_interpretation(index)
             if err is not None:
-                _sync_info()
+                _sync_status()
                 _sync_interpretation_controls()
                 append_log(err)
                 return
@@ -820,31 +905,7 @@ def main() -> None:
             style=_arrow_style,
             on_click=do_next_interpretation,
         )
-        parse_cluster = ft.Column(
-            [
-                parse_btn,
-                ft.Row(
-                    [prev_interp_btn, interp_box, next_interp_btn],
-                    spacing=2,
-                    tight=True,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-            ],
-            spacing=6,
-            tight=True,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        )
         set_grammar_btn.on_click = pick_grammar_dir
-
-        # --- app bar ----------------------------------------------------------
-
-        page.appbar = ft.AppBar(
-            title=ft.Text("DyLan - The Dynamic Syntax Parser"),
-            center_title=True,
-            automatically_imply_leading=False,
-            bgcolor="#455a64",
-            color="white",
-        )
 
         # --- layout -----------------------------------------------------------
 
@@ -881,55 +942,119 @@ def main() -> None:
             ),
         )
 
-        init_btn = ft.Button(
-            content="Init",
-            on_click=do_init,
-            tooltip="Reset the parser to the axiom DS Tree (clears the current derivation).",
+        reset_btn = ft.Button(
+            content="Reset",
+            on_click=do_reset,
+            tooltip="Clear the derivation and return the tree to the empty axiom. The grammar stays loaded.",
         )
-        new_sentence_btn = ft.Button(
-            content="New sentence",
-            on_click=do_new_sentence,
-            tooltip="Start a new sentence: reset the DAG to the axiom without unloading the grammar.",
-        )
-        grammar_toolbar = ft.Column(
-            [
-                ft.Row(
-                    [
-                        set_grammar_btn,
-                        show_logs_toggle,
-                        ft.Container(expand=True),
-                        init_btn,
-                        new_sentence_btn,
-                    ],
-                    spacing=12,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-                ft.Row(
-                    [
-                        repair_cb,
-                        reset_before,
-                    ],
-                    spacing=12,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-            ],
-            spacing=4,
-        )
-        sentence_row = ft.Container(
-            content=ft.Row(
-                [
-                    ft.Container(content=sentence_box, expand=True),
-                    parse_cluster,
-                ],
-                spacing=28,
-                vertical_alignment=ft.CrossAxisAlignment.START,
+        # New sentence is hidden for now. ParseSession.run_new_sentence remains for the browser.
+        title_box = ft.Container(
+            content=ft.Text(
+                "DyLan - The Dynamic Syntax Parser",
+                size=26,
+                weight=ft.FontWeight.W_600,
+                font_family="Garamond",
+                color="white",
+                text_align=ft.TextAlign.CENTER,
             ),
-            padding=ft.Padding.only(top=8),
+            bgcolor=BOX_BACKGROUND_COLOR,
+            border=ft.Border.all(width=1, color=BOX_BORDER_COLOR),
+            border_radius=8,
+            padding=ft.Padding.symmetric(horizontal=22, vertical=12),
+        )
+        title_row = ft.Row(
+            [title_box],
+            alignment=ft.MainAxisAlignment.CENTER,
+        )
+
+        def show_help(_: ft.ControlEvent) -> None:
+            """Open the how-to. A click outside the card closes it."""
+
+            def close_help(event: ft.ControlEvent) -> None:
+                """Remove the how-to when the click lands on the scrim."""
+                if event.control is not scrim:
+                    return
+                if scrim in page.overlay:
+                    page.overlay.remove(scrim)
+                page.update()
+
+            def keep_open(_: ft.ControlEvent) -> None:
+                """Leave the how-to open when the click lands on the card."""
+                return
+
+            card = ft.Container(
+                width=460,
+                bgcolor=BOX_BACKGROUND_COLOR,
+                border=ft.Border.all(width=1, color=BOX_BORDER_COLOR),
+                border_radius=12,
+                padding=16,
+                on_click=keep_open,
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            "Info",
+                            color="white",
+                            size=16,
+                            weight=ft.FontWeight.W_600,
+                        ),
+                        *[
+                            ft.Text(line, color=BODY_TEXT_COLOR, size=BODY_FONT_SIZE)
+                            for line in FLET_INFO_HELP_LINES
+                        ],
+                    ],
+                    tight=True,
+                    spacing=8,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+            )
+            scrim = ft.Container(
+                expand=True,
+                width=page.width or page.window.width,
+                height=page.height or page.window.height,
+                bgcolor=ft.Colors.with_opacity(0.35, "black"),
+                alignment=ft.Alignment.CENTER,
+                on_click=close_help,
+                content=card,
+            )
+            page.overlay.append(scrim)
+            page.update()
+
+        help_btn = ft.Container(
+            content=ft.Text("?", size=18, weight=ft.FontWeight.W_600, color="white"),
+            width=36,
+            height=36,
+            alignment=ft.Alignment.CENTER,
+            bgcolor=BOX_BACKGROUND_COLOR,
+            border=ft.Border.all(width=1, color=BOX_BORDER_COLOR),
+            border_radius=8,
+            on_click=show_help,
+            tooltip="How to load a grammar, parse, zoom, and reset",
+        )
+        action_row = ft.Row(
+            [
+                set_grammar_btn,
+                parse_btn,
+                ft.Row(
+                    [prev_interp_btn, interp_box, next_interp_btn],
+                    spacing=2,
+                    tight=True,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                reset_btn,
+                ft.Container(expand=True),
+                show_logs_toggle,
+                repair_cb,
+                ft.Container(expand=True),
+                help_btn,
+            ],
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
         left_column = ft.Column(
             [
-                grammar_toolbar,
-                sentence_row,
+                title_row,
+                action_row,
+                ft.Container(content=sentence_box, padding=ft.Padding.only(top=8)),
                 tabs_widget,
             ],
             expand=True,
@@ -939,34 +1064,30 @@ def main() -> None:
         logs_panel = ft.Container(
             content=ft.Column(
                 [
-                    ft.Row(
-                        controls=[info_box],
-                        tight=True,
-                        vertical_alignment=ft.CrossAxisAlignment.START,
-                    ),
+                    status_box,
                     ft.Container(content=log_box, expand=True),
                 ],
                 expand=True,
-                spacing=10,
+                spacing=8,
                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             ),
             bgcolor=PANEL_BACKGROUND,
-            padding=12,
+            padding=8,
             border_radius=8,
-            expand=35,
+            expand=LOGS_COLUMN_EXPAND,
         )
         left_wrap = ft.Container(
             content=left_column,
-            expand=65,
+            expand=LEFT_COLUMN_EXPAND,
             padding=ft.Padding.only(right=8),
             bgcolor=PANEL_BACKGROUND,
         )
 
         def on_show_logs_change(e: ft.ControlEvent) -> None:
-            """Show or hide the Info/Logs column; when off, the parse UI uses the full width."""
+            """Show or hide Status and Logs. When hidden, the parse UI uses the full width."""
             show = bool(e.control.value)
             logs_panel.visible = show
-            left_wrap.expand = 65 if show else True
+            left_wrap.expand = LEFT_COLUMN_EXPAND if show else True
             if session.parser is not None and session.last_tree is not None:
                 _refresh_parse_tree_visual(session.last_tree)
             page.update()
@@ -1004,6 +1125,8 @@ def main() -> None:
 
         page.on_resize = on_window_resize
 
+        _sync_status()
+
         page.add(
             ft.Row(
                 [
@@ -1017,7 +1140,11 @@ def main() -> None:
         )
 
         async def _center_window() -> None:
-            """Place the window in the middle of the screen after size is applied."""
+            """Place the desktop window in the middle of the screen after size is applied."""
+            web = os.environ.get("DYLAN_FLET_WEB", "").strip().lower() in ("1", "true", "yes", "on")
+            codespaces = os.environ.get("CODESPACES", "").strip().lower() == "true"
+            if web or codespaces:
+                return
             await page.window.center()
 
         page.run_task(_center_window)

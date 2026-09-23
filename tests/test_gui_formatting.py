@@ -12,15 +12,21 @@ from dylan.gui.formatting import (
     node_address_type_formula_strings,
 )
 from dylan.gui.parse_session import (
+    FLET_INFO_HELP_TEXT,
     INTERPRETATION_CAP,
+    NO_NEW_WORDS_LOG,
     ParseSession,
+    format_action_log_lines,
     format_event_log,
     format_grammar_load_report,
     format_interpretation_log,
     format_interpretation_readout,
+    format_noncontinuation,
     format_parse_event,
     format_session_info,
+    format_session_status,
     format_word_event,
+    is_action_log_line,
     resolve_grammar_directory,
 )
 from dylan.tree.label.labels import FormulaLabel, TypeLabel
@@ -108,7 +114,10 @@ def test_format_interpretation_readout_and_log() -> None:
     """The box and the log line share the 1 / N count, with a plus when capped."""
     assert format_interpretation_readout(0, 0, capped=False) == "#interpretations: 0"
     assert format_interpretation_readout(1, 5, capped=False) == "#interpretations: 1 / 5"
-    assert format_interpretation_readout(2, INTERPRETATION_CAP, capped=True) == "#interpretations: 2 / 30+"
+    assert (
+        format_interpretation_readout(2, INTERPRETATION_CAP, capped=True)
+        == "#interpretations: 2 / 30+"
+    )
     assert format_interpretation_log(2, 5, capped=False) == "Interpretation 2 / 5"
     assert format_interpretation_log(2, INTERPRETATION_CAP, capped=True) == "Interpretation 2 / 30+"
 
@@ -184,6 +193,11 @@ def test_format_word_event_parsed_and_failed() -> None:
     assert format_word_event(word="c", ok=False) == "c failed (no derivation)"
 
 
+def _word_status_lines(events: list[str]) -> list[str]:
+    """Keep parsed and failed lines, dropping computational-action lines."""
+    return [line for line in events if line.endswith(" parsed") or " failed" in line]
+
+
 def test_run_parse_logs_each_word() -> None:
     """A sentence with a missing last word yields parsed lines then one failed line."""
     grammar = Path(__file__).resolve().parents[1] / "resources" / "2026-english-ttr"
@@ -194,9 +208,13 @@ def test_run_parse_logs_each_word() -> None:
     err, ok, events = session.run_parse("a man zzz", reset_before=True)
     assert err is None
     assert ok is False
-    assert events[0] == "a parsed"
-    assert events[1] == "man parsed"
-    assert events[2] == "zzz failed (not in lexicon)"
+    assert _word_status_lines(events) == [
+        "a parsed",
+        "man parsed",
+        "zzz failed (not in lexicon)",
+    ]
+    assert events[-1] == "zzz failed (not in lexicon)"
+    assert any(is_action_log_line(line) for line in events)
 
 
 def test_format_event_log_strips_whitespace() -> None:
@@ -220,6 +238,115 @@ def test_format_session_info_lists_live_facts() -> None:
     assert "Load warnings: 2" in text
     assert "Pointer: 01" in text
     assert "Current DAG tuple: #3" in text
+
+
+def test_format_action_log_lines_collapses_shared_sequences() -> None:
+    """One shared sequence has no prefix; identical subsets share an interpretation line."""
+    assert format_action_log_lines([("intro-pred",)]) == ["intro-pred"]
+    assert format_action_log_lines([("*thinning",), ("*thinning",)]) == ["*thinning"]
+    assert format_action_log_lines([(), ()]) == []
+    assert format_action_log_lines([("*thinning",), ("*thinning",), ()]) == [
+        "(interp 1, 2) *thinning"
+    ]
+    assert format_action_log_lines(
+        [("completion", "elimination"), ("completion",)],
+    ) == [
+        "(interp 1) completion elimination",
+        "(interp 2) completion",
+    ]
+
+
+def test_is_action_log_line_accepts_interp_prefix() -> None:
+    """Action lines are recognised with and without an interpretation prefix."""
+    assert is_action_log_line("intro-pred")
+    assert is_action_log_line("(interp 1, 2) *thinning completion")
+    assert not is_action_log_line("a parsed")
+    assert not is_action_log_line(NO_NEW_WORDS_LOG)
+    assert not is_action_log_line(format_noncontinuation("the dog"))
+
+
+def test_format_session_status_tones() -> None:
+    """Status rows colour repair, warnings, and the last event by outcome."""
+    ok = format_session_status(
+        grammar_path="/tmp/g",
+        repairing=False,
+        last_event="Parsed “a” — OK",
+        load_warning_count=0,
+        pointer="01",
+        tuple_id=3,
+    )
+    assert ok.grammar.value == "/tmp/g" and ok.grammar.tone == "muted"
+    assert ok.repair.value == "off" and ok.repair.tone == "muted"
+    assert ok.last.tone == "ok"
+    assert ok.warnings.value == "0" and ok.warnings.tone == "muted"
+    assert ok.pointer.value == "01" and ok.pointer.tone == "mono"
+    assert ok.dag_tuple.value == "#3" and ok.dag_tuple.tone == "mono"
+    failed = format_session_status(
+        grammar_path=None,
+        repairing=True,
+        last_event="Parsed “zzz” — failed (zzz not in lexicon)",
+        load_warning_count=2,
+        pointer=None,
+        tuple_id=None,
+    )
+    assert failed.grammar.value == "(none)"
+    assert failed.repair.tone == "amber"
+    assert failed.last.tone == "error"
+    assert failed.warnings.tone == "amber"
+    assert failed.pointer.value == "—"
+    assert "Reset" in FLET_INFO_HELP_TEXT
+    assert "does not continue" in FLET_INFO_HELP_TEXT
+
+
+def test_run_parse_logs_only_new_words_and_reset_clears_them() -> None:
+    """A continuation logs the new word; a different sentence is refused until Reset."""
+    grammar = Path(__file__).resolve().parents[1] / "resources" / "2026-english-ttr"
+    if not (grammar / "lexicon.txt").is_file():
+        return
+    session = ParseSession()
+    session.set_grammar(str(grammar), repairing=False)
+    err, ok, events = session.run_parse("a man", reset_before=False)
+    assert err is None and ok is True
+    assert _word_status_lines(events) == ["a parsed", "man parsed"]
+
+    err, ok, events = session.run_parse("a man knows", reset_before=False)
+    assert err is None and ok is True
+    assert _word_status_lines(events) == ["knows parsed"]
+    assert "a parsed" not in events and "man parsed" not in events
+
+    err, ok, events = session.run_parse("a man knows", reset_before=False)
+    assert err is None and ok is None
+    assert events == [NO_NEW_WORDS_LOG]
+
+    err, ok, events = session.run_parse("the dog", reset_before=False)
+    assert ok is None and events == []
+    assert err == format_noncontinuation("the dog")
+
+    assert session.run_init(success_event="Reset — axiom state.") is None
+    assert session.last_event == "Reset — axiom state."
+    err, ok, events = session.run_parse("a man", reset_before=False)
+    assert err is None and ok is True
+    assert _word_status_lines(events) == ["a parsed", "man parsed"]
+
+    err, ok, events = session.run_parse("a man knows", reset_before=True)
+    assert err is None and ok is True
+    assert _word_status_lines(events) == ["a parsed", "man parsed", "knows parsed"]
+
+
+def test_run_parse_emits_interpretation_action_lines() -> None:
+    """A sentence with several readings prefixes differing computational actions."""
+    grammar = Path(__file__).resolve().parents[1] / "resources" / "2026-english-ttr"
+    if not (grammar / "lexicon.txt").is_file():
+        return
+    session = ParseSession()
+    session.set_grammar(str(grammar), repairing=False)
+    err, ok, events = session.run_parse("a man knows you", reset_before=True)
+    assert err is None and ok is True
+    assert _word_status_lines(events) == ["a parsed", "man parsed", "knows parsed", "you parsed"]
+    interp_lines = [line for line in events if line.startswith("(interp ")]
+    assert len(interp_lines) >= 2
+    assert all(is_action_log_line(line) for line in interp_lines)
+    assert session.interpretation_count >= 2
 
 
 def test_format_grammar_load_report_drops_success_fluff() -> None:

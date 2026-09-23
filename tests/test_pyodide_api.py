@@ -44,7 +44,8 @@ def test_dispatch_load_init_parse_bundled_grammar() -> None:
     lines = parse_out.get("log_messages")
     assert "=== " not in log_msg
     assert isinstance(lines, list)
-    assert lines == ["a parsed", "man parsed", "arrives parsed"]
+    word_lines = [line for line in lines if str(line).endswith(" parsed")]
+    assert word_lines == ["a parsed", "man parsed", "arrives parsed"]
     assert "session_info" in parse_out
     assert parse_out.get("interpretation_index") == 1
     assert int(parse_out.get("interpretation_count") or 0) >= 1

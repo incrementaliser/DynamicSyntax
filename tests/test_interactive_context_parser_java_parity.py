@@ -121,7 +121,8 @@ def test_parse_session_step_through_advances_current_interpretation() -> None:
     assert session.parser is not None
     err, ok, events = session.run_parse("a man knows you", reset_before=True)
     assert err is None and ok is True
-    assert events and all(line.endswith("parsed") for line in events)
+    word_lines = [line for line in events if line.endswith(" parsed")]
+    assert word_lines == ["a parsed", "man parsed", "knows parsed", "you parsed"]
     before = session.parser.get_state().get_current_tuple().tuple_id
 
     assert session.interpretation_index == 1

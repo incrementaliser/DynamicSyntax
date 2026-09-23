@@ -11,6 +11,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from dylan.action.computational_action import ComputationalAction
+from dylan.dag.groundable_edge import CompletionEdge
 from dylan.gui.formatting import format_dag_overview, format_ds_tree, format_semantics_display
 from dylan.gui.tree_viz import format_ds_tree_ascii
 from dylan.nlp.types import DEFAULT_SPEAKER, utterance_from_text
@@ -26,6 +28,19 @@ GUI_INFO_HELP_TEXT = (
     "Ctrl+Plus and Ctrl+Minus zoom the tree; Ctrl+0 returns to 100%. "
     "Fit scrolls so the middle is in the pane."
 )
+
+FLET_INFO_HELP_LINES: tuple[str, ...] = (
+    "Load grammar by selecting the grammar folder (it must contain lexicon and action files).",
+    "Type a sentence, then Parse.",
+    "The arrows beside #interpretations move between readings of that sentence.",
+    "Ctrl+Plus and Ctrl+Minus zoom the tree; Ctrl+0 returns to 100%.",
+    "Fit scrolls so the middle is in the pane.",
+    "Reset clears the derivation back to the empty axiom. The grammar stays loaded.",
+    "Press Reset before parsing a sentence that does not continue the previous one.",
+)
+FLET_INFO_HELP_TEXT = "\n".join(FLET_INFO_HELP_LINES)
+
+NO_NEW_WORDS_LOG = "No new words to parse."
 
 INTERPRETATION_CAP: int = 30
 
@@ -172,6 +187,146 @@ def format_session_info(
     )
 
 
+def last_event_tone(last_event: str) -> str:
+    """Return ``error``, ``ok``, or ``body`` for the Status Last row."""
+    low = last_event.lower()
+    if "failed" in low or "does not continue" in low or "load a grammar" in low:
+        return "error"
+    if " — ok" in low or "loaded:" in low or "axiom" in low:
+        return "ok"
+    return "body"
+
+
+def format_noncontinuation(sentence: str) -> str:
+    """Log line when *sentence* does not extend the words already in the derivation."""
+    return f"Parse: “{sentence.strip()}” does not continue the current derivation."
+
+
+def format_action_log_lines(sequences: list[tuple[str, ...]]) -> list[str]:
+    """Format computational-action lines for one word across interpretations.
+
+    *sequences* is in 1-based interpretation order. One sequence shared by every
+    interpretation has no prefix. Distinct sequences get one line each; identical
+    sequences share a line. Empty sequences produce no line.
+    """
+    grouped: dict[tuple[str, ...], list[int]] = {}
+    order: list[tuple[str, ...]] = []
+    for index, seq in enumerate(sequences, start=1):
+        if seq not in grouped:
+            grouped[seq] = []
+            order.append(seq)
+        grouped[seq].append(index)
+    if len(order) == 1:
+        only = order[0]
+        if not only:
+            return []
+        return [" ".join(only)]
+    lines: list[str] = []
+    for seq in order:
+        if not seq:
+            continue
+        indexes = ", ".join(str(number) for number in grouped[seq])
+        lines.append(f"(interp {indexes}) {' '.join(seq)}")
+    return lines
+
+
+def _is_action_token(token: str) -> bool:
+    """True if *token* looks like a computational-action name."""
+    body = token
+    while body.startswith("*") or body.startswith("+"):
+        body = body[1:]
+    if not body or not body[0].isalpha():
+        return False
+    return all(ch.isalnum() or ch in "_+-" for ch in body)
+
+
+def is_action_log_line(line: str) -> bool:
+    """True when *line* is a computational-action log line, with or without ``(interp N)``."""
+    text = line.strip()
+    if text.endswith(" parsed") or " failed" in text:
+        return False
+    body = text
+    if text.startswith("(interp "):
+        close = text.find(") ")
+        if close < 0:
+            return False
+        head = text[len("(interp ") : close]
+        if not head or any(not part.strip().isdigit() for part in head.split(",")):
+            return False
+        body = text[close + 2 :]
+    if not body:
+        return False
+    return all(_is_action_token(tok) for tok in body.split())
+
+
+def _word_actions_from_edges(edges: list[object]) -> list[tuple[str, tuple[str, ...]]]:
+    """Group computational-action names by word along a root-to-cursor edge path.
+
+    Completion edges count toward the following word. Names stay in path order.
+    Lexical actions are omitted. Trailing completions attach to the previous word.
+    """
+    pending: list[str] = []
+    rows: list[tuple[str, tuple[str, ...]]] = []
+    for edge in edges:
+        actions = getattr(edge, "actions", []) or []
+        names = [action.get_name() for action in actions if isinstance(action, ComputationalAction)]
+        if isinstance(edge, CompletionEdge):
+            pending.extend(names)
+            continue
+        uttered = getattr(edge, "word", None)
+        word = uttered.word if uttered is not None else None
+        if not word:
+            pending.extend(names)
+            continue
+        rows.append((str(word), tuple([*pending, *names])))
+        pending = []
+    if pending and rows:
+        word, acts = rows[-1]
+        rows[-1] = (word, acts + tuple(pending))
+    return rows
+
+
+@dataclass(frozen=True)
+class StatusField:
+    """One Status-card value and the tone used to colour it."""
+
+    value: str
+    tone: str
+
+
+@dataclass(frozen=True)
+class SessionStatus:
+    """Live Status card: grammar, repair, last event, warnings, pointer, and DAG tuple."""
+
+    grammar: StatusField
+    repair: StatusField
+    last: StatusField
+    warnings: StatusField
+    pointer: StatusField
+    dag_tuple: StatusField
+
+
+def format_session_status(
+    *,
+    grammar_path: str | None,
+    repairing: bool,
+    last_event: str,
+    load_warning_count: int,
+    pointer: str | None,
+    tuple_id: int | None,
+) -> SessionStatus:
+    """Build the Status-card rows for the live session facts."""
+    warning_tone = "amber" if load_warning_count > 0 else "muted"
+    return SessionStatus(
+        grammar=StatusField(grammar_path if grammar_path else "(none)", "muted"),
+        repair=StatusField("on" if repairing else "off", "amber" if repairing else "muted"),
+        last=StatusField(last_event, last_event_tone(last_event)),
+        warnings=StatusField(str(load_warning_count), warning_tone),
+        pointer=StatusField(pointer if pointer else "—", "mono"),
+        dag_tuple=StatusField(f"#{tuple_id}" if tuple_id is not None else "—", "mono"),
+    )
+
+
 @dataclass(frozen=True)
 class TreePanelState:
     """Strings for the parse-tree / address-order views (graph is drawn in the Flet canvas)."""
@@ -203,18 +358,52 @@ class ParseSession:
         self.interpretation_index: int = 0
         self.interpretation_count: int = 0
         self.interpretation_capped: bool = False
+        self._consumed_words: list[str] = []
+        self._interpretation_word_actions: list[list[tuple[str, tuple[str, ...]]]] = []
 
     def _clear_interpretations(self) -> None:
         """Forget the interpretation sequence (no parser, or no tree)."""
         self.interpretation_index = 0
         self.interpretation_count = 0
         self.interpretation_capped = False
+        self._interpretation_word_actions = []
+
+    def _clear_consumed_words(self) -> None:
+        """Forget words that have entered the derivation."""
+        self._consumed_words.clear()
+
+    def _snapshot_word_actions(self) -> list[tuple[str, tuple[str, ...]]]:
+        """Computational actions per word on the path to the current tuple.
+
+        Returns an empty list when the parser DAG cannot be walked (test doubles).
+        """
+        if self.parser is None:
+            return []
+        dag = self.parser.get_state()
+        get_parent_edge = getattr(dag, "get_parent_edge", None)
+        get_parent = getattr(dag, "get_parent", None)
+        get_current = getattr(dag, "get_current_tuple", None)
+        if not callable(get_parent_edge) or not callable(get_parent) or not callable(get_current):
+            return []
+        cursor = get_current()
+        edges: list[object] = []
+        seen: set[int] = set()
+        while cursor is not None and id(cursor) not in seen:
+            seen.add(id(cursor))
+            edge = get_parent_edge(cursor)
+            if edge is None:
+                break
+            edges.append(edge)
+            cursor = get_parent(cursor)
+        edges.reverse()
+        return _word_actions_from_edges(edges)
 
     def refresh_interpretations(self) -> None:
         """Count interpretations from the post-parse anchor, then show the first.
 
         The walk stops at :data:`INTERPRETATION_CAP`. One further successful step
         marks the count as capped (``30+``). The parser is left on interpretation 1.
+        Each visited interpretation records the computational actions on its path.
         """
         if self.parser is None:
             self._clear_interpretations()
@@ -222,17 +411,21 @@ class ParseSession:
         dag = self.parser.get_state()
         capped = False
         count = 1
+        recorded: list[list[tuple[str, tuple[str, ...]]]] = []
         try:
             dag.reset_to_first_tuple_after_last_word()
+            recorded.append(self._snapshot_word_actions())
             while count < INTERPRETATION_CAP:
                 if not self.parser.parse_goal(None):
                     break
                 count += 1
+                recorded.append(self._snapshot_word_actions())
             else:
                 if self.parser.parse_goal(None):
                     capped = True
         finally:
             dag.reset_to_first_tuple_after_last_word()
+        self._interpretation_word_actions = recorded
         self.interpretation_index = 1
         self.interpretation_count = count
         self.interpretation_capped = capped
@@ -269,8 +462,8 @@ class ParseSession:
         self.last_event = log
         return (None, log)
 
-    def session_info_text(self) -> str:
-        """Return the live Info card for the current session fields and parser pointer."""
+    def _pointer_and_tuple(self) -> tuple[str | None, int | None]:
+        """Return the live pointer address and current DAG tuple id."""
         pointer: str | None = None
         tuple_id: int | None = None
         if self.last_tree is not None:
@@ -279,8 +472,26 @@ class ParseSession:
             current = self.parser.get_state().get_current_tuple()
             tuple_id = int(current.tuple_id)
             pointer = str(current.get_tree().pointer.address)
+        return pointer, tuple_id
+
+    def session_info_text(self) -> str:
+        """Return the browser Info card: how-to plus current session facts."""
+        pointer, tuple_id = self._pointer_and_tuple()
         grammar = str(self.grammar_path) if self.grammar_path is not None else None
         return format_session_info(
+            grammar_path=grammar,
+            repairing=self.repairing,
+            last_event=self.last_event,
+            load_warning_count=self.load_warning_count,
+            pointer=pointer,
+            tuple_id=tuple_id,
+        )
+
+    def session_status(self) -> SessionStatus:
+        """Return the Flet Status card rows for the live session."""
+        pointer, tuple_id = self._pointer_and_tuple()
+        grammar = str(self.grammar_path) if self.grammar_path is not None else None
+        return format_session_status(
             grammar_path=grammar,
             repairing=self.repairing,
             last_event=self.last_event,
@@ -298,6 +509,7 @@ class ParseSession:
         """
         p = Path(path_str.strip())
         self.repairing = repairing
+        self._clear_consumed_words()
         if not p.is_dir():
             self.parser = None
             self.last_tree = None
@@ -374,14 +586,21 @@ class ParseSession:
             dag=dag,
         )
 
-    def run_init(self) -> str | None:
-        """Re-init parser; returns an error log block or ``None`` on success."""
+    def run_init(self, *, success_event: str = "Init — axiom state.") -> str | None:
+        """Re-init the parser to the axiom state.
+
+        *success_event* is the Logs line on success. The browser keeps the default
+        ``Init — axiom state.`` The Flet Reset button passes its own line.
+        Returns an error log line, or ``None`` on success.
+        """
         if self.parser is None:
-            self.last_event = "Init: load a grammar first."
-            return "Init: load a grammar first."
+            verb = "Reset" if success_event.startswith("Reset") else "Init"
+            self.last_event = f"{verb}: load a grammar first."
+            return self.last_event
         self.parser.init()
+        self._clear_consumed_words()
         self.refresh_interpretations()
-        self.last_event = "Init — axiom state."
+        self.last_event = success_event
         return None
 
     def run_new_sentence(self) -> str | None:
@@ -390,9 +609,20 @@ class ParseSession:
             self.last_event = "New sentence: load a grammar first."
             return "New sentence: load a grammar first."
         self.parser.new_sentence()
+        self._clear_consumed_words()
         self.refresh_interpretations()
         self.last_event = "New sentence — DAG reset to axiom."
         return None
+
+    def _actions_for_consumed_index(self, index: int, word: str) -> list[str]:
+        """Action-log lines for consumed word *index* across the recorded interpretations."""
+        sequences: list[tuple[str, ...]] = []
+        for path in self._interpretation_word_actions:
+            if index < len(path) and path[index][0] == word:
+                sequences.append(path[index][1])
+            else:
+                sequences.append(())
+        return format_action_log_lines(sequences)
 
     def run_parse(
         self,
@@ -401,10 +631,12 @@ class ParseSession:
         reset_before: bool,
         speaker: str = DEFAULT_SPEAKER,
     ) -> tuple[str | None, bool | None, list[str]]:
-        """Parse *sentence* word by word.
+        """Parse *sentence*, logging only words that are new to the derivation.
 
-        Returns ``(error_or_none, parse_ok_or_none, per_word_log_lines)``.
+        Returns ``(error_or_none, parse_ok_or_none, log_lines)``.
         A failed word does not stop later words, matching ``parse_utterance``.
+        When *reset_before* is true the derivation is cleared first and every word is logged.
+        A sentence that does not extend the words already parsed is refused.
         """
         if self.parser is None:
             self.last_event = "Parse: load a grammar first."
@@ -415,24 +647,39 @@ class ParseSession:
             return ("Parse: enter a sentence.", None, [])
         if reset_before:
             self.parser.init()
+            self._clear_consumed_words()
         utt = utterance_from_text(speaker, text)
-        events: list[str] = []
+        tokens = [uw.word or "" for uw in utt.words]
+        prior = list(self._consumed_words)
+        if tokens[: len(prior)] != prior:
+            message = format_noncontinuation(text)
+            self.last_event = message
+            return (message, None, [])
+        if len(tokens) == len(prior):
+            self.last_event = NO_NEW_WORDS_LOG
+            return (None, None, [NO_NEW_WORDS_LOG])
+        suffix = utt.words[len(prior) :]
+        prior_len = len(prior)
+        outcomes: list[tuple[str, bool, str | None]] = []
         ok = True
-        for uw in utt.words:
+        for uw in suffix:
             word = uw.word or ""
             if self.parser.parse_word(uw) is None:
                 ok = False
                 in_lexicon = bool(self.parser.lexicon.lookup(word))
-                events.append(
-                    format_word_event(
-                        word=word,
-                        ok=False,
-                        reason=None if in_lexicon else "lexicon",
-                    ),
-                )
+                outcomes.append((word, False, None if in_lexicon else "lexicon"))
             else:
-                events.append(format_word_event(word=word, ok=True))
+                self._consumed_words.append(word)
+                outcomes.append((word, True, None))
         self.refresh_interpretations()
+        events: list[str] = []
+        success_index = prior_len
+        for word, word_ok, reason in outcomes:
+            events.append(format_word_event(word=word, ok=word_ok, reason=reason))
+            if not word_ok:
+                continue
+            events.extend(self._actions_for_consumed_index(success_index, word))
+            success_index += 1
         self.last_event = format_parse_event(
             sentence=text,
             ok=ok,

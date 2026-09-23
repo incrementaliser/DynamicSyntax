@@ -40,10 +40,22 @@ One DAG tuple in the sequence reached by stepping the parser after a sentence, s
 _Avoid_: step, hypothesis, reading
 
 **Info**:
-The live session card (how-to plus grammar path, last action, warnings, pointer, current DAG tuple).
-_Avoid_: help pane, loguru log
+The how-to opened from the ? button: how to load a grammar, parse, move between interpretations, zoom, fit, and when to Reset.
+_Avoid_: Status, Logs, loguru log
+
+**Status**:
+The live session card: grammar path, repair, last event, load warnings, pointer, and current DAG tuple.
+_Avoid_: Info, Logs
 
 **Logs**:
-The append-only event history (grammar-load warnings, parse/step lines).
-_Avoid_: loguru log, Info
+The append-only event history (grammar-load warnings, parse/step lines, computational actions).
+_Avoid_: loguru log, Info, Status
+
+**Reset**:
+Returning the derivation to the empty axiom while the grammar stays loaded.
+_Avoid_: Init
+
+**Continuation**:
+A sentence whose words start with the words already in the derivation.
+_Avoid_: prefix
 
