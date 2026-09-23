@@ -309,14 +309,20 @@ class _BuchheimNode:
 
     def get_lmost_sibling(self) -> _BuchheimNode | None:
         """First sibling in the same parent group (used by Buchheim)."""
-        if self._lmost_sibling is None and self.parent is not None and self is not self.parent.children[0]:
+        if (
+            self._lmost_sibling is None
+            and self.parent is not None
+            and self is not self.parent.children[0]
+        ):
             self._lmost_sibling = self.parent.children[0]
         return self._lmost_sibling
 
     lmost_sibling = property(get_lmost_sibling)
 
 
-def _buchheim_apportion(v: _BuchheimNode, default_ancestor: _BuchheimNode, distance: float) -> _BuchheimNode:
+def _buchheim_apportion(
+    v: _BuchheimNode, default_ancestor: _BuchheimNode, distance: float
+) -> _BuchheimNode:
     """Resolve subtree overlap between *v* and its left sibling (Buchheim et al., 2002)."""
     w = v.lbrother()
     if w is None:
@@ -366,7 +372,9 @@ def _buchheim_move_subtree(wl: _BuchheimNode, wr: _BuchheimNode, shift: float) -
     wr.mod += shift
 
 
-def _buchheim_ancestor(vil: _BuchheimNode, v: _BuchheimNode, default_ancestor: _BuchheimNode) -> _BuchheimNode:
+def _buchheim_ancestor(
+    vil: _BuchheimNode, v: _BuchheimNode, default_ancestor: _BuchheimNode
+) -> _BuchheimNode:
     """Return the ancestor node used when moving subtrees (Buchheim et al.)."""
     parent = v.parent
     assert parent is not None
@@ -562,7 +570,9 @@ def _build_buchheim_tree(
         bh = max(bh, 18.0)
         px = max(0.0, float(node_pad_x))
         py = max(0.0, float(node_pad_y))
-        node = _BuchheimNode(addr=addr, label=label, box_w=bw + 2 * px, box_h=bh + 2 * py, number=number)
+        node = _BuchheimNode(
+            addr=addr, label=label, box_w=bw + 2 * px, box_h=bh + 2 * py, number=number
+        )
         for i, ca in enumerate(kids_addrs):
             child = build(ca, i + 1)
             child.parent = node
@@ -735,8 +745,7 @@ def place_layout_on_stage(
         for b in layout.nodes
     ]
     edges = [
-        TreeEdge(e.x1 + dx, e.y1 + dy, e.x2 + dx, e.y2 + dy, style=e.style)
-        for e in layout.edges
+        TreeEdge(e.x1 + dx, e.y1 + dy, e.x2 + dx, e.y2 + dy, style=e.style) for e in layout.edges
     ]
     return TreeLayout(nodes=nodes, edges=edges, canvas_w=sw, canvas_h=sh)
 
@@ -753,6 +762,160 @@ def fit_scale_for_viewport(
     vw = max(1e-6, float(viewport_w))
     vh = max(1e-6, float(viewport_h))
     return float(min(1.0, vw / bw, vh / bh))
+
+
+ZOOM_MIN: float = 0.25
+ZOOM_MAX: float = 4.0
+ZOOM_STEP: float = 0.25
+ZoomAction = Literal["in", "out", "reset"]
+
+_ZOOM_IN_KEYS = frozenset({"+", "=", "equal", "add", "numpad add", "numpad +", "numpadadd"})
+_ZOOM_OUT_KEYS = frozenset(
+    {"-", "−", "minus", "subtract", "numpad subtract", "numpad -", "numpadsubtract", "numpad minus"}
+)
+_ZOOM_RESET_KEYS = frozenset({"0", "digit0", "digit 0", "numpad 0", "numpad0"})
+
+
+def clamp_zoom(zoom: float) -> float:
+    """Clamp *zoom* to the inclusive 25%–400% range."""
+    return min(ZOOM_MAX, max(ZOOM_MIN, float(zoom)))
+
+
+def step_zoom(zoom: float, direction: int) -> float:
+    """Move *zoom* by one 25-point step. *direction* is ``1`` or ``-1``."""
+    if direction not in (1, -1):
+        raise ValueError(f"direction must be 1 or -1, got {direction}")
+    steps = int(round(float(zoom) / ZOOM_STEP))
+    return clamp_zoom((steps + direction) * ZOOM_STEP)
+
+
+def format_zoom_percent(zoom: float) -> str:
+    """Return the Zoom readout for *zoom*, e.g. ``Zoom: 125%``."""
+    return f"Zoom: {int(round(float(zoom) * 100.0))}%"
+
+
+def zoom_action_for_key(key: str) -> ZoomAction | None:
+    """Map a key label to a Zoom step. The caller checks Ctrl and which tab is selected."""
+    label = key.strip().lower()
+    if label in _ZOOM_IN_KEYS:
+        return "in"
+    if label in _ZOOM_OUT_KEYS:
+        return "out"
+    if label in _ZOOM_RESET_KEYS:
+        return "reset"
+    return None
+
+
+def scale_tree_layout(layout: TreeLayout, zoom: float) -> TreeLayout:
+    """Return *layout* scaled uniformly by *zoom* without reflowing node labels.
+
+    Positions, box sizes, edge coordinates, and the canvas bbox are multiplied
+    by *zoom*. ``1.0`` keeps the natural-size geometry. Labels are copied as-is.
+    """
+    z = float(zoom)
+    if z <= 0.0:
+        raise ValueError(f"zoom must be positive, got {zoom}")
+    nodes = [
+        NodeBox(addr=b.addr, cx=b.cx * z, cy=b.cy * z, w=b.w * z, h=b.h * z, label=b.label)
+        for b in layout.nodes
+    ]
+    edges = [
+        TreeEdge(x1=e.x1 * z, y1=e.y1 * z, x2=e.x2 * z, y2=e.y2 * z, style=e.style)
+        for e in layout.edges
+    ]
+    return TreeLayout(
+        nodes=nodes,
+        edges=edges,
+        canvas_w=float(layout.canvas_w) * z,
+        canvas_h=float(layout.canvas_h) * z,
+    )
+
+
+@dataclass(frozen=True)
+class DrawingPlacement:
+    """Host size, canvas offset inside that host, and scroll that keeps one point fixed.
+
+    ``canvas_x`` / ``canvas_y`` are the drawing's top-left inside the host.
+    ``scroll_x`` / ``scroll_y`` are host offsets. Together they put a chosen
+    canvas point at a chosen position in the viewport, or centre a drawing that fits.
+    """
+
+    host_w: float
+    host_h: float
+    canvas_x: float
+    canvas_y: float
+    scroll_x: float
+    scroll_y: float
+
+
+def _axis_placement(
+    canvas: float,
+    viewport: float,
+    anchor: float | None,
+    hold: float | None,
+) -> tuple[float, float, float]:
+    """Return ``(host, canvas_offset, scroll)`` for one axis.
+
+    Without *anchor* and *hold*, the canvas is centred in a host at least as
+    large as the viewport and scroll is 0. With both, *anchor* stays at *hold*
+    in the viewport; a negative scroll becomes padding instead.
+    """
+    c = max(0.0, float(canvas))
+    v = max(1.0, float(viewport))
+    if anchor is None or hold is None:
+        host = max(c, v)
+        return host, (host - c) * 0.5, 0.0
+    a = float(anchor)
+    h = float(hold)
+    offset = max(0.0, h - a)
+    scroll = max(0.0, a - h)
+    host = max(v, offset + c, scroll + v)
+    return host, offset, scroll
+
+
+def place_drawing_in_viewport(
+    canvas_w: float,
+    canvas_h: float,
+    viewport_w: float,
+    viewport_h: float,
+    *,
+    anchor: tuple[float, float] | None = None,
+    hold: tuple[float, float] | None = None,
+) -> DrawingPlacement:
+    """Place a drawing in the viewport, optionally holding *anchor* at *hold*.
+
+    *anchor* is a point in canvas coordinates (the root node's centre). *hold*
+    is that point's position in the viewport. Omit either to centre a drawing
+    that fits and otherwise show the top-left at scroll zero.
+    """
+    ax = ay = hx = hy = None
+    if anchor is not None and hold is not None:
+        ax, ay = anchor
+        hx, hy = hold
+    host_w, canvas_x, scroll_x = _axis_placement(canvas_w, viewport_w, ax, hx)
+    host_h, canvas_y, scroll_y = _axis_placement(canvas_h, viewport_h, ay, hy)
+    return DrawingPlacement(
+        host_w=host_w,
+        host_h=host_h,
+        canvas_x=canvas_x,
+        canvas_y=canvas_y,
+        scroll_x=scroll_x,
+        scroll_y=scroll_y,
+    )
+
+
+def anchor_viewport_position(
+    placement: DrawingPlacement,
+    anchor: tuple[float, float],
+    scroll_x: float,
+    scroll_y: float,
+) -> tuple[float, float]:
+    """Return where *anchor* (canvas coordinates) appears in the viewport."""
+    ax, ay = anchor
+    return (
+        placement.canvas_x + float(ax) - float(scroll_x),
+        placement.canvas_y + float(ay) - float(scroll_y),
+    )
 
 
 @dataclass(frozen=True)
@@ -772,6 +935,27 @@ class CanvasTreeTheme:
     node_stroke_width: float = 1.4
     pointer_stroke_width: float = 2.4
     corner_radius: float = 6.0
+
+
+def theme_for_zoom(zoom: float, base: CanvasTreeTheme | None = None) -> CanvasTreeTheme:
+    """Return *base* with stroke widths, dash periods, and corner radius scaled by *zoom*."""
+    th = base or CanvasTreeTheme()
+    z = float(zoom)
+    return CanvasTreeTheme(
+        background=th.background,
+        edge_color=th.edge_color,
+        edge_width=th.edge_width * z,
+        edge_dash_pattern=tuple(v * z for v in th.edge_dash_pattern),
+        edge_dot_pattern=tuple(v * z for v in th.edge_dot_pattern),
+        node_fill=th.node_fill,
+        node_stroke=th.node_stroke,
+        pointer_fill=th.pointer_fill,
+        pointer_stroke=th.pointer_stroke,
+        text_color=th.text_color,
+        node_stroke_width=th.node_stroke_width * z,
+        pointer_stroke_width=th.pointer_stroke_width * z,
+        corner_radius=th.corner_radius * z,
+    )
 
 
 def build_canvas_shapes(

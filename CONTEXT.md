@@ -24,12 +24,16 @@ The Output pane that shows the DS Tree canvas, not the OS screen or device.
 _Avoid_: device, window (when you mean the tree pane)
 
 **Camera**:
-The Output pane's scroll position over a natural-size DS Tree. A tree that fits the pane is centred; Fit scrolls a larger tree so its middle is in view.
-_Avoid_: scale-to-fit layout, stretch, zoom
+The Output pane's scroll position over the DS Tree at the current Zoom. A tree that fits the pane is centred; Fit scrolls a larger drawing so its middle is in view.
+_Avoid_: scale-to-fit layout, stretch
+
+**Zoom**:
+A uniform scale of the natural-size DS Tree. Boxes and lettering grow or shrink together. 100% is intrinsic size.
+_Avoid_: stretch-to-fill, reflow, fit
 
 **Fit-to-pane**:
-Scrolling a natural-size DS Tree so its middle sits in the Viewport. Node boxes stay at their intrinsic size.
-_Avoid_: zoom, fit-to-viewport layout
+Scrolling the DS Tree at the current Zoom so its middle sits in the Viewport. It does not change Zoom.
+_Avoid_: zoom, shrink-to-fit
 
 **Interpretation**:
 One DAG tuple in the sequence reached by stepping the parser after a sentence, shown as an index in 1 / N.

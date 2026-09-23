@@ -23,7 +23,8 @@ GUI_INFO_HELP_TEXT = (
     "Load grammar by selecting the grammar folder (it must contain lexicon and action files). "
     "Type a sentence, then Parse. "
     "The arrows beside #interpretations move between readings of that sentence. "
-    "Scroll to see a larger tree; Fit scrolls so the tree's middle is in the pane."
+    "Ctrl+Plus and Ctrl+Minus zoom the tree; Ctrl+0 returns to 100%. "
+    "Fit scrolls so the middle is in the pane."
 )
 
 INTERPRETATION_CAP: int = 30

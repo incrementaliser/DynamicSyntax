@@ -10,14 +10,21 @@ from dylan.gui.tree_viz import (
     _edge_style_for_child,
     _multiline_node_label,
     _pair_pipe_fields,
+    anchor_viewport_position,
     compute_tree_layout,
     fit_scale_for_viewport,
     format_ds_tree_ascii,
+    format_zoom_percent,
+    place_drawing_in_viewport,
     place_layout_on_stage,
+    scale_tree_layout,
+    step_zoom,
+    theme_for_zoom,
+    zoom_action_for_key,
     _wrapped_pipe_fields,
 )
 from dylan.formula.opaque_formula import OpaqueFormula
-from dylan.tree.label.labels import FormulaLabel
+from dylan.tree.label.labels import FormulaLabel, TypeLabel
 from dylan.tree.node_address import NodeAddress
 from dylan.tree.node import Node
 from dylan.tree.tree import Tree
@@ -282,7 +289,9 @@ def test_compact_labels_shorter_than_full() -> None:
 
     t[t.root_addr] = Node(t.root_addr, [TypeLabel.t, FormulaLabel(OpaqueFormula("semcontent" * 8))])
     compact = _multiline_node_label(t.root_addr, t, pack_width=28, label_density="compact")
-    full = _multiline_node_label(t.root_addr, t, pack_width=96, wrap_oversized_fields=True, label_density="full")
+    full = _multiline_node_label(
+        t.root_addr, t, pack_width=96, wrap_oversized_fields=True, label_density="full"
+    )
     assert "…" in compact
     assert len(compact) < len(full)
     assert "semcontent" in full
@@ -306,3 +315,144 @@ def test_fit_scale_for_viewport_never_zooms_in() -> None:
     assert fit_scale_for_viewport(100.0, 80.0, 400.0, 300.0) == 1.0
     s = fit_scale_for_viewport(800.0, 200.0, 400.0, 300.0)
     assert 0.0 < s <= 0.5 + 1e-9
+
+
+def test_scale_tree_layout_identity_at_100_percent() -> None:
+    """Zoom 100% copies the natural layout, including labels and canvas size."""
+    layout = compute_tree_layout(_sample_tree())
+    original_w = layout.canvas_w
+    original_h = layout.canvas_h
+    scaled = scale_tree_layout(layout, 1.0)
+    assert layout.canvas_w == original_w
+    assert layout.canvas_h == original_h
+    assert scaled.canvas_w == original_w
+    assert scaled.canvas_h == original_h
+    assert [(e.x1, e.y1, e.x2, e.y2, e.style) for e in scaled.edges] == [
+        (e.x1, e.y1, e.x2, e.y2, e.style) for e in layout.edges
+    ]
+    for src, dst in zip(layout.nodes, scaled.nodes, strict=True):
+        assert dst.addr == src.addr
+        assert dst.label == src.label
+        assert dst.cx == src.cx
+        assert dst.cy == src.cy
+        assert dst.w == src.w
+        assert dst.h == src.h
+
+
+def test_scale_tree_layout_doubles_geometry_without_reflow() -> None:
+    """Zoom 200% doubles boxes and edges and keeps the same label text."""
+    t = Tree()
+    t[t.root_addr] = Node(t.root_addr, [TypeLabel.t, FormulaLabel(OpaqueFormula("semcontent" * 8))])
+    layout = compute_tree_layout(t, label_density="full")
+    scaled = scale_tree_layout(layout, 2.0)
+    assert scaled.canvas_w == layout.canvas_w * 2.0
+    assert scaled.canvas_h == layout.canvas_h * 2.0
+    assert len(scaled.nodes) == len(layout.nodes)
+    for src, dst in zip(layout.nodes, scaled.nodes, strict=True):
+        assert dst.label == src.label
+        assert dst.w == src.w * 2.0
+        assert dst.h == src.h * 2.0
+        assert dst.cx == src.cx * 2.0
+        assert dst.cy == src.cy * 2.0
+    assert layout.nodes[0].w != scaled.nodes[0].w
+
+
+def test_place_drawing_default_centres_when_it_fits() -> None:
+    """A drawing smaller than the viewport is centred at scroll zero."""
+    placed = place_drawing_in_viewport(80.0, 40.0, 200.0, 100.0)
+    assert placed.host_w == 200.0
+    assert placed.host_h == 100.0
+    assert placed.scroll_x == 0.0
+    assert placed.scroll_y == 0.0
+    assert placed.canvas_x == 60.0
+    assert placed.canvas_y == 30.0
+
+
+def test_place_drawing_default_shows_top_left_when_it_overflows() -> None:
+    """A drawing larger than the viewport sits at the origin until Fit scrolls."""
+    placed = place_drawing_in_viewport(400.0, 300.0, 100.0, 80.0)
+    assert placed.host_w == 400.0
+    assert placed.host_h == 300.0
+    assert placed.canvas_x == 0.0
+    assert placed.canvas_y == 0.0
+    assert placed.scroll_x == 0.0
+    assert placed.scroll_y == 0.0
+
+
+def test_place_drawing_pads_instead_of_negative_scroll() -> None:
+    """A hold past the anchor inserts padding and keeps scroll at zero."""
+    placed = place_drawing_in_viewport(
+        30.0,
+        30.0,
+        100.0,
+        100.0,
+        anchor=(5.0, 5.0),
+        hold=(40.0, 40.0),
+    )
+    assert placed.scroll_x == 0.0
+    assert placed.scroll_y == 0.0
+    assert placed.canvas_x == 35.0
+    assert placed.canvas_y == 35.0
+    assert anchor_viewport_position(placed, (5.0, 5.0), placed.scroll_x, placed.scroll_y) == (
+        40.0,
+        40.0,
+    )
+
+
+def test_root_hold_survives_uniform_zoom() -> None:
+    """Zooming keeps the root node's viewport position, including when scroll is required."""
+    t = _sample_tree()
+    natural = compute_tree_layout(t)
+    root = next(n for n in natural.nodes if n.addr == t.root_addr)
+    view_w, view_h = 220.0, 160.0
+    placed = place_drawing_in_viewport(natural.canvas_w, natural.canvas_h, view_w, view_h)
+    hold = anchor_viewport_position(placed, (root.cx, root.cy), placed.scroll_x, placed.scroll_y)
+    zoomed = scale_tree_layout(natural, 2.0)
+    root_z = next(n for n in zoomed.nodes if n.addr == t.root_addr)
+    placed_z = place_drawing_in_viewport(
+        zoomed.canvas_w,
+        zoomed.canvas_h,
+        view_w,
+        view_h,
+        anchor=(root_z.cx, root_z.cy),
+        hold=hold,
+    )
+    got = anchor_viewport_position(
+        placed_z,
+        (root_z.cx, root_z.cy),
+        placed_z.scroll_x,
+        placed_z.scroll_y,
+    )
+    assert abs(got[0] - hold[0]) < 1e-6
+    assert abs(got[1] - hold[1]) < 1e-6
+    assert root_z.label == root.label
+
+
+def test_step_zoom_uses_quarter_steps_inside_limits() -> None:
+    """Zoom steps are 25 points and stop at 25% and 400%."""
+    assert step_zoom(1.0, 1) == 1.25
+    assert step_zoom(1.0, -1) == 0.75
+    assert step_zoom(0.25, -1) == 0.25
+    assert step_zoom(4.0, 1) == 4.0
+    assert format_zoom_percent(1.25) == "Zoom: 125%"
+
+
+def test_zoom_action_for_key_maps_plus_minus_and_zero() -> None:
+    """Ctrl+Plus, Ctrl+Minus, and Ctrl+0 labels map to in, out, and reset."""
+    assert zoom_action_for_key("=") == "in"
+    assert zoom_action_for_key("+") == "in"
+    assert zoom_action_for_key("Numpad Add") == "in"
+    assert zoom_action_for_key("-") == "out"
+    assert zoom_action_for_key("Minus") == "out"
+    assert zoom_action_for_key("Numpad Subtract") == "out"
+    assert zoom_action_for_key("0") == "reset"
+    assert zoom_action_for_key("Numpad 0") == "reset"
+    assert zoom_action_for_key("A") is None
+
+
+def test_theme_for_zoom_scales_strokes() -> None:
+    """Edge and node strokes grow with Zoom so the drawing stays uniform."""
+    themed = theme_for_zoom(2.0)
+    assert themed.edge_width == 2.4
+    assert themed.node_stroke_width == 2.8
+    assert themed.corner_radius == 12.0

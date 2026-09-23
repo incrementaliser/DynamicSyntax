@@ -27,7 +27,18 @@ from dylan.gui.parse_session import (
     format_interpretation_readout,
     resolve_grammar_directory,
 )
-from dylan.gui.tree_viz import build_canvas_shapes, compute_tree_layout
+from dylan.gui.tree_viz import (
+    DrawingPlacement,
+    anchor_viewport_position,
+    build_canvas_shapes,
+    compute_tree_layout,
+    format_zoom_percent,
+    place_drawing_in_viewport,
+    scale_tree_layout,
+    step_zoom,
+    theme_for_zoom,
+    zoom_action_for_key,
+)
 from dylan.nlp.types import DEFAULT_SPEAKER
 from dylan.tree.tree import Tree
 
@@ -41,8 +52,8 @@ def main() -> None:
         raise SystemExit(
             "The DyLan GUI needs Flet (optional dependency). From the repo root run:\n"
             "  uv sync --group dev\n"
-            "or: uv pip install -e \".[gui]\"\n"
-            "PyPI installs: pip install \"dynamicsyntax[gui]\""
+            'or: uv pip install -e ".[gui]"\n'
+            'PyPI installs: pip install "dynamicsyntax[gui]"'
         ) from exc
 
     def build(page: ft.Page) -> None:
@@ -195,6 +206,7 @@ def main() -> None:
                     ],
                 )
             return ft.Container(expand=expand, content=stack)
+
         set_grammar_btn = ft.FilledButton(
             content=ft.Row(
                 [
@@ -274,11 +286,11 @@ def main() -> None:
             "Zoom: 100%",
             size=11,
             color=MUTED_TEXT_COLOR,
-            tooltip="Node boxes stay at natural size. Scroll the pane to see a larger tree.",
+            tooltip="Ctrl+Plus and Ctrl+Minus zoom. Ctrl+0 returns to 100%. The root node stays put.",
         )
         fit_btn = ft.Button(
             content="Fit",
-            tooltip="Scroll so the middle of the natural-size tree is in this pane.",
+            tooltip="Scroll so the middle of the tree is in this pane. Does not change zoom.",
         )
         tree_canvas = cv.Canvas(
             shapes=[],
@@ -286,9 +298,15 @@ def main() -> None:
             height=320,
             expand=False,
         )
-        tree_host = ft.Container(
+        tree_canvas_slot = ft.Container(
             content=tree_canvas,
-            alignment=ft.Alignment.CENTER,
+            left=0,
+            top=0,
+            width=400,
+            height=320,
+        )
+        tree_host = ft.Stack(
+            controls=[tree_canvas_slot],
             width=400,
             height=320,
         )
@@ -304,7 +322,6 @@ def main() -> None:
         tree_stage = ft.Container(
             content=tree_v_scroll,
             expand=True,
-            height=320,
         )
         parse_tree_graph_column = ft.Column(
             [
@@ -320,6 +337,7 @@ def main() -> None:
                 tree_stage,
             ],
             expand=True,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         output_box = _border_caption_box(
             "Output",
@@ -379,12 +397,26 @@ def main() -> None:
 
         # --- helpers ----------------------------------------------------------
 
-        last_tree_bbox: list[tuple[float, float]] = [(40.0, 40.0)]
+        tree_zoom: list[float] = [1.0]
+        scroll_xy: list[float] = [0.0, 0.0]
+        last_placement: list[DrawingPlacement | None] = [None]
+        last_anchor: list[tuple[float, float] | None] = [None]
         measured_viewport: list[tuple[float, float]] = [(0.0, 0.0)]
         centering_guard: list[bool] = [False]
 
+        def _on_h_scroll(e: ft.OnScrollEvent) -> None:
+            """Remember the horizontal Camera offset."""
+            scroll_xy[0] = float(getattr(e, "pixels", 0.0) or 0.0)
+
+        def _on_v_scroll(e: ft.OnScrollEvent) -> None:
+            """Remember the vertical Camera offset."""
+            scroll_xy[1] = float(getattr(e, "pixels", 0.0) or 0.0)
+
+        tree_h_scroll.on_scroll = _on_h_scroll
+        tree_v_scroll.on_scroll = _on_v_scroll
+
         def on_tree_stage_size(e: ft.LayoutSizeChangeEvent) -> None:
-            """Remember the Output pane size and re-centre a painted tree in that pane."""
+            """Remember the Output pane size and keep the root node where it is."""
             w = float(getattr(e, "width", 0.0) or 0.0)
             h = float(getattr(e, "height", 0.0) or 0.0)
             if w < 32.0 or h < 32.0:
@@ -393,15 +425,14 @@ def main() -> None:
             measured_viewport[0] = (w, h)
             if abs(prev_w - w) < 1.0 and abs(prev_h - h) < 1.0:
                 return
-            if session.last_tree is None or centering_guard[0]:
+            if centering_guard[0]:
                 return
-            bw, bh = last_tree_bbox[0]
             centering_guard[0] = True
             try:
-                _place_tree_host(bw, bh)
-                page.update()
+                hold = _live_root_hold() if session.last_tree is not None else None
+                _paint_parse_tree_canvas(hold=hold)
             except Exception as ex:
-                logger.debug("Tree recentre skipped: {}", ex)
+                logger.debug("Tree resize skipped: {}", ex)
             finally:
                 centering_guard[0] = False
 
@@ -491,19 +522,39 @@ def main() -> None:
             vh = max(240.0, win_h - 320.0)
             return vw, vh
 
-        def _place_tree_host(bbox_w: float, bbox_h: float) -> None:
-            """Size the host to the pane when the drawing fits, otherwise to the drawing.
+        def _reset_tree_camera() -> None:
+            """Return Zoom to 100% and drop the root hold so the next paint uses the default Camera."""
+            tree_zoom[0] = 1.0
+            last_placement[0] = None
+            last_anchor[0] = None
 
-            The canvas stays at *bbox_w* by *bbox_h* and is centred in that host.
-            """
-            vw, vh = _viewport_px()
-            tree_host.width = max(bbox_w, vw)
-            tree_host.height = max(bbox_h, vh)
+        def _live_root_hold() -> tuple[float, float] | None:
+            """Return the root node's current viewport position, if a drawing is on screen."""
+            placement = last_placement[0]
+            anchor = last_anchor[0]
+            if placement is None or anchor is None:
+                return None
+            return anchor_viewport_position(placement, anchor, scroll_xy[0], scroll_xy[1])
+
+        def _apply_placement(placement: DrawingPlacement, canvas_w: float, canvas_h: float) -> None:
+            """Size the scroll host and pin the canvas at *placement*'s offset."""
+            vw, _vh = _viewport_px()
+            tree_canvas.width = canvas_w
+            tree_canvas.height = canvas_h
+            tree_canvas_slot.left = placement.canvas_x
+            tree_canvas_slot.top = placement.canvas_y
+            tree_canvas_slot.width = canvas_w
+            tree_canvas_slot.height = canvas_h
+            tree_host.width = placement.host_w
+            tree_host.height = placement.host_h
             tree_h_scroll.width = vw
-            tree_zoom_label.value = "Zoom: 100%"
+            tree_zoom_label.value = format_zoom_percent(tree_zoom[0])
+            last_placement[0] = placement
 
         def _schedule_tree_scroll(dx: float, dy: float) -> None:
             """Move both scroll axes so the requested offset is in view."""
+            scroll_xy[0] = dx
+            scroll_xy[1] = dy
 
             async def _run() -> None:
                 try:
@@ -514,14 +565,22 @@ def main() -> None:
 
             page.run_task(_run)
 
-        def _paint_parse_tree_canvas() -> tuple[float, float]:
-            """Draw ``session.last_tree`` at natural size and centre it when it fits the pane."""
+        def _render_tree(
+            *,
+            hold: tuple[float, float] | None,
+            fit_scroll: bool = False,
+        ) -> tuple[float, float]:
+            """Draw ``session.last_tree`` at the current Zoom and return the scroll offset.
+
+            *hold* keeps the root node at that viewport position. Without it, a drawing
+            that fits is centred. *fit_scroll* then scrolls so the middle of that
+            drawing is in the pane. Zoom is unchanged.
+            """
             vw, vh = _viewport_px()
             ds_tree = session.last_tree
             tree_canvas.expand = False
+            zoom = tree_zoom[0]
             if ds_tree is None or not ds_tree:
-                tree_canvas.width = vw
-                tree_canvas.height = vh
                 tree_canvas.shapes = [
                     cv.Rect(
                         x=0,
@@ -531,30 +590,67 @@ def main() -> None:
                         paint=ft.Paint(style=ft.PaintingStyle.FILL, color=PANEL_BACKGROUND),
                     ),
                 ]
-                last_tree_bbox[0] = (vw, vh)
-                _place_tree_host(vw, vh)
-                _schedule_tree_scroll(0.0, 0.0)
-                page.update()
-                return vw, vh
-            layout = compute_tree_layout(
+                placement = place_drawing_in_viewport(vw, vh, vw, vh)
+                _apply_placement(placement, vw, vh)
+                last_anchor[0] = None
+                return 0.0, 0.0
+            natural = compute_tree_layout(
                 ds_tree,
                 font_size=float(MONO_FONT_SIZE),
                 label_density="full",
             )
-            bw = float(layout.canvas_w)
-            bh = float(layout.canvas_h)
-            tree_canvas.width = bw
-            tree_canvas.height = bh
+            layout = scale_tree_layout(natural, zoom)
+            anchor: tuple[float, float] | None = None
+            for node in layout.nodes:
+                if node.addr == ds_tree.root_addr:
+                    anchor = (node.cx, node.cy)
+                    break
+            last_anchor[0] = anchor
             tree_canvas.shapes = build_canvas_shapes(
                 layout,
                 ds_tree.pointer,
-                font_size=float(MONO_FONT_SIZE),
+                theme_for_zoom(zoom),
+                font_size=float(MONO_FONT_SIZE) * zoom,
+                text_padding=4.0 * zoom,
             )
-            last_tree_bbox[0] = (bw, bh)
-            _place_tree_host(bw, bh)
-            _schedule_tree_scroll(0.0, 0.0)
+            if hold is not None and anchor is not None:
+                placement = place_drawing_in_viewport(
+                    layout.canvas_w,
+                    layout.canvas_h,
+                    vw,
+                    vh,
+                    anchor=anchor,
+                    hold=hold,
+                )
+                scroll = (placement.scroll_x, placement.scroll_y)
+            else:
+                placement = place_drawing_in_viewport(
+                    layout.canvas_w,
+                    layout.canvas_h,
+                    vw,
+                    vh,
+                )
+                if fit_scroll:
+                    scroll = (
+                        max(0.0, (placement.host_w - vw) * 0.5),
+                        max(0.0, (placement.host_h - vh) * 0.5),
+                    )
+                else:
+                    scroll = (0.0, 0.0)
+            _apply_placement(placement, float(layout.canvas_w), float(layout.canvas_h))
+            return scroll
+
+        def _paint_parse_tree_canvas(
+            *,
+            hold: tuple[float, float] | None = None,
+            fit_scroll: bool = False,
+        ) -> None:
+            """Paint the DS Tree and scroll to the Camera offset for this paint."""
+            dx, dy = _render_tree(hold=hold, fit_scroll=fit_scroll)
+            scroll_xy[0] = dx
+            scroll_xy[1] = dy
             page.update()
-            return last_tree_bbox[0]
+            _schedule_tree_scroll(dx, dy)
 
         def apply_grammar(path_str: str) -> None:
             """Load a grammar directory into a fresh parser."""
@@ -563,13 +659,20 @@ def main() -> None:
             _sync_interpretation_controls()
             set_log(report)
             if session.last_tree is not None:
-                _refresh_parse_tree_visual(session.last_tree)
+                _refresh_parse_tree_visual(session.last_tree, reset_zoom=True)
 
-        def _refresh_parse_tree_visual(ds_tree: Tree) -> None:
-            """Fill address-order text and paint the canvas from *ds_tree*."""
+        def _refresh_parse_tree_visual(ds_tree: Tree, *, reset_zoom: bool = False) -> None:
+            """Fill address-order text and paint the canvas from *ds_tree*.
+
+            *reset_zoom* returns to 100% and the default Camera. Otherwise the
+            current Zoom is kept and the root node stays where it is.
+            """
             st = session.tree_panel_state(ds_tree)
             tree_view.value = st.address_order
-            _paint_parse_tree_canvas()
+            if reset_zoom:
+                _reset_tree_camera()
+            hold = None if reset_zoom else _live_root_hold()
+            _paint_parse_tree_canvas(hold=hold)
 
         def _refresh_views(msg: str | None) -> None:
             """Populate the tree / semantics / DAG fields and Info card from current parser state."""
@@ -579,8 +682,9 @@ def main() -> None:
                 if msg:
                     append_log(msg)
                 return
+            _reset_tree_camera()
             tree_view.value = vs.address_order
-            _paint_parse_tree_canvas()
+            _paint_parse_tree_canvas(hold=None)
             dag_view.value = vs.dag
             sem_view.value = vs.semantics if vs.semantics.strip() else "(no semantics yet)"
             _sync_interpretation_controls()
@@ -640,7 +744,7 @@ def main() -> None:
                 append_log(line)
 
         def do_select_interpretation(index: int) -> None:
-            """Show interpretation *index* and append a log line when it changes."""
+            """Show interpretation *index* without adding a Logs line."""
             err, log = session.select_interpretation(index)
             if err is not None:
                 _sync_info()
@@ -651,7 +755,7 @@ def main() -> None:
                 _sync_interpretation_controls()
                 page.update()
                 return
-            _refresh_views(log)
+            _refresh_views(None)
 
         def do_prev_interpretation(_: ft.ControlEvent | None = None) -> None:
             """Move to the previous interpretation."""
@@ -662,20 +766,16 @@ def main() -> None:
             do_select_interpretation(session.interpretation_index + 1)
 
         async def do_fit(_: ft.ControlEvent | None = None) -> None:
-            """Scroll so the middle of the natural-size tree is in the pane."""
-            bw, bh = last_tree_bbox[0]
-            _place_tree_host(bw, bh)
-            vw, vh = _viewport_px()
-            hw = float(tree_host.width or bw)
-            hh = float(tree_host.height or bh)
-            dx = max(0.0, (hw - vw) * 0.5)
-            dy = max(0.0, (hh - vh) * 0.5)
+            """Scroll so the middle of the tree at the current Zoom is in the pane."""
+            dx, dy = _render_tree(hold=None, fit_scroll=True)
+            scroll_xy[0] = dx
+            scroll_xy[1] = dy
+            page.update()
             try:
                 await tree_h_scroll.scroll_to(offset=dx, duration=0)
                 await tree_v_scroll.scroll_to(offset=dy, duration=0)
             except Exception as ex:
                 logger.debug("Tree scroll reset skipped: {}", ex)
-            page.update()
 
         fit_btn.on_click = do_fit
 
@@ -874,11 +974,33 @@ def main() -> None:
         show_logs_toggle.on_change = on_show_logs_change
 
         def on_window_resize(_: ft.ControlEvent | None = None) -> None:
-            """Re-centre the natural-size tree when the window size changes."""
+            """Keep Zoom and the root node's place when the window size changes."""
             if session.parser is None or session.last_tree is None:
                 return
             _refresh_parse_tree_visual(session.last_tree)
-            page.update()
+
+        def on_keyboard(e: ft.KeyboardEvent) -> None:
+            """Zoom when Ctrl+Plus, Ctrl+Minus, or Ctrl+0 is pressed on the Parse tree tab."""
+            if not e.ctrl or e.alt or e.meta:
+                return
+            if int(tabs_widget.selected_index or 0) != 0:
+                return
+            action = zoom_action_for_key(e.key)
+            if action is None or not session.last_tree:
+                return
+            if action == "in":
+                new_zoom = step_zoom(tree_zoom[0], 1)
+            elif action == "out":
+                new_zoom = step_zoom(tree_zoom[0], -1)
+            else:
+                new_zoom = 1.0
+            if abs(new_zoom - tree_zoom[0]) < 1e-9:
+                return
+            hold = _live_root_hold()
+            tree_zoom[0] = new_zoom
+            _paint_parse_tree_canvas(hold=hold)
+
+        page.on_keyboard_event = on_keyboard
 
         page.on_resize = on_window_resize
 

@@ -377,7 +377,6 @@ await micropip.install(${JSON.stringify(wheelUrl)})
         applyViews(r.views);
         applySessionInfo(r.session_info);
         applyInterpretation(r);
-        if (r.log_message) appendLog(r.log_message);
       } catch (err) {
         appendLog(String(err));
       }
