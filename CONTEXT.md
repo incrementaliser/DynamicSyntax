@@ -58,4 +58,3 @@ _Avoid_: Init
 **Continuation**:
 A sentence whose words start with the words already in the derivation.
 _Avoid_: prefix
-
