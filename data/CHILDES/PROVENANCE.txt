@@ -29,6 +29,26 @@ German, Japanese) did not publish an equivalent bulk zip. Chinese
 lists Mandarin/Traditional.zip only. There is no single public zip of
 every CHILDES language.
 
+Parsed multilingual release (not downloaded here)
+-------------------------------------------------
+childes-db 2026.1 = Redivis v1.4, released 2026-07-25.
+DOI: https://doi.org/10.57761/9yv6-c595
+Dataset: https://stanford.redivis.com/datasets/b6q6-14tmdjgw8?v=1.4
+Docs: https://langcog.github.io/childes-db-website/data.html
+Scale: 24 collections, 437 corpora, 56579 transcripts, 24.2 million
+utterances, 89 million tokens. Source files are the July 2026 TalkBank
+CHAT release, parsed with chatter. 225/56804 files skipped.
+Cite Sanchez et al. 2019 (Behavior Research Methods 51:1928-1941)
+and TalkBank / the corpora used. Same CC BY-NC-SA limits.
+DOI checked 2026-09-25: resolves to Redivis v1.4, isAccessibleForFree.
+Browser export is CSV, parquet, arrow, or JSONL. R package for this
+release: childesr branch "redivis". Scripted access needs
+REDIVIS_API_TOKEN. The REST API returned 401 without one on 2026-09-25.
+Do not commit exports. Utterance rows are gloss and stem; token rows are
+gloss, UD POS, and morphology. There is no DyLan lambda Sem field.
+The langcog/childes-db README still documents the 2018-2021 MySQL views;
+2026.1 itself is the chatter parse hosted on Redivis.
+
 Eve lambda annotation (committed)
 ---------------------------------
 Path: data/CHILDES/eve/lambda/trainPairs_1 .. trainPairs_20

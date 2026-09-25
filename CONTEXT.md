@@ -65,6 +65,8 @@ The parser targets **English** (bundled `2015-english-ttr` and the induction see
 
 **Raw CHILDES** (English–North American MOR zip) lives only at `data/raw/childes/Eng-NA-MOR.zip`. That path is gitignored. URL, date, size, and CC BY-NC-SA 3.0 terms are in `data/CHILDES/PROVENANCE.txt`. Brown Eve in that zip is 20 `.cha` files and 26920 utterances. Adam is 55 files and Sarah is 139. Those transcripts are CHAT (`*MOT` / `%mor`), not lambda formulae.
 
+**childes-db 2026.1** (Redivis v1.4, 2026-07-25, DOI 10.57761/9yv6-c595) is the versioned chatter parse of the July 2026 TalkBank release: 24 collections, 437 corpora, 56579 transcripts, 9151 children, 24.2 million utterances, 89 million tokens, UD morphology, `%gra` dependencies, speech acts. Site: https://langcog.github.io/childes-db-website/data.html. It is not in this repo. Browser export needs no code; the R accessor is `childesr` on branch `redivis`; scripted download needs `REDIVIS_API_TOKEN` (unauthenticated REST returned 401). Utterance rows are gloss and stem, not the Eve lambda `Sem` tier, so `convert_lambda` does not apply. Pin version `2026.1` and cite Sanchez et al. (2019) *Behavior Research Methods* plus TalkBank.
+
 **Eve lambda annotation** is `data/CHILDES/eve/lambda/trainPairs_1` … `trainPairs_20`, copied from DyLan `corpus/CHILDES/eveTrainPairs/`. 4645 `example_end` blocks, of which 28 are commented (`//example_end`). This is a semantically annotated subset of Brown Eve, not the 26920 CHAT lines.
 
 **Lambda → TTR entry points**
