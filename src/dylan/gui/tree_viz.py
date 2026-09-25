@@ -1,4 +1,9 @@
-"""Parse-tree layout (Reingold–Tilford / Buchheim) and Flet Canvas shapes for DS ``Tree`` GUI views."""
+"""Parse-tree layout (Reingold–Tilford / Buchheim) and Flet Canvas shapes for DS ``Tree`` GUI views.
+
+Edges are straight parent-to-child segments (parent bottom centre to child top
+centre). When a straight segment would cross another node, that link falls
+back to an orthogonal polyline that stays in the empty gap between rows.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +17,12 @@ from dylan.tree.tree import Tree
 
 LabelDensity = Literal["compact", "full"]
 COMPACT_PACK_WIDTH: int = 28
+# dy/dx target for the widest sibling pair, so branches are not flat gutters.
+_LEVEL_GAP_SLOPE: float = 0.45
+# Cap so a very wide label row does not open an enormous vertical gap.
+_LEVEL_GAP_CAP: float = 200.0
+# Inset used when testing whether a segment enters a node box.
+_EDGE_BOX_INSET: float = 1.0
 
 
 def _node_depth(addr: NodeAddress) -> int:
@@ -235,7 +246,12 @@ TreeEdgeStyle = Literal["solid", "dashed", "dotted"]
 
 @dataclass
 class TreeEdge:
-    """Orthogonal edge segment from parent bottom to child top (already in canvas pixels)."""
+    """One straight segment of a parent–child link, in canvas pixels.
+
+    A clear link is a single segment from the parent's bottom centre to the
+    child's top centre. A link that would cross another node is several
+    axis-aligned segments through the gap between those rows.
+    """
 
     x1: float
     y1: float
@@ -340,7 +356,11 @@ def _buchheim_apportion(
         vol = vol.left()  # type: ignore[assignment]
         vor = vor.right()  # type: ignore[assignment]
         vor.ancestor = v
-        shift = (vil.x + sil) - (vir.x + sir) + distance
+        # Separate contour nodes by their box widths, not a point-node distance.
+        # A constant distance lets wide DS labels overlap, and the old overlap
+        # nudge then pulled parents off their children.
+        gap = (vil.box_w + vir.box_w) * 0.5 + distance
+        shift = (vil.x + sil) - (vir.x + sir) + gap
         if shift > 0:
             _buchheim_move_subtree(_buchheim_ancestor(vil, v, default_ancestor), v, shift)
             sir += shift
@@ -584,33 +604,182 @@ def _build_buchheim_tree(
     return build(root_addr, 1)
 
 
-def _boxes_overlap_horizontally(a: NodeBox, b: NodeBox) -> bool:
-    """Return whether *a* and *b* axis-aligned rectangles overlap in the plane."""
-    dx = abs(a.cx - b.cx) - (a.w + b.w) * 0.5
-    dy = abs(a.cy - b.cy) - (a.h + b.h) * 0.5
-    return dx < 0 and dy < 0
+def _level_gap_for_spread(
+    boxes: list[NodeBox],
+    ch_map: dict[NodeAddress, list[NodeAddress]],
+    *,
+    v_gap_min: float,
+) -> float:
+    """Return a row gap that keeps parent–child segments visibly sloped.
+
+    The gap is ``v_gap_min`` when every parent has a single child (the link is
+    vertical). Otherwise it grows with the widest sibling spread, up to
+    :data:`_LEVEL_GAP_CAP`.
+    """
+    addr = {box.addr: box for box in boxes}
+    span = 0.0
+    for kids in ch_map.values():
+        xs = [addr[kid].cx for kid in kids if kid in addr]
+        if len(xs) >= 2:
+            span = max(span, max(xs) - min(xs))
+    if span <= 0.0:
+        return float(v_gap_min)
+    sloped = _LEVEL_GAP_SLOPE * span
+    return float(max(v_gap_min, min(_LEVEL_GAP_CAP, sloped)))
 
 
-def _resolve_overlaps(nodes: list[NodeBox], *, gap: float, iterations: int = 8) -> None:
-    """Push overlapping node boxes apart horizontally (in-place), preserving order by centre *x*."""
-    for _ in range(iterations):
-        moved = False
-        order = sorted(nodes, key=lambda n: (round(n.cy, 3), n.cx))
-        for i in range(len(order)):
-            for j in range(i + 1, len(order)):
-                a, b = order[i], order[j]
-                if abs(a.cy - b.cy) > 0.45 * (a.h + b.h):
-                    continue
-                if not _boxes_overlap_horizontally(a, b):
-                    continue
-                need = gap + (a.w + b.w) * 0.5 - (b.cx - a.cx)
-                if need <= 0:
-                    continue
-                a.cx -= need * 0.5
-                b.cx += need * 0.5
-                moved = True
-        if not moved:
-            break
+def _segment_hits_inset_rect(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    box: NodeBox,
+    *,
+    inset: float,
+) -> bool:
+    """Return whether segment ``(x1,y1)–(x2,y2)`` meets *box* inside *inset*."""
+    left = box.cx - box.w * 0.5 + inset
+    right = box.cx + box.w * 0.5 - inset
+    top = box.cy - box.h * 0.5 + inset
+    bottom = box.cy + box.h * 0.5 - inset
+    if right <= left or bottom <= top:
+        return False
+    dx = x2 - x1
+    dy = y2 - y1
+    p = (-dx, dx, -dy, dy)
+    q = (x1 - left, right - x1, y1 - top, bottom - y1)
+    u1 = 0.0
+    u2 = 1.0
+    for pi, qi in zip(p, q, strict=True):
+        if abs(pi) < 1e-9:
+            if qi < 0.0:
+                return False
+            continue
+        t = qi / pi
+        if pi < 0.0:
+            if t > u2:
+                return False
+            if t > u1:
+                u1 = t
+        else:
+            if t < u1:
+                return False
+            if t < u2:
+                u2 = t
+    return u1 <= u2
+
+
+def _segment_hits_node(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    boxes: list[NodeBox],
+) -> bool:
+    """Return whether the segment enters any node interior."""
+    return any(
+        _segment_hits_inset_rect(x1, y1, x2, y2, box, inset=_EDGE_BOX_INSET) for box in boxes
+    )
+
+
+def _append_nonzero_segment(
+    edges: list[TreeEdge],
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    style: TreeEdgeStyle,
+) -> None:
+    """Append a segment unless its endpoints are the same point."""
+    if abs(x1 - x2) < 0.5 and abs(y1 - y2) < 0.5:
+        return
+    edges.append(TreeEdge(x1, y1, x2, y2, style=style))
+
+
+def _orthogonal_gap_route(
+    parent: NodeBox,
+    child: NodeBox,
+    boxes: list[NodeBox],
+    style: TreeEdgeStyle,
+) -> list[TreeEdge]:
+    """Route *parent* to *child* with straight axis-aligned segments in the row gap.
+
+    The horizontal run sits halfway between the parent row's bottom and the
+    child row's top, so it does not enter a taller sibling.
+    """
+    parent_depth = _node_depth(parent.addr)
+    child_depth = _node_depth(child.addr)
+    parent_bottom = parent.cy + parent.h * 0.5
+    child_top = child.cy - child.h * 0.5
+    row_bottom = max(
+        (box.cy + box.h * 0.5 for box in boxes if _node_depth(box.addr) == parent_depth),
+        default=parent_bottom,
+    )
+    row_top = min(
+        (box.cy - box.h * 0.5 for box in boxes if _node_depth(box.addr) == child_depth),
+        default=child_top,
+    )
+    if row_top <= row_bottom:
+        bus_y = (parent_bottom + child_top) * 0.5
+    else:
+        bus_y = (row_bottom + row_top) * 0.5
+    edges: list[TreeEdge] = []
+    _append_nonzero_segment(edges, parent.cx, parent_bottom, parent.cx, bus_y, style)
+    _append_nonzero_segment(edges, parent.cx, bus_y, child.cx, bus_y, style)
+    _append_nonzero_segment(edges, child.cx, bus_y, child.cx, child_top, style)
+    if edges:
+        return edges
+    return [TreeEdge(parent.cx, parent_bottom, child.cx, child_top, style=style)]
+
+
+def _route_parent_child(parent: NodeBox, child: NodeBox, boxes: list[NodeBox]) -> list[TreeEdge]:
+    """Return straight segments from *parent*'s bottom centre to *child*'s top centre."""
+    style = _edge_style_for_child(child.addr)
+    x1 = parent.cx
+    y1 = parent.cy + parent.h * 0.5
+    x2 = child.cx
+    y2 = child.cy - child.h * 0.5
+    if not _segment_hits_node(x1, y1, x2, y2, boxes):
+        return [TreeEdge(x1, y1, x2, y2, style=style)]
+    return _orthogonal_gap_route(parent, child, boxes, style)
+
+
+def _straight_parent_child_edges(
+    boxes: list[NodeBox],
+    ch_map: dict[NodeAddress, list[NodeAddress]],
+) -> list[TreeEdge]:
+    """Build one parent–child link per child, as straight segments."""
+    addr_to_box = {box.addr: box for box in boxes}
+    edges: list[TreeEdge] = []
+    for parent in boxes:
+        for kid_addr in ch_map.get(parent.addr, []):
+            child = addr_to_box.get(kid_addr)
+            if child is None:
+                continue
+            edges.extend(_route_parent_child(parent, child, boxes))
+    return edges
+
+
+def _polylines_from_edges(
+    edges: list[TreeEdge],
+) -> list[tuple[TreeEdgeStyle, list[tuple[float, float]]]]:
+    """Join consecutive meeting segments of the same style into polylines."""
+    polylines: list[tuple[TreeEdgeStyle, list[tuple[float, float]]]] = []
+    for edge in edges:
+        start = (float(edge.x1), float(edge.y1))
+        end = (float(edge.x2), float(edge.y2))
+        if polylines:
+            style, points = polylines[-1]
+            last = points[-1]
+            if (
+                style == edge.style
+                and abs(last[0] - start[0]) < 0.51
+                and abs(last[1] - start[1]) < 0.51
+            ):
+                points.append(end)
+                continue
+        polylines.append((edge.style, [start, end]))
+    return polylines
 
 
 def compute_tree_layout(
@@ -631,7 +800,8 @@ def compute_tree_layout(
     *canvas_w* and *canvas_h* are ignored for fitting; the returned
     ``canvas_w`` / ``canvas_h`` are the drawing bounding box. *label_density*
     ``compact`` truncates node text; ``full`` keeps every field, two per line.
-    Root is toward the top.
+    Root is toward the top. Each child link is a straight segment from the
+    parent's bottom centre to the child's top centre.
     """
     if not isinstance(tree, Tree):
         raise TypeError(f"expected Tree, got {type(tree).__name__}")
@@ -675,31 +845,29 @@ def compute_tree_layout(
     _flatten_buchheim(root, flat)
 
     boxes: list[NodeBox] = []
-    addr_to_box: dict[NodeAddress, NodeBox] = {}
     for n in flat:
-        nb = NodeBox(
-            addr=n.addr,
-            cx=float(n.x),
-            cy=0.0,
-            w=float(n.box_w),
-            h=float(n.box_h),
-            label=n.label,
+        boxes.append(
+            NodeBox(
+                addr=n.addr,
+                cx=float(n.x),
+                cy=0.0,
+                w=float(n.box_w),
+                h=float(n.box_h),
+                label=n.label,
+            )
         )
-        boxes.append(nb)
-        addr_to_box[n.addr] = nb
 
+    level_gap = _level_gap_for_spread(boxes, ch_map, v_gap_min=v_gap_min)
     _stack_rows_natural(
         boxes,
         font_size=font_size,
         node_pad_x=node_pad_x,
         node_pad_y=node_pad_y,
         margin=m,
-        v_gap=v_gap_min,
+        v_gap=level_gap,
         reflow_labels=False,
     )
-    _resolve_overlaps(boxes, gap=h_gap * 0.5)
     _recenter_parents_on_children_x(boxes, ch_map)
-    _resolve_overlaps(boxes, gap=h_gap * 0.5)
 
     min_bx, min_by, max_bx, max_by = _boxes_bbox(boxes)
     dx = m - min_bx
@@ -710,20 +878,7 @@ def compute_tree_layout(
     cw = (max_bx - min_bx) + 2.0 * m
     ch = (max_by - min_by) + 2.0 * m
 
-    edges: list[TreeEdge] = []
-    for n in flat:
-        if not n.children:
-            continue
-        pb = addr_to_box[n.addr]
-        y_parent = pb.cy + pb.h * 0.5
-        for c in n.children:
-            cb = addr_to_box[c.addr]
-            y_child = cb.cy - cb.h * 0.5
-            mid_y = y_parent + (y_child - y_parent) * 0.5
-            estyle = _edge_style_for_child(c.addr)
-            edges.append(TreeEdge(pb.cx, y_parent, pb.cx, mid_y, style=estyle))
-            edges.append(TreeEdge(pb.cx, mid_y, cb.cx, mid_y, style=estyle))
-            edges.append(TreeEdge(cb.cx, mid_y, cb.cx, y_child, style=estyle))
+    edges = _straight_parent_child_edges(boxes, ch_map)
 
     return TreeLayout(nodes=boxes, edges=edges, canvas_w=float(cw), canvas_h=float(ch))
 
@@ -985,38 +1140,28 @@ def build_canvas_shapes(
             paint=ft.Paint(style=ft.PaintingStyle.FILL, color=th.background),
         )
     ]
-    edge_paint_solid = ft.Paint(
-        style=ft.PaintingStyle.STROKE,
-        color=th.edge_color,
-        stroke_width=th.edge_width,
-    )
-    edge_paint_dashed = ft.Paint(
-        style=ft.PaintingStyle.STROKE,
-        color=th.edge_color,
-        stroke_width=th.edge_width,
-        stroke_dash_pattern=list(th.edge_dash_pattern),
-    )
-    edge_paint_dotted = ft.Paint(
-        style=ft.PaintingStyle.STROKE,
-        color=th.edge_color,
-        stroke_width=th.edge_width,
-        stroke_dash_pattern=list(th.edge_dot_pattern),
-    )
-    edge_paints: dict[TreeEdgeStyle, ft.Paint] = {
-        "solid": edge_paint_solid,
-        "dashed": edge_paint_dashed,
-        "dotted": edge_paint_dotted,
-    }
-    for e in layout.edges:
-        shapes.append(
-            cv.Line(
-                x1=e.x1,
-                y1=e.y1,
-                x2=e.x2,
-                y2=e.y2,
-                paint=edge_paints[e.style],
-            ),
+    def _edge_paint(dash: tuple[float, ...] | None) -> ft.Paint:
+        """Stroke paint with butt caps so each segment is a sharp straight line."""
+        return ft.Paint(
+            style=ft.PaintingStyle.STROKE,
+            color=th.edge_color,
+            stroke_width=th.edge_width,
+            stroke_cap=ft.StrokeCap.BUTT,
+            stroke_join=ft.StrokeJoin.MITER,
+            stroke_dash_pattern=list(dash) if dash else None,
         )
+
+    edge_paints: dict[TreeEdgeStyle, ft.Paint] = {
+        "solid": _edge_paint(None),
+        "dashed": _edge_paint(th.edge_dash_pattern),
+        "dotted": _edge_paint(th.edge_dot_pattern),
+    }
+    for style, points in _polylines_from_edges(layout.edges):
+        if len(points) < 2:
+            continue
+        elements: list[Any] = [cv.Path.MoveTo(points[0][0], points[0][1])]
+        elements.extend(cv.Path.LineTo(x, y) for x, y in points[1:])
+        shapes.append(cv.Path(elements, paint=edge_paints[style]))
 
     for nb in layout.nodes:
         is_ptr = pointer is not None and nb.addr == pointer

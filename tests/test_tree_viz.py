@@ -10,7 +10,9 @@ from dylan.gui.tree_viz import (
     _edge_style_for_child,
     _multiline_node_label,
     _pair_pipe_fields,
+    _segment_hits_inset_rect,
     anchor_viewport_position,
+    build_canvas_shapes,
     compute_tree_layout,
     fit_scale_for_viewport,
     format_ds_tree_ascii,
@@ -99,7 +101,7 @@ def test_rt_balanced_four_leaves_no_overlap() -> None:
 
 
 def test_rt_edges_run_between_parent_and_child_levels() -> None:
-    """Orthogonal edge segments stay between parent bottom and child top, never across the whole canvas."""
+    """Straight edges run from the parent bottom centre to each child top centre."""
     t = Tree()
     a00 = t.root_addr.down0()
     a01 = t.root_addr.down1()
@@ -111,9 +113,13 @@ def test_rt_edges_run_between_parent_and_child_levels() -> None:
     root_bottom = root_box.cy + root_box.h * 0.5
     highest_child_top = min(box.cy - box.h * 0.5 for box in child_boxes)
     assert root_bottom < highest_child_top
-    for edge in layout.edges:
-        assert root_bottom - 1.0 <= edge.y1 <= highest_child_top + 1.0
-        assert root_bottom - 1.0 <= edge.y2 <= highest_child_top + 1.0
+    assert len(layout.edges) == 2
+    for edge, child in zip(layout.edges, child_boxes, strict=True):
+        assert abs(edge.x1 - root_box.cx) < 1.0
+        assert abs(edge.y1 - root_bottom) < 1.0
+        assert abs(edge.x2 - child.cx) < 1.0
+        assert abs(edge.y2 - (child.cy - child.h * 0.5)) < 1.0
+        assert edge.y2 > edge.y1
 
 
 def test_pair_pipe_fields_keeps_two_per_line() -> None:
@@ -223,8 +229,8 @@ def test_layout_edges_mark_styles_per_child() -> None:
     layout = compute_tree_layout(t, 1000.0, 600.0)
     dashed = [e for e in layout.edges if e.style == "dashed"]
     solid = [e for e in layout.edges if e.style == "solid"]
-    assert len(dashed) == 3
-    assert len(solid) == 9
+    assert len(dashed) == 1
+    assert len(solid) == 3
 
 
 def test_node_padding_smaller_than_legacy_floors() -> None:
@@ -448,6 +454,62 @@ def test_zoom_action_for_key_maps_plus_minus_and_zero() -> None:
     assert zoom_action_for_key("0") == "reset"
     assert zoom_action_for_key("Numpad 0") == "reset"
     assert zoom_action_for_key("A") is None
+
+
+def test_canvas_edges_are_straight_path_segments() -> None:
+    """Flet canvas strokes parent–child links with straight ``LineTo`` segments only."""
+    import flet as ft
+    import flet.canvas as cv
+
+    layout = compute_tree_layout(_sample_tree())
+    shapes = build_canvas_shapes(layout, None)
+    paths = [shape for shape in shapes if isinstance(shape, cv.Path)]
+    assert len(paths) == 1
+    elements = paths[0].elements
+    assert isinstance(elements[0], cv.Path.MoveTo)
+    assert all(isinstance(el, cv.Path.LineTo) for el in elements[1:])
+    assert paths[0].paint.stroke_cap == ft.StrokeCap.BUTT
+    assert paths[0].paint.stroke_join == ft.StrokeJoin.MITER
+
+
+def test_wide_siblings_stay_centred_and_edges_miss_boxes() -> None:
+    """Wide labels stay in a tidy tree: parents centred, straight edges miss other nodes."""
+    t = Tree()
+    a00 = t.root_addr.down0()
+    a01 = t.root_addr.down1()
+    a000 = a00.down0()
+    a001 = a00.down1()
+    for addr, text in (
+        (t.root_addr, "root-label"),
+        (a00, "left" * 12),
+        (a01, "right" * 30),
+        (a000, "leaf-a" * 8),
+        (a001, "leaf-b" * 20),
+    ):
+        t[addr] = Node(addr, [FormulaLabel(OpaqueFormula(text))])
+    layout = compute_tree_layout(t, label_density="full")
+    _assert_no_pairwise_overlap(layout.nodes)
+    by_addr = {box.addr: box for box in layout.nodes}
+    for parent_addr, kid_addrs in (
+        (t.root_addr, (a00, a01)),
+        (a00, (a000, a001)),
+    ):
+        parent = by_addr[parent_addr]
+        kids = [by_addr[addr] for addr in kid_addrs]
+        mean_x = sum(kid.cx for kid in kids) / len(kids)
+        assert abs(parent.cx - mean_x) < 3.0
+    assert len(layout.edges) == 4
+    for edge in layout.edges:
+        assert abs(edge.y2 - edge.y1) > 8.0
+        for box in layout.nodes:
+            assert not _segment_hits_inset_rect(
+                edge.x1,
+                edge.y1,
+                edge.x2,
+                edge.y2,
+                box,
+                inset=1.0,
+            ), (edge, box.addr)
 
 
 def test_theme_for_zoom_scales_strokes() -> None:

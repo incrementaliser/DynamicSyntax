@@ -23,6 +23,9 @@ _Avoid_: parse, hypothesis (when you mean this DAG node)
 The Output pane that shows the DS Tree canvas, not the OS screen or device.
 _Avoid_: device, window (when you mean the tree pane)
 
+**DS Tree canvas**:
+The Output pane's drawing of the current DS Tree. Layout is Reingold–Tilford (Buchheim) in `src/dylan/gui/tree_viz.py`: nodes in address order, parents centred on their children. Each link is one straight segment from the parent's bottom centre to the child's top centre, stroked with a Flet canvas path (`MoveTo`/`LineTo`, butt caps). Link, context, and unfixed steps stay dashed or dotted. If a straight segment would cross another node, that link is an orthogonal polyline in the gap between rows. Row spacing grows with sibling spread (capped) so branches are not flat gutters. The Pyodide page in `web/` still shows the address-order text dump, not this canvas.
+
 **Camera**:
 The Output pane's scroll position over the DS Tree at the current Zoom. A tree that fits the pane is centred; Fit scrolls a larger drawing so its middle is in view.
 _Avoid_: scale-to-fit layout, stretch
