@@ -16,8 +16,7 @@ from loguru import logger
 from dylan.logging_config import configure_logging
 from dylan.vss.types import CompositionMethod, EvaluationMode, GS2013EvaluationResult, UnderspecMethod
 
-_VSS_DIR = Path(__file__).resolve().parent
-_DEFAULT_RUNS_ROOT = _VSS_DIR / "output" / "runs"
+_DEFAULT_RUNS_ROOT = Path(__file__).resolve().parents[3] / "out" / "runs"
 
 _STAGE_LABELS = ("S", "S-V", "S-V-O")
 _COMPOSITION_LABELS: dict[str, str] = {
@@ -72,9 +71,12 @@ class ExperimentRunContext:
         log_level: str = "INFO",
         run_id: str | None = None,
     ) -> ExperimentRunContext:
-        """Create a timestamped run directory under *output_dir* or the default runs root."""
+        """Create ``out/runs/<timestamp>_vss``, or ``<output_dir>/<run_id>`` when those are given.
+
+        An explicit *run_id* is used as the directory name unchanged.
+        """
         started = datetime.now(timezone.utc)
-        rid = run_id or started.strftime("%Y%m%d-%H%M%S")
+        rid = run_id or f"{started.strftime('%Y%m%d-%H%M%S')}_vss"
         base = output_dir if output_dir is not None else _DEFAULT_RUNS_ROOT
         run_dir = (base / rid).resolve()
         run_dir.mkdir(parents=True, exist_ok=True)

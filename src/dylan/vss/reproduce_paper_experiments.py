@@ -6,7 +6,7 @@ Run from the repo root::
     uv run python -m dylan.vss.reproduce_paper_experiments
 
 Artifacts (log, JSON, CSV, Markdown report, plots) default to
-``src/dylan/vss/output/runs/<timestamp>/``.
+``out/runs/<timestamp>_vss/``.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         "--output-dir",
         type=Path,
         default=None,
-        help="Run output root (default: src/dylan/vss/output/runs/<timestamp>).",
+        help="Run output root (default: out/runs/<timestamp>_vss).",
     )
     parser.add_argument(
         "--no-save",

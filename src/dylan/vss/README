@@ -8,7 +8,7 @@ Reproduction (Python 3, library + script):
     uv sync --extra vss
     uv run python -m dylan.vss.reproduce_paper_experiments
 
-By default each run writes to ``output/runs/<timestamp>/``:
+By default each run writes to ``out/runs/<timestamp>_vss/``:
 
  * run.log - full loguru log
  * results.json - structured accuracies and metadata
