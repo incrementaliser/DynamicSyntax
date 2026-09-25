@@ -58,3 +58,28 @@ _Avoid_: Init
 **Continuation**:
 A sentence whose words start with the words already in the derivation.
 _Avoid_: prefix
+
+## Data and CHILDES
+
+The parser targets **English** (bundled `2015-english-ttr` and the induction seeds). BabyDS (`data/BabyDS/`) is an English robot-command corpus already in TTR. It is not CHILDES.
+
+**Raw CHILDES** (English–North American MOR zip) lives only at `data/raw/childes/Eng-NA-MOR.zip`. That path is gitignored. URL, date, size, and CC BY-NC-SA 3.0 terms are in `data/CHILDES/PROVENANCE.txt`. Brown Eve in that zip is 20 `.cha` files and 26920 utterances. Adam is 55 files and Sarah is 139. Those transcripts are CHAT (`*MOT` / `%mor`), not lambda formulae.
+
+**Eve lambda annotation** is `data/CHILDES/eve/lambda/trainPairs_1` … `trainPairs_20`, copied from DyLan `corpus/CHILDES/eveTrainPairs/`. 4645 `example_end` blocks, of which 28 are commented (`//example_end`). This is a semantically annotated subset of Brown Eve, not the 26920 CHAT lines.
+
+**Lambda → TTR entry points**
+
+- `convert_lambda(semantics, utterance)` in `src/dylan/induction/em_learner/lambda_ttr_converter.py` — port of Java `qmul.ds.learn.CorpusConverter.TTRconvert` and `CorpusConverterAgenda`.
+- `scripts/convert_childes_lambda.py FOLDER OUTPUT --failures PATH` reads `trainPairs_*` and writes `Sent` / `Sem` / `File` blocks.
+- `CorpusConverter` and `RMRS_TTR_converter` do not implement this rewrite. `CorpusConverter.convert` only reloads an existing TTR corpus file. `RMRS_TTR_converter` is a stub in both the Python port and the Java source.
+
+**Eve TTR coverage** (`data/CHILDES/eve/ttr/eve-ttr.txt`, failures in `eve-failures.txt`):
+
+| | utterances |
+|---|---|
+| Brown Eve CHAT | 26920 |
+| Lambda blocks | 4645 (28 commented) |
+| Converted to TTR | 4581 |
+| Rejected by existing rules | 36 |
+
+`main` had no Eve files. The Java `CHILDESconvert` method stops after 400 successes; that partial file is on branch `CHILDES-TEST`, not on `main`. The 36 rejections are object-control (`want me to …`, 21), truncated `not($0,)` formulae (11), `whose icecream` nominal compounds under `Q` (3), and one unbalanced `not(and(pro|me,,$0)`. Do not treat CHAT `%mor` lines as converter input: they are a different format. A few degenerate one-word strings can fall through to a placeholder `[x : e|head==x : e]`.

@@ -1,0 +1,179 @@
+Sent : you want me to_have it ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|have(pro|me,pro|it,$0)),$0)
+File : 1
+Error : object-control subjects differ
+
+Sent : you want Mommy to_have a letter ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|have(n:prop|Mommy,det|a($1,n|letter($1)),$0)),$0)
+File : 1
+Error : object-control subjects differ
+
+Sent : you want me to_get her ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|get(pro|me,pro|her,$0)),$0)
+File : 1
+Error : object-control subjects differ
+
+Sent : you want me to_open it ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|open(pro|me,pro|it,$0)),$0)
+File : 2
+Error : object-control subjects differ
+
+Sent : you want me to_turn ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|turn(pro|me,$0)),$0)
+File : 2
+Error : object-control subjects differ
+
+Sent : you want me to_open the toy box .
+Sem : lambda $0_{ev}.and(v|want(pro|you,$0),v|open(pro|me,det|the($1,and(n|toy($1),n|box($1))),$0))
+File : 3
+Error : object-control subjects differ
+
+Sent : do you want me to_have a letter ?
+Sem : lambda $0_{ev}.Q(aux|do(and(v|want(pro|you,$0),v|have(pro|me,det|a($1,n|letter($1)),$0)),$0),$0)
+File : 4
+Error : object-control subjects differ
+
+Sent : you want me to_cover you ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|cover(pro|me,pro|you,$0)),$0)
+File : 6
+Error : object-control subjects differ
+
+Sent : you want me to_play ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|play(pro|me,$0)),$0)
+File : 6
+Error : object-control subjects differ
+
+Sent : do you want me to_help you ?
+Sem : lambda $0_{ev}.Q(aux|do(and(v|want(pro|you,$0),v|help(pro|me,pro|you,$0)),$0),$0)
+File : 6
+Error : object-control subjects differ
+
+Sent : you want me to smack your fingers ?
+Sem : lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|smack(pro|me,pro:poss:det|your($1,n|finger-PL($1)),$0)),$0)
+File : 7
+Error : object-control subjects differ
+
+Sent : whose icecream is it ?
+Sem : lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+File : 7
+Error : nominal compound has no event variable left: n|+n|ice+n|cream(pro|it)
+
+Sent : whose icecream is it ?
+Sem : lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+File : 7
+Error : nominal compound has no event variable left: n|+n|ice+n|cream(pro|it)
+
+Sent : whose icecream is it ?
+Sem : lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+File : 7
+Error : nominal compound has no event variable left: n|+n|ice+n|cream(pro|it)
+
+Sent : do you want me to_help you ?
+Sem : lambda $0_{ev}.Q(aux|do(and(v|want(pro|you,$0),v|help(pro|me,pro|you,$0)),$0),$0)
+File : 8
+Error : object-control subjects differ
+
+Sent : do you want me to_sit there ?
+Sem : lambda $0_{ev}.Q(and(aux|do(and(v|want(pro|you,$0),v|sit(pro|me,$0)),$0),adv:loc|there($0)),$0)
+File : 10
+Error : object-control subjects differ
+
+Sent : do you want me to_put it on ?
+Sem : lambda $0_{ev}.Q(and(aux|do(and(v|want(pro|you,$0),v|put&ZERO(pro|me,pro|it,$0)),$0),adv|on($0)),$0)
+File : 10
+Error : object-control subjects differ
+
+Sent : you didn 't spill your pure cream .
+Sem : lambda $0_{ev}.not($0,)
+File : 11
+Error : not well formed Q/NOT: not($0,)
+
+Sent : you didn 't buy it .
+Sem : lambda $0_{ev}.not($0,)
+File : 13
+Error : not well formed Q/NOT: not($0,)
+
+Sent : you 'd like him to_have a mustache .
+Sem : lambda $0_{ev}.aux|will&COND(and(v|like(pro|you,$0),v|have(pro|him,det|a($1,n|mustache($1)),$0)),$0)
+File : 13
+Error : object-control subjects differ
+
+Sent : don 't you want me to_bang your highchair ?
+Sem : lambda $0_{ev}.Q(not(aux|do(and(v|want(pro|you,$0),v|bang(pro|me,pro:poss:det|your($1,n|+adj|high+n|chair($1)),$0)),$0),$0),$0)
+File : 15
+Error : object-control subjects differ
+
+Sent : you don 't want me to_go away ?
+Sem : lambda $0_{ev}.Q(not(and(aux|do(and(v|want(pro|you,$0),v|go(pro|me,$0)),$0),adv|away($0)),$0),$0)
+File : 15
+Error : object-control subjects differ
+
+Sent : it didn 't cut your chin .
+Sem : lambda $0_{ev}.not($0,)
+File : 16
+Error : not well formed Q/NOT: not($0,)
+
+Sent : not me and Cromer .
+Sem : lambda $0_{ev}.not(and(pro|me,,$0)
+File : 16
+Error : converter did not finish (missing rule) for lambda $0_{ev}.not(and(pro|me,,$0)
+
+Sent : you don 't just tell him to_move .
+Sem : lambda $0_{ev}.not(and(aux|do(and(v|tell(pro|you,pro|him,$0),v|move(pro|him,$0)),$0),adv:int|just($0)),$0)
+File : 16
+Error : object-control subjects differ
+
+Sent : they didn 't say a thing .
+Sem : lambda $0_{ev}.not($0,)
+File : 16
+Error : not well formed Q/NOT: not($0,)
+
+Sent : you didn 't forget it .
+Sem : lambda $0_{ev}.not($0,)
+File : 17
+Error : not well formed Q/NOT: not($0,)
+
+Sent : you didn 't forget it .
+Sem : lambda $0_{ev}.not($0,)
+File : 17
+Error : not well formed Q/NOT: not($0,)
+
+Sent : he didn 't hear you .
+Sem : lambda $0_{ev}.not($0,)
+File : 18
+Error : not well formed Q/NOT: not($0,)
+
+Sent : but he didn 't hear you .
+Sem : lambda $0_{ev}.not($0,)
+File : 18
+Error : not well formed Q/NOT: not($0,)
+
+Sent : Fraser doesn 't want you to_shoot him .
+Sem : lambda $0_{ev}.not(aux|do&3S(and(v|want(n:prop|Fraser,$0),v|shoot(pro|you,pro|him,$0)),$0),$0)
+File : 18
+Error : object-control subjects differ
+
+Sent : I don 't want you to_trip on your shoelace .
+Sem : lambda $0_{ev}.not(and(aux|do(and(v|want(pro|I,$0),v|trip(pro|you,$0)),$0),prep|on(pro:poss:det|your($1,n|shoelace($1)),$0)),$0)
+File : 19
+Error : object-control subjects differ
+
+Sent : he didn 't buy us a new house .
+Sem : lambda $0_{ev}.not($0,)
+File : 19
+Error : not well formed Q/NOT: not($0,)
+
+Sent : you didn 't buy some salt .
+Sem : lambda $0_{ev}.not($0,)
+File : 19
+Error : not well formed Q/NOT: not($0,)
+
+Sent : would you like me to_wipe your hands ?
+Sem : lambda $0_{ev}.Q(aux|will&COND(and(v|like(pro|you,$0),v|wipe(pro|me,pro:poss:det|your($1,n|hand-PL($1)),$0)),$0),$0)
+File : 19
+Error : object-control subjects differ
+
+Sent : I didn 't hear you .
+Sem : lambda $0_{ev}.not($0,)
+File : 20
+Error : not well formed Q/NOT: not($0,)

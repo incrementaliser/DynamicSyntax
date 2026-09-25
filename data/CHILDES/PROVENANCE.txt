@@ -1,0 +1,53 @@
+CHILDES data used by this repository
+=====================================
+
+Project language
+----------------
+DynamicSyntax grammars and the Eve induction files are English.
+Other CHILDES languages are not targets of this codebase.
+
+Official transcripts (not committed)
+------------------------------------
+Path: data/raw/childes/Eng-NA-MOR.zip
+URL: https://talkbank.org/childes/access/Eng-NA/0-Eng-NA-MOR.zip
+Index: https://talkbank.org/childes/access/Eng-NA/
+Retrieved: 2026-09-25
+Last-Modified (HTTP): Fri, 30 May 2025 15:35:08 GMT
+Size: 95278057 bytes
+Format: older MOR CHAT (.cha), 7839 transcripts
+Brown subset: Eve 20 files, Adam 55, Sarah 139
+License: Creative Commons CC BY-NC-SA 3.0
+License page: https://talkbank.org/0share/rules.html
+Terms: research, teaching, and clinical non-commercial use.
+The license precludes putting the transcripts into commercial products,
+including large language models. Cite TalkBank / CHILDES (MacWhinney)
+and Brown (Roger Brown; DOI 10.21415/T5HK5G for the Brown corpus).
+Access: TalkBank asks users to register before browsing transcripts.
+This Eng-NA MOR zip answered HTTP 200 with no credentials.
+Other language indexes checked the same day (Eng-UK, Spanish, French,
+German, Japanese) did not publish an equivalent bulk zip. Chinese
+lists Mandarin/Traditional.zip only. There is no single public zip of
+every CHILDES language.
+
+Eve lambda annotation (committed)
+---------------------------------
+Path: data/CHILDES/eve/lambda/trainPairs_1 .. trainPairs_20
+Upstream: https://github.com/Dynamics-of-Language/DyLan
+Path in DyLan: corpus/CHILDES/eveTrainPairs/
+DyLan license: LGPL-3.0 (code). These pairs are a derived annotation of
+Brown Eve, so CC BY-NC-SA 3.0 applies to the underlying transcripts.
+Each block is Sent / Sem / example_end. Sem is a lambda formula such as
+  lambda $0_{ev}.v|go(pro|you,$0)
+not a CHAT %mor line.
+
+TTR conversion of that annotation (committed)
+---------------------------------------------
+Path: data/CHILDES/eve/ttr/eve-ttr.txt
+Failures: data/CHILDES/eve/ttr/eve-failures.txt
+Producer: scripts/convert_childes_lambda.py
+Library: dylan.induction.em_learner.lambda_ttr_converter.convert_lambda
+Java source of the rules: qmul.ds.learn.CorpusConverter.TTRconvert
+Counts from the 2026-09-25 run: 4645 blocks, 28 commented out,
+4581 converted, 36 rejected by the existing rules.
+The published Java run stopped after 400 successes
+(CHILDESconversion400Final.txt). That cap is not applied here.

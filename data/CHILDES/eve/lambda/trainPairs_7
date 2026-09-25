@@ -1,0 +1,1531 @@
+
+
+Sent: you 're reading to Fraser .
+Sem:  lambda $0_{ev}.and(aux|be&PRES(part|read-PROG(pro|you,$0),$0),prep|to(n:prop|Fraser,$0))
+example_end
+
+
+
+Sent: Colin .
+Sem:  n:prop|Colin
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+//original: do you want a napkin too .
+Sent: do you want a napkin ?
+Sem:  lambda $0_{ev}.Q(aux|do(v|want(pro|you,det|a($1,n|napkin($1)),$0),$0),$0)
+example_end
+
+
+
+Sent: there .
+Sem:  lambda $0_{ev}.adv:loc|there($0)
+example_end
+
+
+
+Sent: you 've got one .
+Sem:  lambda $0_{ev}.aux|have(part|get&PERF(pro|you,pro:indef|one,$0),$0)
+example_end
+
+
+//original: you are .
+Sent: you .
+Sem:  pro|you
+example_end
+
+
+
+Sent: that 's my nose .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro:poss:det|my($1,n|nose($1)),$0)
+example_end
+
+
+
+Sent: can you blow ?
+Sem:  lambda $0_{ev}.Q(aux|can(v|blow(pro|you,$0),$0),$0)
+example_end
+
+
+
+Sent: that 's a good girl .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|a($1,and(adj|good($1),n|girl($1))),$0)
+example_end
+
+
+
+Sent: tomorrow .
+Sem:  lambda $0_{ev}.adv:tem|tomorrow($0)
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: what are you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: I don 't need any more sugar .
+Sem:  lambda $0_{ev}.not(aux|do(v|need(pro|I,qn|more($1,n|sugar($1)),$0),$0),$0)
+example_end
+
+
+
+Sent: I 'll just have some coffee .
+Sem:  lambda $0_{ev}.and(aux|will(v|have(pro|I,qn|some($1,n|coffee($1)),$0),$0),adv:int|just($0))
+example_end
+
+
+
+Sent: I forgot a spoon ?
+Sem:  lambda $0_{ev}.Q(v|forget(pro|I,det|a($1,n|spoon($1)),$0),$0)
+example_end
+
+
+
+Sent: you don 't need one .
+Sem:  lambda $0_{ev}.not(aux|do(v|need(pro|you,pro:indef|one,$0),$0),$0)
+example_end
+
+
+
+Sent: it 's moving again .
+Sem:  lambda $0_{ev}.and(aux|be&3S(part|move-PROG(pro|it,$0),$0),adv|again($0))
+example_end
+
+
+
+Sent: it 's doing it again .
+Sem:  lambda $0_{ev}.and(aux|be&3S(part|do-PROG(pro|it,pro|it,$0),$0),adv|again($0))
+example_end
+
+
+
+Sent: it goes again .
+Sem:  lambda $0_{ev}.and(v|go-3S(pro|it,$0),adv|again($0))
+example_end
+
+
+
+Sent: what 's that rockingchair doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&3S(part|do-PROG(det|that($2,n|+n|rocking+n|chair($2)),$0,$1),$1)
+example_end
+
+
+
+Sent: it 's dancing .
+Sem:  lambda $0_{ev}.aux|be&3S(part|dance-PROG(pro|it,$0),$0)
+example_end
+
+
+
+Sent: what are you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: Mommy 'll wipe your nose .
+Sem:  lambda $0_{ev}.aux|will(v|wipe(n:prop|Mommy,pro:poss:det|your($1,n|nose($1)),$0),$0)
+example_end
+
+
+
+Sent: it 's not tomato soup .
+Sem:  lambda $0_{ev}.not(n|soup(pro|it),$0)
+example_end
+
+
+
+Sent: you sit down .
+Sem:  lambda $0_{ev}.and(v|sit(pro|you,$0),adv:loc|down($0))
+example_end
+
+
+
+Sent: you go .
+Sem:  lambda $0_{ev}.v|go(pro|you,$0)
+example_end
+
+
+
+Sent: did I get it on your tongue ?
+Sem:  lambda $0_{ev}.Q(and(PAST(aux|do(v|get(pro|I,pro|it,$0),$0)),prep|on(pro:poss:det|your($1,n|tongue($1)),$0)),$0)
+example_end
+
+
+//original sem: lambda $0_{ev}.Q(pro:poss:det|your($1,and(n|grape($1),adj|all_gone($1),n|juice($1))),$0)
+//Sent: is your grape juice allgone ?
+//Sem:  lambda $0_{ev}.Q(eq(pro:poss:det|your($1,and(n|grape($1),n|juice($1))),adj|allgone,$0),$0)
+//example_end
+
+
+
+Sent: there .
+Sem:  lambda $0_{ev}.adv:loc|there($0)
+example_end
+
+
+
+Sent: I 'll put it in .
+Sem:  lambda $0_{ev}.and(aux|will(v|put&ZERO(pro|I,pro|it,$0),$0),adv:loc|in($0))
+example_end
+
+
+
+Sent: you read it to me ?
+Sem:  lambda $0_{ev}.Q(and(v|read&ZERO(pro|you,pro|it,$0),prep|to(pro|me,$0)),$0)
+example_end
+
+
+
+Sent: you read it .
+Sem:  lambda $0_{ev}.v|read&ZERO(pro|you,pro|it,$0)
+example_end
+
+
+
+Sent: that 's not a tiger .
+Sem:  lambda $0_{ev}.not(eq(pro:dem|that,det|a($1,n|tiger($1)),$0),$0)
+example_end
+
+
+
+Sent: that 's a zebra .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|a($1,n|zebra($1)),$0)
+example_end
+
+
+
+Sent: you read Lassie .
+Sem:  lambda $0_{ev}.v|read&ZERO(pro|you,n:prop|Lassie,$0)
+example_end
+
+
+
+Sent: Eve will read Lassie to Fraser ?
+Sem:  lambda $0_{ev}.Q(and(aux|will(v|read&ZERO(n:prop|Eve,n:prop|Lassie,$0),$0),prep|to(n:prop|Fraser,$0)),$0)
+example_end
+
+
+//original sem: lambda $0_{ev}.aux|will(v|read&ZERO(n:prop|Eve,n:prop|Fraser,n:prop|Lassie,$0),$0)
+Sent: Eve will read Fraser Lassie .
+Sem:  lambda $0_{ev}.and(aux|will(v|read&ZERO(n:prop|Eve,n:prop|Lassie,$0),$0),prep|to(n:prop|Fraser,$0))
+example_end
+
+
+
+Sent: Eve will read Lassie .
+Sem:  lambda $0_{ev}.aux|will(v|read&ZERO(n:prop|Eve,n:prop|Lassie,$0),$0)
+example_end
+
+
+//original sem: lambda $0_{ev}.Q(aux|will(v|read&ZERO(n:prop|Eve,n:prop|Fraser,n:prop|Lassie,$0),$0),$0)
+Sent: will Eve read Fraser Lassie ?
+Sem:  lambda $0_{ev}.Q(and(aux|will(v|read&ZERO(n:prop|Eve,n:prop|Lassie,$0),$0),prep|to(n:prop|Fraser,$0)),$0)
+example_end
+
+
+
+Sent: will Eve read Lassie to Fraser ?
+Sem:  lambda $0_{ev}.Q(and(aux|will(v|read&ZERO(n:prop|Eve,n:prop|Lassie,$0),$0),prep|to(n:prop|Fraser,$0)),$0)
+example_end
+
+
+//original: lambda $0_{ev}.Q(aux|will(v|read&ZERO(n:prop|Fraser,n:prop|Eve,n:prop|Lassie,$0),$0),$0)
+Sent: will Fraser read Eve Lassie ?
+Sem:  lambda $0_{ev}.Q(and(aux|will(v|read&ZERO(n:prop|Fraser,n:prop|Lassie,$0),$0),prep|to(n:prop|Eve,$0)),$0)
+example_end
+
+
+//original: lambda $0_{ev}.Q(aux|will(v|read&ZERO(n:prop|Fraser,n:prop|Lassie,n:prop|Eve,$0),$0),$0)
+Sent: will Fraser read Lassie Eve ?
+Sem:  lambda $0_{ev}.Q(and(aux|will(v|read&ZERO(n:prop|Fraser,n:prop|Eve,$0),$0),prep|to(n:prop|Lassie,$0)),$0)
+example_end
+
+
+
+Sent: what is that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: what is that noise ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,det|that($2,n|noise($2)),$1)
+example_end
+
+
+
+Sent: what did Lassie do ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.PAST(aux|do(v|do(n:prop|Lassie,$0,$1),$1))
+example_end
+
+
+
+Sent: we fix ed the book .
+Sem:  lambda $0_{ev}.PAST(v|fix(pro|we,det|the($1,n|book($1)),$0))
+example_end
+
+
+
+Sent: we fix ed the book .
+Sem:  lambda $0_{ev}.PAST(v|fix(pro|we,det|the($1,n|book($1)),$0))
+example_end
+
+
+
+Sent: she had a nice nap .
+Sem:  lambda $0_{ev}.PAST(v|have(pro|she,det|a($1,and(adj|nice($1),n|nap($1))),$0))
+example_end
+
+
+
+Sent: that 's her bed .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro:poss:det|her($1,n|bed($1)),$0)
+example_end
+
+
+
+Sent: you read Lassie .
+Sem:  lambda $0_{ev}.v|read&ZERO(pro|you,n:prop|Lassie,$0)
+example_end
+
+
+
+Sent: that 's the little stool .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|the($1,and(adj|little($1),n|stool($1))),$0)
+example_end
+
+
+
+Sent: what am I doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&1S(part|do-PROG(pro|I,$0,$1),$1)
+example_end
+
+
+
+Sent: that 's not the big stool .
+Sem:  lambda $0_{ev}.not(eq(pro:dem|that,det|the($1,and(adj|big($1),n|stool($1))),$0),$0)
+example_end
+
+
+
+Sent: she gonna burp .
+Sem:  lambda $0_{ev}.and(part|go-PROG(pro|she,$0),v|burp(pro|she,$0))
+example_end
+
+
+
+Sent: that 's the nipple .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|the($1,n|nipple($1)),$0)
+example_end
+
+
+
+Sent: we 'll get your highchair .
+Sem:  lambda $0_{ev}.aux|will(v|get(pro|we,pro:poss:det|your($1,n|+adj|high+n|chair($1)),$0),$0)
+example_end
+
+
+
+Sent: you don 't want it .
+Sem:  lambda $0_{ev}.not(aux|do(v|want(pro|you,pro|it,$0),$0),$0)
+example_end
+
+
+
+Sent: you don 't have your lunch on the table .
+Sem:  lambda $0_{ev}.not(and(aux|do(v|have(pro|you,pro:poss:det|your($1,n|lunch($1)),$0),$0),prep|on(det|the($2,n|table($2)),$0)),$0)
+example_end
+
+
+
+Sent: she 's thirsty .
+Sem:  adj|thirsty(pro|she)
+example_end
+
+
+
+Sent: she 's thirsty .
+Sem:  adj|thirsty(pro|she)
+example_end
+
+
+
+Sent: EveCummings .
+Sem:  n:prop|Eve_Cummings
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: Sarah 's drinking it .
+Sem:  lambda $0_{ev}.aux|be&3S(part|drink-PROG(n:prop|Sarah,pro|it,$0),$0)
+example_end
+
+
+
+Sent: it 's going in her tummy .
+Sem:  lambda $0_{ev}.and(aux|be&3S(part|go-PROG(pro|it,$0),$0),prep|in(pro:poss:det|her($1,n|tummy($1)),$0))
+example_end
+
+
+
+Sent: you try again ?
+Sem:  lambda $0_{ev}.Q(and(v|try(pro|you,$0),adv|again($0)),$0)
+example_end
+
+
+
+Sent: Eve ?
+Sem:  lambda $0_{ev}.Q(n:prop|Eve,$0)
+example_end
+
+
+
+Sent: what are you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: she 's thirsty .
+Sem:  adj|thirsty(pro|she)
+example_end
+
+
+
+Sent: some bottle ?
+Sem:  lambda $0_{ev}.Q(qn|some($1,n|bottle($1)),$0)
+example_end
+
+
+
+Sent: we 'll give you some bottle .
+Sem:  lambda $0_{ev}.aux|will(v|give(pro|we,pro|you,qn|some($1,n|bottle($1)),$0),$0)
+example_end
+
+
+
+Sent: we 'll give Eve some bottle .
+Sem:  lambda $0_{ev}.aux|will(v|give(pro|we,n:prop|Eve,qn|some($1,n|bottle($1)),$0),$0)
+example_end
+
+
+
+Sent: we 'll give Eve some bottle .
+Sem:  lambda $0_{ev}.aux|will(v|give(pro|we,n:prop|Eve,qn|some($1,n|bottle($1)),$0),$0)
+example_end
+
+
+
+Sent: you 're silly .
+Sem:  adj|silly(pro|you)
+example_end
+
+
+
+Sent: do you like it ?
+Sem:  lambda $0_{ev}.Q(aux|do(v|like(pro|you,pro|it,$0),$0),$0)
+example_end
+
+
+
+Sent: is that good ?
+Sem:  lambda $0_{ev}.Q(adj|good(pro:dem|that),$0)
+example_end
+
+
+
+Sent: do you like it ?
+Sem:  lambda $0_{ev}.Q(aux|do(v|like(pro|you,pro|it,$0),$0),$0)
+example_end
+
+
+
+Sent: what 're you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: what are you drinking ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|drink-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: you take it to Mama .
+Sem:  lambda $0_{ev}.and(v|take(pro|you,pro|it,$0),prep|to(n:prop|Mama,$0))
+example_end
+
+
+
+Sent: you take it to Mama .
+Sem:  lambda $0_{ev}.and(v|take(pro|you,pro|it,$0),prep|to(n:prop|Mama,$0))
+example_end
+
+
+
+Sent: Eve had a turn .
+Sem:  lambda $0_{ev}.PAST(v|have(n:prop|Eve,det|a($1,n|turn($1)),$0))
+example_end
+
+
+
+Sent: you may have a turn after Sarah .
+Sem:  lambda $0_{ev}.and(aux|may(v|have(pro|you,det|a($1,n|turn($1)),$0),$0),prep|after(n:prop|Sarah,$0))
+example_end
+
+
+
+Sent: you may have a turn after Sarah .
+Sem:  lambda $0_{ev}.and(aux|may(v|have(pro|you,det|a($1,n|turn($1)),$0),$0),prep|after(n:prop|Sarah,$0))
+example_end
+
+
+//original: Fraser 's going to drink his coffee outof a cup .
+Sent: Fraser 's going_to drink his coffee outof a cup .
+Sem:  lambda $0_{ev}.and(aux|be&3S(and(part|go-PROG(n:prop|Fraser,$0),v|drink(n:prop|Fraser,pro:poss:det|his($1,n|coffee($1)),$0)),$0),prep|out_of(det|a($2,n|cup($2)),$0))
+example_end
+
+
+
+Sent: he 's big .
+Sem:  adj|big(pro|he)
+example_end
+
+
+
+Sent: you have a turn after Sarah .
+Sem:  lambda $0_{ev}.and(v|have(pro|you,det|a($1,n|turn($1)),$0),prep|after(n:prop|Sarah,$0))
+example_end
+
+
+
+Sent: you don 't want any noodle soup ?
+Sem:  lambda $0_{ev}.Q(not(aux|do(v|want(pro|you,qn|any($1,and(n|noodle($1),n|soup($1))),$0),$0),$0),$0)
+example_end
+
+
+
+Sent: you 're gonna have a cracker .
+Sem:  lambda $0_{ev}.aux|be&PRES(and(part|go-PROG(pro|you,$0),v|have(pro|you,det|a($1,n|cracker($1)),$0)),$0)
+example_end
+
+
+
+Sent: what do you have ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|have(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: where is Papa ?
+Sem:  lambda $0_{e}.eqLoc(n:prop|Papa,$0)
+example_end
+
+
+
+Sent: he 's working .
+Sem:  lambda $0_{ev}.aux|be&3S(part|work-PROG(pro|he,$0),$0)
+example_end
+
+
+
+Sent: he 's busy .
+Sem:  adj|busy(pro|he)
+example_end
+
+
+
+Sent: that 's not yours .
+Sem:  lambda $0_{ev}.not(eq(pro:dem|that,pro:poss|yours,$0),$0)
+example_end
+
+
+
+Sent: whose is that ?
+Sem:  lambda $0_{ev}.Q(pro:dem|that,$0)
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: is that good ?
+Sem:  lambda $0_{ev}.Q(adj|good(pro:dem|that),$0)
+example_end
+
+
+
+Sent: do you like it ?
+Sem:  lambda $0_{ev}.Q(aux|do(v|like(pro|you,pro|it,$0),$0),$0)
+example_end
+
+
+
+Sent: you have a turn after Sarah .
+Sem:  lambda $0_{ev}.and(v|have(pro|you,det|a($1,n|turn($1)),$0),prep|after(n:prop|Sarah,$0))
+example_end
+
+
+
+Sent: you may have another turn .
+Sem:  lambda $0_{ev}.aux|may(v|have(pro|you,qn|another($1,n|turn($1)),$0),$0)
+example_end
+
+
+
+Sent: where is Papa ?
+Sem:  lambda $0_{e}.eqLoc(n:prop|Papa,$0)
+example_end
+
+
+
+Sent: you slip ed on my leg .
+Sem:  lambda $0_{ev}.and(PAST(v|slip(pro|you,$0)),prep|on(pro:poss:det|my($1,n|leg($1)),$0))
+example_end
+
+
+
+Sent: you slip ed .
+Sem:  lambda $0_{ev}.PAST(v|slip(pro|you,$0))
+example_end
+
+
+
+Sent: first Sarah has a turn .
+Sem:  lambda $0_{ev}.and(v|have&3S(n:prop|Sarah,det|a($1,n|turn($1)),$0),adv|first($0))
+example_end
+
+
+
+Sent: what is that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: her hair ?
+Sem:  lambda $0_{ev}.Q(pro:poss:det|her($1,n|hair($1)),$0)
+example_end
+
+
+
+Sent: where is your penny ?
+Sem:  lambda $0_{e}.eqLoc(pro:poss:det|your($1,n|penny($1)),$0)
+example_end
+
+
+
+Sent: where is your penny ?
+Sem:  lambda $0_{e}.eqLoc(pro:poss:det|your($1,n|penny($1)),$0)
+example_end
+
+
+
+Sent: I see it by the table .
+Sem:  lambda $0_{ev}.and(v|see(pro|I,pro|it,$0),prep|by(det|the($1,n|table($1)),$0))
+example_end
+
+
+
+Sent: are they allgone ?
+Sem:  lambda $0_{ev}.Q(adj|all_gone(pro|they),$0)
+example_end
+
+
+//original: is she ?
+Sent: she ?
+Sem:  lambda $0_{ev}.Q(pro|she,$0)
+example_end
+
+
+
+Sent: I drink my milk from a cup .
+Sem:  lambda $0_{ev}.and(v|drink(pro|I,pro:poss:det|my($1,n|milk($1)),$0),prep|from(det|a($2,n|cup($2)),$0))
+example_end
+
+
+//original: I drink my beer from a cup too .
+Sent: I drink my beer from a cup .
+Sem:  lambda $0_{ev}.and(v|drink(pro|I,pro:poss:det|my($1,n|beer($1)),$0),prep|from(det|a($2,n|cup($2)),$0))
+example_end
+
+
+
+Sent: I see it .
+Sem:  lambda $0_{ev}.v|see(pro|I,pro|it,$0)
+example_end
+
+
+
+Sent: whose cup is that ?
+Sem:  lambda $0_{ev}.Q(n|cup(pro:dem|that),$0)
+example_end
+
+
+//original: you put it back on the table .
+Sent: you put it on the table .
+Sem:  lambda $0_{ev}.and(v|put&ZERO(pro|you,pro|it,$0),prep|on(det|the($1,n|table($1)),$0))
+example_end
+
+
+
+Sent: you put it back .
+Sem:  lambda $0_{ev}.and(v|put&ZERO(pro|you,pro|it,$0),adv:loc|back($0))
+example_end
+
+
+
+Sent: Eve .
+Sem:  n:prop|Eve
+example_end
+
+
+//original: here ? .
+Sent: here .
+Sem:  lambda $0_{ev}.adv:loc|here($0)
+example_end
+
+
+
+Sent: Mama 's fixing it .
+Sem:  lambda $0_{ev}.aux|be&3S(part|fix-PROG(n:prop|Mama,pro|it,$0),$0)
+example_end
+
+
+
+Sent: who do you see ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|see(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: I see you .
+Sem:  lambda $0_{ev}.v|see(pro|I,pro|you,$0)
+example_end
+
+
+
+Sent: I see Eve .
+Sem:  lambda $0_{ev}.v|see(pro|I,n:prop|Eve,$0)
+example_end
+
+
+
+Sent: you said it before .
+Sem:  lambda $0_{ev}.and(PAST(v|say(pro|you,pro|it,$0)),adv|before($0))
+example_end
+
+
+
+Sent: Danny .
+Sem:  n:prop|Danny
+example_end
+
+
+
+Sent: that 's a man .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|a($1,n|man($1)),$0)
+example_end
+
+
+
+Sent: not Danny .
+Sem:  lambda $0_{ev}.not(n:prop|Danny,$0)
+example_end
+
+
+
+Sent: Clipclop .
+Sem:  n:prop|Clip_clop
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: where is he ?
+Sem:  lambda $0_{e}.eqLoc(pro|he,$0)
+example_end
+
+
+
+Sent: that 's not Danny .
+Sem:  lambda $0_{ev}.not(eq(pro:dem|that,n:prop|Danny,$0),$0)
+example_end
+
+
+
+Sent: what is that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: where is Clipclop ?
+Sem:  lambda $0_{e}.eqLoc(n:prop|Clip_clop,$0)
+example_end
+
+
+
+Sent: that 's right .
+Sem:  adj|right(pro:dem|that)
+example_end
+
+
+
+Sent: not Danny .
+Sem:  lambda $0_{ev}.not(n:prop|Danny,$0)
+example_end
+
+
+//original: it is .
+Sent: it .
+Sem:  pro|it
+example_end
+
+
+
+Sent: you can 't carry her .
+Sem:  lambda $0_{ev}.not(aux|can(v|carry(pro|you,pro|her,$0),$0),$0)
+example_end
+
+
+
+Sent: you sit down on the pillow .
+Sem:  lambda $0_{ev}.and(v|sit(pro|you,$0),prep|on(det|the($1,n|pillow($1)),$0))
+example_end
+
+
+
+Sent: you sit down on the pillow .
+Sem:  lambda $0_{ev}.and(v|sit(pro|you,$0),prep|on(det|the($1,n|pillow($1)),$0))
+example_end
+
+
+
+Sent: then you can hold her .
+Sem:  lambda $0_{ev}.and(aux|can(v|hold(pro|you,pro|her,$0),$0),adv:tem|then($0))
+example_end
+
+
+
+Sent: that 's it .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro|it,$0)
+example_end
+
+
+
+Sent: there .
+Sem:  lambda $0_{ev}.adv:loc|there($0)
+example_end
+
+
+
+Sent: what 's Eve doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&3S(part|do-PROG(n:prop|Eve,$0,$1),$1)
+example_end
+
+
+
+Sent: she 's heavy .
+Sem:  adj|heavy(pro|she)
+example_end
+
+
+
+Sent: you can hold her .
+Sem:  lambda $0_{ev}.aux|can(v|hold(pro|you,pro|her,$0),$0)
+example_end
+
+
+
+Sent: she 's heavy .
+Sem:  adj|heavy(pro|she)
+example_end
+
+
+
+Sent: she 's heavy .
+Sem:  adj|heavy(pro|she)
+example_end
+
+
+
+Sent: you can hold her .
+Sem:  lambda $0_{ev}.aux|can(v|hold(pro|you,pro|her,$0),$0)
+example_end
+
+
+
+Sent: you sit on the pillow .
+Sem:  lambda $0_{ev}.and(v|sit(pro|you,$0),prep|on(det|the($1,n|pillow($1)),$0))
+example_end
+
+
+
+Sent: what are you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: you 're laying on the radiator ?
+Sem:  lambda $0_{ev}.Q(and(aux|be&PRES(part|lay-PROG(pro|you,$0),$0),prep|on(det|the($1,n|radiator($1)),$0)),$0)
+example_end
+
+
+
+Sent: almost .
+Sem:  lambda $0_{ev}.adv|almost($0)
+example_end
+
+
+
+Sent: almost .
+Sem:  lambda $0_{ev}.adv|almost($0)
+example_end
+
+
+
+Sent: we 'll get more coffee in a minute .
+Sem:  lambda $0_{ev}.and(aux|will(v|get(pro|we,qn|more($1,n|coffee($1)),$0),$0),prep|in(det|a($2,n|minute($2)),$0))
+example_end
+
+
+
+Sent: Eve .
+Sem:  n:prop|Eve
+example_end
+
+
+
+Sent: what 's that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: you don 't have a ring .
+Sem:  lambda $0_{ev}.not(aux|do(v|have(pro|you,det|a($1,n|ring($1)),$0),$0),$0)
+example_end
+
+
+//original: you put it back on the table .
+Sent: you put it on the table .
+Sem:  lambda $0_{ev}.and(v|put&ZERO(pro|you,pro|it,$0),prep|on(det|the($1,n|table($1)),$0))
+example_end
+
+
+//original: I 'll bring the coffee in there .
+Sent: I 'll bring the coffee in .
+Sem:  lambda $0_{ev}.and(aux|will(v|bring(pro|I,det|the($1,n|coffee($1)),$0),$0),adv:loc|in($0))
+example_end
+
+
+
+Sent: may I have some sugar ?
+Sem:  lambda $0_{ev}.Q(aux|may(v|have(pro|I,qn|some($1,n|sugar($1)),$0),$0),$0)
+example_end
+
+
+
+Sent: it fell ?
+Sem:  lambda $0_{ev}.Q(v|fall(pro|it,$0),$0)
+example_end
+
+
+//original: be a horsie .
+Sent: a horsie .
+Sem:  det|a($0,n|horse-DIM($0))
+example_end
+
+
+//original: be Clipclop .
+Sent: Clipclop .
+Sem:  n:prop|Clip_clop
+example_end
+
+
+
+Sent: Marcia 's Goldrush .
+Sem:  lambda $0_{ev}.eq(n:prop|Marcia,n:prop|Goldrush,$0)
+example_end
+
+
+//original: you can 't be Goldrush .
+Sent: you are Goldrush .
+Sem:  lambda $0_{ev}.eq(pro|you,n:prop|Goldrush,$0)
+example_end
+
+
+
+Sent: Marcia 's Goldrush .
+Sem:  lambda $0_{ev}.eq(n:prop|Marcia,n:prop|Goldrush,$0)
+example_end
+
+
+//original: you can 't be Goldrush .
+Sent: you are Goldrush .
+Sem:  lambda $0_{ev}.eq(pro|you,n:prop|Goldrush,$0)
+example_end
+
+
+
+Sent: Marcia 's Goldrush .
+Sem:  lambda $0_{ev}.eq(n:prop|Marcia,n:prop|Goldrush,$0)
+example_end
+
+
+
+Sent: Tequita ?
+Sem:  lambda $0_{ev}.Q(n:prop|Tequita,$0)
+example_end
+
+
+
+Sent: that 's a good girl .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,det|a($1,and(adj|good($1),n|girl($1))),$0)
+example_end
+
+
+
+Sent: Eve .
+Sem:  n:prop|Eve
+example_end
+
+
+//original: you want me to smack your fingers ?
+//original sem: lambda $0_{ev}.Q(and(v|want(pro|you,pro|me,$0),v|smack(pro|you,pro:poss:det|your($1,n|finger-PL($1)),$0)),$0)
+Sent: you want me to smack your fingers ?
+Sem:  lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|smack(pro|me,pro:poss:det|your($1,n|finger-PL($1)),$0)),$0)
+example_end
+
+
+
+Sent: a hammer ?
+Sem:  lambda $0_{ev}.Q(det|a($1,n|hammer($1)),$0)
+example_end
+
+
+//original: and what do you do ?
+Sent: what do you do ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|do(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: your name 's what ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq(pro:poss:det|your($2,n|name($2)),$0,$1)
+example_end
+
+
+
+Sent: what is your name ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:poss:det|your($2,n|name($2)),$1)
+example_end
+
+
+
+Sent: what is it ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro|it,$1)
+example_end
+
+
+
+Sent: it sounds like Linda .
+Sem:  lambda $0_{ev}.and(v|sound-3S(pro|it,$0),prep|like(n:prop|Linda,$0))
+example_end
+
+
+
+Sent: what was your name ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:poss:det|your($2,n|name($2)),$1)
+example_end
+
+
+
+Sent: what is your name ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:poss:det|your($2,n|name($2)),$1)
+example_end
+
+
+
+Sent: you drop ed it .
+Sem:  lambda $0_{ev}.PAST(v|drop(pro|you,pro|it,$0))
+example_end
+
+
+
+Sent: it didn 't fall .
+Sem:  lambda $0_{ev}.not(PAST(aux|do(v|fall(pro|it,$0),$0)),$0)
+example_end
+
+
+
+Sent: what is this ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|this,$1)
+example_end
+
+
+
+Sent: your name isn 't Linda .
+Sem:  lambda $0_{ev}.not(eq(pro:poss:det|your($1,n|name($1)),n:prop|Linda,$0),$0)
+example_end
+
+
+
+Sent: your name 's what .
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq(pro:poss:det|your($2,n|name($2)),$0,$1)
+example_end
+
+
+
+Sent: he has a napkin .
+Sem:  lambda $0_{ev}.v|have&3S(pro|he,det|a($1,n|napkin($1)),$0)
+example_end
+
+
+
+Sent: mine .
+Sem:  pro:poss|mine
+example_end
+
+
+
+Sent: the raccoons are doing what ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(det|the($2,n|raccoon-PL($2)),$0,$1),$1)
+example_end
+
+
+
+Sent: he has a hat on .
+Sem:  lambda $0_{ev}.and(v|have&3S(pro|he,det|a($1,n|hat($1)),$0),adv|on($0))
+example_end
+
+
+//original: he has a hat on in this picture too .
+Sent: he has a hat in this picture .
+Sem:  lambda $0_{ev}.and(v|have&3S(pro|he,det|a($1,n|hat($1)),$0),prep|in(det|this($2,n|picture($2)),$0))
+example_end
+
+
+
+Sent: what 's he doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&3S(part|do-PROG(pro|he,$0,$1),$1)
+example_end
+
+
+
+Sent: Eve .
+Sem:  n:prop|Eve
+example_end
+
+
+
+Sent: what 's he doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&3S(part|do-PROG(pro|he,$0,$1),$1)
+example_end
+
+
+
+Sent: what 's he doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&3S(part|do-PROG(pro|he,$0,$1),$1)
+example_end
+
+
+
+Sent: he got what ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.PAST(v|get(pro|he,$0,$1))
+example_end
+
+
+
+Sent: he got what ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.PAST(v|get(pro|he,$0,$1))
+example_end
+
+
+
+Sent: I 'm not sure .
+Sem:  lambda $0_{ev}.not(adj|sure(pro|I),$0)
+example_end
+
+
+
+Sent: what is that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: whose spoon is this ?
+Sem:  lambda $0_{ev}.Q(n|spoon(pro:dem|this),$0)
+example_end
+
+
+
+Sent: your spoon .
+Sem:  pro:poss:det|your($0,n|spoon($0))
+example_end
+
+
+
+Sent: that 's my spoon .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro:poss:det|my($1,n|spoon($1)),$0)
+example_end
+
+
+
+Sent: what 's that spoon ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,det|that($2,n|spoon($2)),$1)
+example_end
+
+
+
+Sent: my spoon .
+Sem:  pro:poss:det|my($0,n|spoon($0))
+example_end
+
+
+
+Sent: your spoon .
+Sem:  pro:poss:det|your($0,n|spoon($0))
+example_end
+
+
+
+Sent: whose spoon is this ?
+Sem:  lambda $0_{ev}.Q(n|spoon(pro:dem|this),$0)
+example_end
+
+
+
+Sent: whose spoon is this ?
+Sem:  lambda $0_{ev}.Q(n|spoon(pro:dem|this),$0)
+example_end
+
+
+
+Sent: your spoon .
+Sem:  pro:poss:det|your($0,n|spoon($0))
+example_end
+
+
+
+Sent: whose spoon is this ?
+Sem:  lambda $0_{ev}.Q(n|spoon(pro:dem|this),$0)
+example_end
+
+
+
+Sent: whose is this ?
+Sem:  lambda $0_{ev}.Q(pro:dem|this,$0)
+example_end
+
+
+
+Sent: where 's your paper ?
+Sem:  lambda $0_{e}.eqLoc(pro:poss:det|your($1,n|paper($1)),$0)
+example_end
+
+
+
+Sent: do you want something ?
+Sem:  lambda $0_{ev}.Q(aux|do(v|want(pro|you,pro:indef|something,$0),$0),$0)
+example_end
+
+
+
+Sent: what do you want ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|want(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: who 's that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: what are you doing ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: who 's that ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,pro:dem|that,$1)
+example_end
+
+
+
+Sent: what are you doing there ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.and(aux|be&PRES(part|do-PROG(pro|you,$0,$1),$1),adv:loc|there($1))
+example_end
+
+
+
+Sent: what do you have on your head ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.and(aux|do(v|have(pro|you,$0,$1),$1),prep|on(pro:poss:det|your($2,n|head($2)),$1))
+example_end
+
+
+
+Sent: you can see Eve .
+Sem:  lambda $0_{ev}.aux|can(v|see(pro|you,n:prop|Eve,$0),$0)
+example_end
+
+
+
+Sent: what do you want ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|want(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: more cheese ?
+Sem:  lambda $0_{ev}.Q(qn|more($1,n|cheese($1)),$0)
+example_end
+
+
+
+Sent: we 're gonna eat in the highchair .
+Sem:  lambda $0_{ev}.and(aux|be&PRES(and(part|go-PROG(pro|we,$0),v|eat(pro|we,$0)),$0),prep|in(det|the($1,n|+adj|high+n|chair($1)),$0))
+example_end
+
+
+//original: now you had some cheese at the table .
+Sent: you had some cheese at the table .
+Sem:  lambda $0_{ev}.and(PAST(v|have(pro|you,qn|some($1,n|cheese($1)),$0)),prep|at(det|the($2,n|table($2)),$0))
+example_end
+
+
+//original: it is ?
+Sent: it ?
+Sem:  lambda $0_{ev}.Q(pro|it,$0)
+example_end
+
+
+
+Sent: what do you want ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|do(v|want(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: you climb in your highchair .
+Sem:  lambda $0_{ev}.and(v|climb(pro|you,$0),prep|in(pro:poss:det|your($1,n|+adj|high+n|chair($1)),$0))
+example_end
+
+
+
+Sent: your lunch is ready .
+Sem:  adj|ready(pro:poss:det|your($0,n|lunch($0)))
+example_end
+
+
+
+Sent: that 's not cheese .
+Sem:  lambda $0_{ev}.not(n|cheese(pro:dem|that),$0)
+example_end
+
+
+
+Sent: that 's peanutbutter .
+Sem:  n|+n|peanut+n|butter(pro:dem|that)
+example_end
+
+
+//original: that 's not tomato soup .
+Sent: that 's not soup .
+Sem:  lambda $0_{ev}.not(n|soup(pro:dem|that),$0)
+example_end
+
+
+
+Sent: what would you like ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|will&COND(v|like(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: would you like some fruit ?
+Sem:  lambda $0_{ev}.Q(aux|will&COND(v|like(pro|you,qn|some($1,n|fruit($1)),$0),$0),$0)
+example_end
+
+
+
+Sent: it 's good .
+Sem:  adj|good(pro|it)
+example_end
+
+
+
+Sent: what would you like ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|will&COND(v|like(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: I forgot your bibbie ?
+Sem:  lambda $0_{ev}.Q(v|forget(pro|I,pro:poss:det|your($1,n|bib-DIM($1)),$0),$0)
+example_end
+
+
+//original: then we 'll put your bibbie on .
+Sent: we 'll put your bibbie on .
+Sem:  lambda $0_{ev}.and(aux|will(v|put&ZERO(pro|we,pro:poss:det|your($1,n|bib-DIM($1)),$0),$0),adv|on($0))
+example_end
+
+
+
+Sent: are you having a good lunch ?
+Sem:  lambda $0_{ev}.Q(aux|be&PRES(part|have-PROG(pro|you,det|a($1,and(adj|good($1),n|lunch($1))),$0),$0),$0)
+example_end
+
+
+
+Sent: what are you eating ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.aux|be&PRES(part|eat-PROG(pro|you,$0,$1),$1)
+example_end
+
+
+
+Sent: what 's wrong ?
+Sem:  lambda $0_{e}.adj|wrong($0)
+example_end
+
+
+
+Sent: what 's the trouble ?
+Sem:  lambda $0_{e}.lambda $1_{ev}.eq($0,det|the($2,n|trouble($2)),$1)
+example_end
+
+
+
+Sent: there .
+Sem:  lambda $0_{ev}.adv:loc|there($0)
+example_end
+
+
+
+Sent: is that better ?
+Sem:  lambda $0_{ev}.Q(adj|good&CP(pro:dem|that),$0)
+example_end
+
+
+
+Sent: it 's loose .
+Sem:  adj|loose(pro|it)
+example_end
+
+
+
+Sent: it 's alright .
+Sem:  adj|alright(pro|it)
+example_end
+
+
+
+Sent: Eve ?
+Sem:  lambda $0_{ev}.Q(n:prop|Eve,$0)
+example_end
+
+
+
+Sent: whose icecream is it ?
+Sem:  lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+example_end
+
+
+
+Sent: is it my icecream ?
+Sem:  lambda $0_{ev}.Q(eq(pro|it,pro:poss:det|my($1,n|+n|ice+n|cream($1)),$0),$0)
+example_end
+
+
+
+Sent: whose icecream is it ?
+Sem:  lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+example_end
+
+
+
+Sent: whose icecream is it ?
+Sem:  lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)
+example_end
+
+
+
+Sent: is it my icecream ?
+Sem:  lambda $0_{ev}.Q(eq(pro|it,pro:poss:det|my($1,n|+n|ice+n|cream($1)),$0),$0)
+example_end
+
+
+
+Sent: is it my icecream ?
+Sem:  lambda $0_{ev}.Q(eq(pro|it,pro:poss:det|my($1,n|+n|ice+n|cream($1)),$0),$0)
+example_end
+
+
+
+Sent: that 's your icecream .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro:poss:det|your($1,n|+n|ice+n|cream($1)),$0)
+example_end
+
+
+
+Sent: that 's your icecream .
+Sem:  lambda $0_{ev}.eq(pro:dem|that,pro:poss:det|your($1,n|+n|ice+n|cream($1)),$0)
+example_end
+
+
+
+Sent: not my icecream .
+Sem:  lambda $0_{ev}.not(pro:poss:det|my($1,n|+n|ice+n|cream($1)),$0)
+example_end
+
+
+
+Sent: she 's gonna take a nap .
+Sem:  lambda $0_{ev}.aux|be&3S(and(part|go-PROG(pro|she,$0),v|take(pro|she,det|a($1,n|nap($1)),$0)),$0)
+example_end
+
