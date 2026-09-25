@@ -7,18 +7,24 @@
 You need [uv](https://docs.astral.sh/uv/) and a Python that satisfies `>=3.11`.
 
 1. Create a virtual environment with a fixed Python version (run this in the directory where you want `.venv`, e.g. the repo root for a clone):
-  ```bash
+
+   ```bash
    uv venv --python 3.11 # or 3.12 or 3.13
-  ```
+   ```
+
 2. Activate it. On Linux or macOS:
-  ```bash
+
+   ```bash
    source .venv/bin/activate
-  ```
+   ```
+
    On Windows, use `.venv\Scripts\activate` (cmd) or `.\.venv\Scripts\Activate.ps1` (PowerShell).
+
 3. Install into that environment, using the published package from PyPI:
-  ```bash
+
+   ```bash
    uv pip install dynamicsyntax
-  ```
+   ```
 
 ## Examples
 
@@ -36,7 +42,7 @@ print(p.vis())      # Visualise the parse tree
 
 ## Get Involved
 
-Contributions (issues, PRs, [donations (spent on coffee/LLM credits!)](https://buymeacoffee.com/incrementaliser)) are very welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+Contributions (issues, PRs, [donations (for coffee or LLM credits!)](https://buymeacoffee.com/incrementaliser)) are very welcome! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for more details.
 
 **Note**
 Since this project has been translated using Cursor and tested only on Windows, there is a small chance errors exist. I would be grateful if you could report them to me through the above channels. Although, it is important to mention that some of the most critical methods here have been verified via unit tests, so there is a high chance the migration from Java has been correct so far.
