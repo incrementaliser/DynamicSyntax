@@ -61,6 +61,82 @@ class LambdaTTRConversionError(Exception):
     """A lambda formula could not be rewritten with the existing rules."""
 
 
+_TRUNCATED_NOT = re.compile(r"not\(\$([0-9]),\)")
+
+
+def repair_lambda(semantics: str) -> tuple[str, str | None]:
+    """Repair ill-formed Eve formulae enough for the existing rules to run.
+
+    Truncated ``not($0,)`` becomes a negation of an underspecified event.
+    A missing closing parenthesis is added, and an empty conjunct (``,,``)
+    is dropped.
+
+    :param semantics: Source formula, possibly ill-formed.
+    :returns: The formula to convert, and a repair tag or ``None``.
+    """
+    text = semantics.strip()
+    tag: str | None = None
+    opens = text.count("(")
+    closes = text.count(")")
+    if opens > closes:
+        text = text + (")" * (opens - closes))
+        tag = "unbalanced"
+    if ",," in text:
+        text = text.replace(",,", ",")
+        tag = "unbalanced" if tag is None else tag
+    repaired = _TRUNCATED_NOT.sub(r"not(v|unspec($\1),$\1)", text)
+    if repaired != text:
+        tag = "truncated-not"
+    lifted = _lift_buried_event("not", repaired)
+    if lifted != repaired:
+        tag = "unbalanced" if tag is None else tag
+        repaired = lifted
+    lifted_q = _lift_buried_event("Q", repaired)
+    if lifted_q != repaired:
+        tag = "unbalanced" if tag is None else tag
+        repaired = lifted_q
+    return repaired, tag
+
+
+def _lift_buried_event(wrapper: str, text: str) -> str:
+    """Move an event variable out of a one-argument ``not`` or ``Q``.
+
+    ``not(and(pro|me,$0))`` has no event argument of its own. The rules
+    want ``not(and(pro|me),$0)``. The same shape occurs under ``Q``.
+
+    :param wrapper: ``not`` or ``Q``.
+    :param text: Formula after parenthesis repair.
+    :returns: The formula, unchanged when *wrapper* already has two arguments.
+    """
+    needle = wrapper + "("
+    start = text.find(needle)
+    if start < 0:
+        return text
+    index = start + len(needle)
+    depth = 1
+    arg_start = index
+    top_comma = False
+    while index < len(text) and depth:
+        character = text[index]
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        elif character == "," and depth == 1:
+            top_comma = True
+        index += 1
+    if depth != 0 or top_comma:
+        return text
+    inner = text[arg_start:index]
+    match = re.search(r",(\$[0-9])(\))$", inner)
+    if match is None:
+        return text
+    body = inner[: match.start()] + match.group(2)
+    return text[:arg_start] + f"{body},{match.group(1)}" + text[index:]
+
+
 def _full(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
     """Return a full-string match, matching Java ``Matcher.matches``."""
     return pattern.fullmatch(text)
@@ -345,9 +421,13 @@ class LambdaTTRConverter:
         return new_var
 
     def convert(self, orig_childes: str, utterance: str) -> str:
-        """Convert one lambda formula paired with its utterance (Java ``TTRconvert``)."""
+        """Convert one lambda formula paired with its utterance.
+
+        Ill-formed Eve formulae are repaired first (:func:`repair_lambda`).
+        """
         self.__init__()
         self.utterance = utterance
+        orig_childes, _repair = repair_lambda(orig_childes)
         childes = orig_childes.strip()
         self.internal_event = self.fresh_var("ev", True)
         if childes.startswith("lambda"):
@@ -370,6 +450,11 @@ class LambdaTTRConverter:
             if variable in self.variables:
                 continue
             self.variables[variable] = self.fresh_var("e", True)
+        # Bare nouns are ``n|tiger($1)`` with no comma after the variable.
+        for match in re.finditer(r"\((\$[0-9])\)", childes):
+            variable = match.group(1)
+            if variable not in self.variables:
+                self.variables[variable] = self.fresh_var("e", True)
         self.head = ""
         for var, value in list(self.variables.items()):
             if value.startswith("e"):
@@ -532,9 +617,16 @@ class LambdaTTRConverter:
                     self.head = self.internal_event
                     head_type = "es"
             else:
-                if not self.head.startswith("x"):
+                # A nominal compound under Q still needs the event variable.
+                # Dropping it is what rejected ``whose icecream``.
+                if internal.startswith("n|+"):
+                    self.head = self.internal_event
+                    head_type = "es"
+                elif not self.head.startswith("x"):
                     self.head = self.fresh_var("e", True)
-                head_type = "e"
+                    head_type = "e"
+                else:
+                    head_type = "e"
             if head_type == "e":
                 for var in list(self.variables):
                     if var == self.event_var:
@@ -1162,6 +1254,8 @@ class LambdaTTRConverter:
                 new_head = label
         if new_head == "":
             raise LambdaTTRConversionError("control verb has no new head")
+        if len(self._subject_entities(ttrs)) > 1:
+            return self._link_object_control(ttrs)
         subject = ""
         remove: list[int] = []
         additions: list[TTRField] = []
@@ -1215,6 +1309,59 @@ class LambdaTTRConverter:
         return ttrs
 
     @staticmethod
+    def _subject_entities(ttrs: list[TTRField]) -> set[str]:
+        """Return the entity labels used as ``subj`` arguments."""
+        entities: set[str] = set()
+        for myfield in ttrs:
+            manifest = myfield.get_type()
+            if not isinstance(manifest, PredicateArgumentFormula):
+                continue
+            if not str(manifest).startswith("subj("):
+                continue
+            args = list(manifest.arguments)
+            if len(args) > 1:
+                entities.add(str(args[1]))
+        return entities
+
+    def _link_object_control(self, ttrs: list[TTRField]) -> list[TTRField]:
+        """Keep both events when a control verb and its complement have different subjects.
+
+        The embedded subject is the matrix object (``you want me to …``).
+        ``head`` stays the matrix event.
+
+        :param ttrs: Fields already built for the conjunction.
+        :returns: The same fields, plus an ``obj`` link when the matrix event lacks one.
+        """
+        embedded = ""
+        for myfield in ttrs:
+            manifest = myfield.get_type()
+            if not isinstance(manifest, PredicateArgumentFormula):
+                continue
+            if not str(manifest).startswith("subj("):
+                continue
+            args = list(manifest.arguments)
+            if len(args) > 1 and str(args[0]) != self.head:
+                embedded = str(args[1])
+        if embedded == "":
+            return ttrs
+        for myfield in ttrs:
+            manifest = myfield.get_type()
+            if not isinstance(manifest, PredicateArgumentFormula):
+                continue
+            if not str(manifest).startswith("obj("):
+                continue
+            args = list(manifest.arguments)
+            if len(args) > 1 and str(args[0]) == self.head and str(args[1]) == embedded:
+                return ttrs
+        linked = TTRField.parse(
+            f"{self.fresh_var('p', True)}==obj({self.head},{embedded}):t"
+        )
+        if linked is None:
+            raise LambdaTTRConversionError("object-control link did not parse")
+        ttrs.append(linked)
+        return ttrs
+
+    @staticmethod
     def _must_field(text: str) -> TTRField:
         """Parse *text* or raise when it is not a TTR field."""
         parsed = TTRField.parse(text)
@@ -1239,9 +1386,14 @@ class LambdaPair:
     """One utterance/formula pair from a ``trainPairs`` file."""
 
     file_index: int
+    sample_index: int
     utterance: str
     semantics: str
     commented: bool
+
+    def source_comment(self) -> str:
+        """Back-reference ``trainPairs_N`` and the 1-based block in that file."""
+        return f"trainPairs_{self.file_index} {self.sample_index}"
 
 
 def iter_train_pairs(folder: str | Path) -> list[LambdaPair]:
@@ -1258,6 +1410,7 @@ def iter_train_pairs(folder: str | Path) -> list[LambdaPair]:
         sent: str | None = None
         sem: str | None = None
         commented = False
+        sample_index = 0
         for raw in path.read_text(encoding="utf-8").splitlines():
             line = raw.strip()
             if line.startswith("//Sent:"):
@@ -1273,12 +1426,14 @@ def iter_train_pairs(folder: str | Path) -> list[LambdaPair]:
                 sem = line.split(":", 1)[1].strip()
             elif line.startswith("//example_end"):
                 if sent is not None and sem is not None:
-                    pairs.append(LambdaPair(index, sent, sem, True))
+                    sample_index += 1
+                    pairs.append(LambdaPair(index, sample_index, sent, sem, True))
                 sent = sem = None
                 commented = False
             elif line.startswith("example_end"):
                 if sent is not None and sem is not None:
-                    pairs.append(LambdaPair(index, sent, sem, commented))
+                    sample_index += 1
+                    pairs.append(LambdaPair(index, sample_index, sent, sem, commented))
                 sent = sem = None
                 commented = False
     return pairs
@@ -1340,7 +1495,12 @@ def convert_train_pair_folder(
                 report.failures.append((pair.utterance, pair.semantics, f"{type(exc).__name__}: {exc}"))
             continue
         report.converted += 1
-        lines.append(f"Sent : {pair.utterance}\nSem : {ttr}\nFile : {pair.file_index}\n")
+        comment = pair.source_comment()
+        lines.append(
+            f"Sent : {pair.utterance} // {comment}\n"
+            f"Sem : {ttr} // {comment}\n"
+            f"File : {pair.file_index}\n"
+        )
     if target is not None:
         path = Path(target)
         path.parent.mkdir(parents=True, exist_ok=True)

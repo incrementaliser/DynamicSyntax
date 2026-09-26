@@ -51,13 +51,50 @@ def test_eve_lambda_matches_published_ttr(utterance: str, semantics: str, expect
     assert convert_lambda(semantics, utterance) == expected
 
 
-def test_object_control_is_rejected_by_existing_rules() -> None:
-    """Java throws when the two subjects of a control conjunction differ."""
-    with pytest.raises(LambdaTTRConversionError, match="object-control"):
-        convert_lambda(
-            "lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|have(pro|me,pro|it,$0)),$0)",
-            "you want me to have it",
-        )
+def test_object_control_keeps_both_subjects() -> None:
+    """``you want me to have it`` keeps the wanter and the embedded subject."""
+    ttr = convert_lambda(
+        "lambda $0_{ev}.Q(and(v|want(pro|you,$0),v|have(pro|me,pro|it,$0)),$0)",
+        "you want me to have it",
+    )
+    assert "e1==want" in ttr
+    assert "e2==have" in ttr
+    assert "x==you" in ttr
+    assert "x2==me" in ttr
+    assert "obj(e1, x2)" in ttr
+    assert "head==e1" in ttr
+
+
+def test_whose_icecream_converts() -> None:
+    """``whose icecream`` is an equative question, not a dropped event variable."""
+    ttr = convert_lambda(
+        "lambda $0_{ev}.Q(n|+n|ice+n|cream(pro|it),$0)",
+        "whose icecream is it",
+    )
+    assert "eq" in ttr
+    assert "icecream" in ttr
+    assert "it" in ttr
+
+
+def test_truncated_negation_converts() -> None:
+    """``not($0,)`` becomes negation of an underspecified event."""
+    from dylan.induction.em_learner.lambda_ttr_converter import repair_lambda
+
+    repaired, tag = repair_lambda("lambda $0_{ev}.not($0,)")
+    assert tag == "truncated-not"
+    assert "v|unspec" in repaired
+    ttr = convert_lambda("lambda $0_{ev}.not($0,)", "you didn't buy it")
+    assert "not_feature" in ttr
+
+
+def test_unbalanced_negation_converts() -> None:
+    """A missing parenthesis and an empty conjunct are repaired, then converted."""
+    from dylan.induction.em_learner.lambda_ttr_converter import repair_lambda
+
+    _repaired, tag = repair_lambda("lambda $0_{ev}.not(and(pro|me,,$0)")
+    assert tag == "unbalanced"
+    ttr = convert_lambda("lambda $0_{ev}.not(and(pro|me,,$0)", "not me and Cromer")
+    assert "not_feature" in ttr or "and" in ttr
 
 
 def test_adam_mor_tier_is_not_the_lambda_format() -> None:

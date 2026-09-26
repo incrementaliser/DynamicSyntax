@@ -67,7 +67,29 @@ Failures: data/CHILDES/eve/ttr/eve-failures.txt
 Producer: scripts/convert_childes_lambda.py
 Library: dylan.induction.em_learner.lambda_ttr_converter.convert_lambda
 Java source of the rules: qmul.ds.learn.CorpusConverter.TTRconvert
-Counts from the 2026-09-25 run: 4645 blocks, 28 commented out,
-4581 converted, 36 rejected by the existing rules.
-The published Java run stopped after 400 successes
-(CHILDESconversion400Final.txt). That cap is not applied here.
+Counts: 4645 blocks, 28 commented out, 4617 converted, 0 rejected.
+12 formulae were repaired first (11 truncated not, 1 unbalanced);
+see eve-repairs.txt. Each Sent and Sem line carries
+// trainPairs_N sample. The published Java run stopped after 400
+successes (CHILDESconversion400Final.txt). That cap is not applied here.
+
+Adam logical forms (not the raw zip)
+-------------------------------------
+Source repo: https://github.com/Lou1sM/CHILDES_UD2LF_2
+Commit: 85004c98f8226f33fe7964d245322acee4af4c0b (2024-04-02)
+Paper: Szubert et al., arXiv 2109.10952
+Files used: LF_files/full_adam/adam.all_lf.txt (13593 LFs)
+and conll/split_adam/adamN.conll.txt (16474 sentences in the local split;
+the README states 17233 UD trees). Hebrew Hagar was not downloaded.
+Comparison list: https://github.com/ida-szubert/ccg_acquisition_2
+trainFiles/Adam.all_easy_lf.txt at f2a2464c5b38e2623acdd91f70e48f622f733704
+(5734 distinct sentences). Mahon et al. 2025 (arXiv 2503.12832) cite
+5320 utterances; that filtered list is not in the public files.
+Local raw path (gitignored): data/raw/childes/szubert/
+License: the sentences are Brown CHILDES, CC BY-NC-SA 3.0, as above.
+The annotation repo has no separate LICENSE file.
+Converted TTR: data/CHILDES/adam/ttr/adam-ttr.txt (7859)
+Failures: data/CHILDES/adam/ttr/adam-failures.txt (5734)
+Report: data/CHILDES/adam/ttr/coverage.txt
+Producer: scripts/convert_szubert_lambda.py
+Library: dylan.induction.em_learner.szubert_lambda.convert_szubert_lambda

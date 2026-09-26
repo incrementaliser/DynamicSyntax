@@ -1,0 +1,63 @@
+Ill-formed Eve formulae repaired before TTR conversion.
+truncated-not: not($0,) has no embedded proposition.
+unbalanced: missing parenthesis or an empty conjunct.
+
+Sent : you didn 't spill your pure cream . // trainPairs_11 109
+Sem : lambda $0_{ev}.not($0,) // trainPairs_11 109
+File : 11
+Repair : truncated-not
+
+Sent : you didn 't buy it . // trainPairs_13 39
+Sem : lambda $0_{ev}.not($0,) // trainPairs_13 39
+File : 13
+Repair : truncated-not
+
+Sent : it didn 't cut your chin . // trainPairs_16 18
+Sem : lambda $0_{ev}.not($0,) // trainPairs_16 18
+File : 16
+Repair : truncated-not
+
+Sent : not me and Cromer . // trainPairs_16 131
+Sem : lambda $0_{ev}.not(and(pro|me,,$0) // trainPairs_16 131
+File : 16
+Repair : unbalanced
+
+Sent : they didn 't say a thing . // trainPairs_16 223
+Sem : lambda $0_{ev}.not($0,) // trainPairs_16 223
+File : 16
+Repair : truncated-not
+
+Sent : you didn 't forget it . // trainPairs_17 199
+Sem : lambda $0_{ev}.not($0,) // trainPairs_17 199
+File : 17
+Repair : truncated-not
+
+Sent : you didn 't forget it . // trainPairs_17 201
+Sem : lambda $0_{ev}.not($0,) // trainPairs_17 201
+File : 17
+Repair : truncated-not
+
+Sent : he didn 't hear you . // trainPairs_18 2
+Sem : lambda $0_{ev}.not($0,) // trainPairs_18 2
+File : 18
+Repair : truncated-not
+
+Sent : but he didn 't hear you . // trainPairs_18 4
+Sem : lambda $0_{ev}.not($0,) // trainPairs_18 4
+File : 18
+Repair : truncated-not
+
+Sent : he didn 't buy us a new house . // trainPairs_19 54
+Sem : lambda $0_{ev}.not($0,) // trainPairs_19 54
+File : 19
+Repair : truncated-not
+
+Sent : you didn 't buy some salt . // trainPairs_19 66
+Sem : lambda $0_{ev}.not($0,) // trainPairs_19 66
+File : 19
+Repair : truncated-not
+
+Sent : I didn 't hear you . // trainPairs_20 153
+Sem : lambda $0_{ev}.not($0,) // trainPairs_20 153
+File : 20
+Repair : truncated-not

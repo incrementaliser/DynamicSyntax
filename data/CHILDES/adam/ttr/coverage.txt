@@ -1,0 +1,29 @@
+Adam logical forms to TTR
+source_lf=13593
+conll_sentences=16474
+aligned=12990
+converted=7859
+failed=5734
+comparison_utterances_in_easy_file=5734
+comparison_rows=7612
+comparison_converted=4629
+The papers report 5320 Adam utterances after dropping communicator words.
+The public learner file Adam.all_easy_lf.txt has 5734 distinct sentences; that list is the comparison flag.
+Higher-order adjuncts written as $n($m) are removed before conversion.
+A wh-adjunct with no lexical preposition is therefore absent from the TTR.
+Top failure reasons:
+  1013	agenda exceeded Java cap of 100 nodes
+  845	converter did not finish (missing rule)
+  294	TTR field did not parse: 'p==and(x,'
+  228	TTR field did not parse: 'p==and(x1,'
+  53	no final event var $dummy in $0
+  31	TTR field did not parse: 'p==and(x2,'
+  19	no final event var $0 in $1
+  16	no final event var $dummy in pro|what
+  14	TTR field did not parse: 'x2==and(x3,'
+  14	unknown predicate type in pro:dem|that(n|color($2),$0)
+  12	unknown predicate type in pro|something($1)
+  12	no final event var $0 in adj|nice(pro:dem|that,$0)
+  11	no matching variable in $2(qn|many($1))
+  11	no matching variable in $1(pro:dem|this,n|color(pro:dem|this,$0))
+  10	unknown predicate type in qn|one($1)

@@ -15,6 +15,7 @@ from dylan.induction.em_learner.lambda_ttr_converter import (
     convert_lambda,
     convert_train_pair_folder,
     iter_train_pairs,
+    repair_lambda,
 )
 
 
@@ -37,6 +38,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional path for utterances the existing rules reject",
     )
+    parser.add_argument(
+        "--repairs",
+        type=Path,
+        default=None,
+        help="Optional path for ill-formed formulae that were repaired",
+    )
     return parser.parse_args(argv)
 
 
@@ -55,18 +62,51 @@ def write_failures(folder: Path, path: Path) -> int:
         except LambdaTTRConversionError as exc:
             failed += 1
             lines.append(
-                f"Sent : {pair.utterance}\nSem : {pair.semantics}\n"
+                f"Sent : {pair.utterance} // {pair.source_comment()}\n"
+                f"Sem : {pair.semantics} // {pair.source_comment()}\n"
                 f"File : {pair.file_index}\nError : {exc}\n"
             )
         except Exception as exc:  # noqa: BLE001 — record unexpected gaps in the batch log
             failed += 1
             lines.append(
-                f"Sent : {pair.utterance}\nSem : {pair.semantics}\n"
+                f"Sent : {pair.utterance} // {pair.source_comment()}\n"
+                f"Sem : {pair.semantics} // {pair.source_comment()}\n"
                 f"File : {pair.file_index}\nError : {type(exc).__name__}: {exc}\n"
             )
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not lines:
+        lines.append("No conversion failures.\n")
     path.write_text("\n".join(lines), encoding="utf-8")
     return failed
+
+
+def write_repairs(folder: Path, path: Path) -> int:
+    """Record ill-formed source formulae that were repaired before conversion.
+
+    :returns: Number of repaired non-commented pairs.
+    """
+    lines = [
+        "Ill-formed Eve formulae repaired before TTR conversion.",
+        "truncated-not: not($0,) has no embedded proposition.",
+        "unbalanced: missing parenthesis or an empty conjunct.",
+        "",
+    ]
+    count = 0
+    for pair in iter_train_pairs(folder):
+        if pair.commented:
+            continue
+        _repaired, tag = repair_lambda(pair.semantics)
+        if tag is None:
+            continue
+        count += 1
+        lines.append(
+            f"Sent : {pair.utterance} // {pair.source_comment()}\n"
+            f"Sem : {pair.semantics} // {pair.source_comment()}\n"
+            f"File : {pair.file_index}\nRepair : {tag}\n"
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return count
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -76,6 +116,8 @@ def main(argv: list[str] | None = None) -> None:
     print(report.summary())
     if args.failures is not None:
         print(f"failures_written={write_failures(args.folder, args.failures)}")
+    if args.repairs is not None:
+        print(f"repairs_written={write_repairs(args.folder, args.repairs)}")
 
 
 if __name__ == "__main__":

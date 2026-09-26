@@ -71,17 +71,31 @@ The parser targets **English** (bundled `2015-english-ttr` and the induction see
 
 **Lambda → TTR entry points**
 
-- `convert_lambda(semantics, utterance)` in `src/dylan/induction/em_learner/lambda_ttr_converter.py` — port of Java `qmul.ds.learn.CorpusConverter.TTRconvert` and `CorpusConverterAgenda`.
-- `scripts/convert_childes_lambda.py FOLDER OUTPUT --failures PATH` reads `trainPairs_*` and writes `Sent` / `Sem` / `File` blocks.
+- `convert_lambda(semantics, utterance)` in `src/dylan/induction/em_learner/lambda_ttr_converter.py` — Eve lambda to a TTR record type.
+- `normalize_szubert_lambda(semantics)` in `src/dylan/induction/em_learner/szubert_lambda.py` — published Adam lambda (`_{r}`, `mod|`, `eat_4`, `BARE`, embedded `lambda`) into that Eve dialect. `convert_szubert_lambda` calls both.
+- `scripts/convert_childes_lambda.py FOLDER OUTPUT --failures PATH --repairs PATH` reads `trainPairs_*` and writes `Sent` / `Sem` blocks with a `// trainPairs_N sample` comment.
+- `scripts/convert_szubert_lambda.py` writes Adam `Sent` / `Sem` / `TTR` blocks plus `coverage.txt`.
 - `CorpusConverter` and `RMRS_TTR_converter` do not implement this rewrite. `CorpusConverter.convert` only reloads an existing TTR corpus file. `RMRS_TTR_converter` is a stub in both the Python port and the Java source.
 
-**Eve TTR coverage** (`data/CHILDES/eve/ttr/eve-ttr.txt`, failures in `eve-failures.txt`):
+**Eve TTR coverage** (`data/CHILDES/eve/ttr/eve-ttr.txt`, failures in `eve-failures.txt`, repairs in `eve-repairs.txt`):
 
 | | utterances |
 |---|---|
 | Brown Eve CHAT | 26920 |
 | Lambda blocks | 4645 (28 commented) |
-| Converted to TTR | 4581 |
-| Rejected by existing rules | 36 |
+| Converted to TTR | 4617 |
+| Rejected | 0 |
+| Repaired before conversion | 12 |
 
-`main` had no Eve files. The Java `CHILDESconvert` method stops after 400 successes; that partial file is on branch `CHILDES-TEST`, not on `main`. The 36 rejections are object-control (`want me to …`, 21), truncated `not($0,)` formulae (11), `whose icecream` nominal compounds under `Q` (3), and one unbalanced `not(and(pro|me,,$0)`. Do not treat CHAT `%mor` lines as converter input: they are a different format. A few degenerate one-word strings can fall through to a placeholder `[x : e|head==x : e]`.
+`main` had no Eve files. The Java `CHILDESconvert` method stops after 400 successes; that partial file is on branch `CHILDES-TEST`, not on `main`. The Python converter now also covers object control with different subjects (`you want me to have it`), `whose icecream` as an equative question, truncated `not($0,)` (11, tag `truncated-not`), and one unbalanced `not(and(pro|me,,$0)` (tag `unbalanced`). Each `Sent` and `Sem` line ends with `// trainPairs_N sample`. Do not treat CHAT `%mor` lines as converter input: they are a different format. Do not emit the placeholder `[x : e|head==x : e]` for a failed formula.
+
+**Adam logical forms → TTR**
+
+Szubert et al. (arXiv 2109.10952, repo `Lou1sM/CHILDES_UD2LF_2` at `85004c98`) already turn manual Adam UD trees into lambda. Mahon, Johnson, and Steedman (2025, arXiv 2503.12832) train a CCG learner on that lambda; this repo does not port the learner. The TTR path is their released logical form, normalized into the Eve dialect, then `convert_lambda`.
+
+- `normalize_szubert_lambda` / `convert_szubert_lambda` in `src/dylan/induction/em_learner/szubert_lambda.py`
+- `scripts/convert_szubert_lambda.py` reads `adam.all_lf.txt`, the `adamN.conll.txt` split, and `Adam.all_easy_lf.txt` from `ida-szubert/ccg_acquisition_2`
+- Output: `data/CHILDES/adam/ttr/adam-ttr.txt` (`Sent` / `Sem` / `TTR`), `adam-failures.txt`, `coverage.txt`
+- Raw downloads stay in gitignored `data/raw/childes/szubert/`
+
+Each comment is `adamN.conll.txt INDEX comparison=paper|extra`, plus a Brown `.cha` path and adult-line index when that string matches exactly one adult line in the Eng-NA zip. `comparison=paper` means the utterance is in `Adam.all_easy_lf.txt` (5734 distinct sentences). The papers’ 5320-utterance filter is not in the public files; that easy file is the comparison flag. Of 13593 released Adam LFs, 7859 convert (4629 of the 7612 rows whose text is in the easy file). Hebrew Hagar and childes-db are not converted here. A higher-order adjunct `$n($m)` with no lexical preposition is dropped before conversion.
