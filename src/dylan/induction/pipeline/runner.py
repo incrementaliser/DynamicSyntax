@@ -180,6 +180,8 @@ def _run_one(
         show_progress=config.train.show_progress,
         force_train=config.train.force_train,
         reuse_existing_model=config.train.reuse_existing_model,
+        max_normalized_entropy=config.model.max_normalized_entropy,
+        min_word_count=config.model.min_word_count,
     )
     reused = train_s == 0.0 and config.train.reuse_existing_model
     _print_train_stage(lexicon_prefix, train_s, reused=reused)

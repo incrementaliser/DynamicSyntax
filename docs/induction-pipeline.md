@@ -44,6 +44,8 @@ Example configs live under [`configs/induction/`](../configs/induction/):
 - `use_previous_model` — if `true`, continue learning from `previous_model`
 - `previous_model` — directory that **directly** contains `lexicon-top-N.txt` (for new runs: `out/runs/<run>/models/`). Nested folders are not searched. Ignored unless `use_previous_model`
 - `top_n` — lexicon ranks to save / evaluate up to
+- `max_normalized_entropy` — parse a word only when its normalized hypothesis entropy is at most this value (default `0.5`). See [induction-parse-learn-gate.md](induction-parse-learn-gate.md)
+- `min_word_count` — and the word has been updated on at least this many examples (default `5`)
 
 ### `train`
 
@@ -74,6 +76,7 @@ Each run creates a directory like `out/runs/20260710-161500_induction-holdout/` 
 |----------|----------|
 | `run_config.yaml` | Resolved config (after `--set`) |
 | `models/lexicon-top-N.txt` | Learnt lexicons |
+| `models/hypothesis-base.json` | Full hypothesis distributions for continue-learning |
 | `data/` | Saved train/test/(val) corpora (if `save_splits`) |
 | `eval-scores.tsv` | Tab-separated P/R/F1/coverage/EM |
 | `full_run_report.txt` | Cov/EM then P/R/F1 score tables, timing (`HH-MM-SS`), config, metadata |

@@ -21,6 +21,8 @@ model:
   previous_model: null
   # Number of top lexicon ranks to save / evaluate up to
   top_n: 2
+  max_normalized_entropy: 0.5
+  min_word_count: 5
 
 train:
   # Show EM learning progress bar

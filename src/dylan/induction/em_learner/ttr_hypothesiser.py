@@ -25,7 +25,8 @@ from dylan.dag.uttered_word import UtteredWord
 from dylan.formula.ttr_formula import TTRFormula
 from dylan.formula.ttr_record_type import HEAD, TTRRecordType
 from dylan.induction.em_learner.candidate_sequence import CandidateSequence
-from dylan.induction.em_learner.common import Word, sentence_from_text
+from dylan.induction.em_learner.common import Word, as_word, sentence_from_text
+from dylan.induction.em_learner.explore_gate import ExploreGate
 from dylan.induction.em_learner.hypothesiser import Hypothesiser
 from dylan.induction.em_learner.lexical_hypothesis import LexicalHypothesis
 from dylan.induction.em_learner.tree_hypothesis import TreeHypothesis
@@ -304,17 +305,21 @@ class TTRHypothesiser(Hypothesiser):
         max_sem = result.get_maximal_semantics(tup)
         return bool(max_sem.subsumes(self.target_type))
 
-    def apply_known_lexical(self) -> None:
-        """Apply seed lexicon for stack top using semantics vs :attr:`target_type` (Java ``applyKnownLexical``)."""
+    def apply_known_lexical(self) -> bool:
+        """Apply seed lexicon for stack top using semantics vs :attr:`target_type` (Java ``applyKnownLexical``).
+
+        Returns whether at least one entry applied and its semantics still subsume the target.
+        """
         stack = self.state.word_stack
         if not stack or self.target_type is None:
-            return
+            return False
         top_word = stack[-1].word
         entries = (
             self.seed_lexicon.get(top_word)
             if hasattr(self.seed_lexicon, "get")
             else self.seed_lexicon[top_word]
         )
+        added = False
         for action in entries or []:
             cur = self.state.get_current_tuple()
             t = cur.get_tree()
@@ -328,6 +333,35 @@ class TTRHypothesiser(Hypothesiser):
             if not self._result_tree_subsumes_target(result, cur):
                 continue
             self.state.add_child(result, action.instantiate(), stack[-1])
+            added = True
+        return added
+
+    def _apply_gated_lexical(self, gate: ExploreGate) -> None:
+        """Parse *word* only when entropy, count, and a current action all succeed.
+
+        Otherwise hypothesise. A seed-lexicon word below the thresholds is hypothesised
+        as well, and its current actions are still tried so the old analysis stays a candidate.
+        """
+        stack = self.state.word_stack
+        cur = self.state.get_current_tuple()
+        target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
+        if not stack:
+            self.apply_lexical_hypotheses(target_tree)
+            return
+        word = as_word(stack[-1].word)
+        entries = (
+            self.seed_lexicon.get(word.word())
+            if hasattr(self.seed_lexicon, "get")
+            else self.seed_lexicon[word.word()]
+        )
+        has_actions = bool(entries)
+        eligible = gate.entropy_and_count_met(word)
+        applied = self.apply_known_lexical() if has_actions else False
+        if eligible and applied:
+            gate.note_win_stay(word)
+            return
+        self.apply_lexical_hypotheses(target_tree)
+        gate.note_search(word)
 
     def apply_non_optional_grammar(self, target: Tree | None = None) -> None:
         """Chain non-optional actions while each result's maximal semantics still subsume ``target_type`` (Java)."""
@@ -607,29 +641,35 @@ class TTRHypothesiser(Hypothesiser):
             logger.warning("got to complete tree, but no two-way subsumption: %s", cur.get_tree())
         if not self.state.at_root() and not prev_action_name.startswith(self.HYP_ADJUNCTION_PREFIX) and not done_with_branch:
             stack = self.state.word_stack
-            top_known = bool(stack) and (
-                self.seed_lexicon.contains_key(stack[-1].word)
-                if hasattr(self.seed_lexicon, "contains_key")
-                else stack[-1].word in self.seed_lexicon
-            )
-            if top_known:
-                self.apply_known_lexical()
-                if self.word_index > 0:
-                    prev_word = self.all_words[self.word_index - 1].word()
-                    prev_known = (
-                        self.seed_lexicon.contains_key(prev_word)
-                        if hasattr(self.seed_lexicon, "contains_key")
-                        else prev_word in self.seed_lexicon
-                    )
-                    if not prev_known:
-                        target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
-                        self.apply_lexical_hypotheses(target_tree)
-                target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
+            if self.explore_gate is not None:
+                self._apply_gated_lexical(self.explore_gate)
+                tup = self.state.get_current_tuple()
+                target_tree = tup.get_target_tree() if hasattr(tup, "get_target_tree") else self.target_type
                 self.apply_optional_grammar(target_tree)
             else:
-                target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
-                self.apply_lexical_hypotheses(target_tree)
-                self.apply_optional_grammar(target_tree)
+                top_known = bool(stack) and (
+                    self.seed_lexicon.contains_key(stack[-1].word)
+                    if hasattr(self.seed_lexicon, "contains_key")
+                    else stack[-1].word in self.seed_lexicon
+                )
+                if top_known:
+                    self.apply_known_lexical()
+                    if self.word_index > 0:
+                        prev_word = self.all_words[self.word_index - 1].word()
+                        prev_known = (
+                            self.seed_lexicon.contains_key(prev_word)
+                            if hasattr(self.seed_lexicon, "contains_key")
+                            else prev_word in self.seed_lexicon
+                        )
+                        if not prev_known:
+                            target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
+                            self.apply_lexical_hypotheses(target_tree)
+                    target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
+                    self.apply_optional_grammar(target_tree)
+                else:
+                    target_tree = cur.get_target_tree() if hasattr(cur, "get_target_tree") else self.target_type
+                    self.apply_lexical_hypotheses(target_tree)
+                    self.apply_optional_grammar(target_tree)
         # do/while DAG search
         while True:
             traversed = self.state.go_first()

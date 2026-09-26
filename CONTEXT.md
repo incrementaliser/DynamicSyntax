@@ -58,3 +58,14 @@ _Avoid_: Init
 **Continuation**:
 A sentence whose words start with the words already in the derivation.
 _Avoid_: prefix
+
+**Induction vocabulary**:
+Words already learned: the seed lexicon plus any word with a distribution in the hypothesis base.
+_Avoid_: parser display vocab (`Lexicon.get_vocab`)
+
+**Parse-only**:
+Using a word's current lexical actions on this training example without adding hypotheses or updating its probabilities. Requires low normalized entropy, enough example-counts, and an action that applies.
+_Avoid_: DAG tuple (see Interpretation)
+
+**Lexical hypothesis**:
+A candidate lexical action stored with a probability in `WordHypothesisBase`, as opposed to a fixed seed `LexicalAction`.

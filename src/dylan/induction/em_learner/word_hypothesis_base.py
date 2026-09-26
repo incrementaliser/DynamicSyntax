@@ -6,15 +6,16 @@ the per-example local EM update from the original Eshghi paper.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from dylan.action.lexicon import Lexicon
 from dylan.induction.em_learner.candidate_sequence import CandidateSequence
 from dylan.induction.em_learner.common import Word, as_word
-from dylan.induction.em_learner.word_hypothesis import WordHypothesis
+from dylan.induction.em_learner.word_hypothesis import IllegalStateError, WordHypothesis
 from dylan.induction.em_learner.word_log_prob_distribution import WordLogProbDistribution
 
 logger = logging.getLogger(__name__)
@@ -357,6 +358,46 @@ class WordHypothesisBase:
             out.write_text("\n".join(lines), encoding="utf-8")
         logger.info("Saved top-%d lexicon to %s", top_n, out)
 
+    # ---------------- JSON persistence ----------------
+
+    def save_json(self, path: str | Path, grammar: Any | None = None) -> None:
+        """Write this base to *path* as JSON.
+
+        Persists ``num_training_so_far`` and each word's prior: weight, hypothesis id
+        counter, and each hypothesis's log-probability, intersection count, and maximal
+        action sequences. Current-example rows are omitted; they are cleared after every
+        example. Computational actions are stored by grammar name and resolved from
+        *grammar* on load.
+        """
+        payload = {
+            "version": 1,
+            "num_training_so_far": self.num_training_so_far,
+            "words": [_word_to_json(word, dist) for word, dist in self.prior_dist.items()],
+        }
+        logger.debug(
+            "saving hypothesis base (grammar %s)",
+            type(grammar).__name__ if grammar is not None else "unset",
+        )
+        out = Path(path)
+        out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        logger.info("Saved hypothesis base to %s", out)
+
+    def load_json(self, path: str | Path, grammar: Any | None = None) -> None:
+        """Replace this base with the hypothesis base stored at *path*.
+
+        Action sequences are replayed with :meth:`WordHypothesis.intersect_into`.
+        A computational action whose name is missing from *grammar* raises ``ValueError``.
+        """
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            raise ValueError(f"unsupported hypothesis-base JSON in {path}")
+        self.reset()
+        self.num_training_so_far = int(raw.get("num_training_so_far", 0))
+        for entry in raw.get("words", []):
+            word, dist = _word_from_json(entry, grammar)
+            self.prior_dist[word] = dist
+        logger.info("Loaded hypothesis base from %s (%d words)", path, len(self.prior_dist))
+
     # ---------------- pretty printing ----------------
 
     def __str__(self) -> str:
@@ -365,6 +406,142 @@ class WordHypothesisBase:
         for row in self.tuples:
             result.append("|".join(f"{h})" for h in row))
         return "\n".join(result)
+
+
+def _json_float(value: float) -> float | str:
+    """Encode a log-probability so the file stays strict JSON."""
+    if math.isnan(value):
+        raise ValueError("NaN log-probability cannot be saved")
+    if math.isinf(value):
+        return "inf" if value > 0 else "-inf"
+    return value
+
+
+def _parse_json_float(value: float | str) -> float:
+    """Decode a log-probability written by :func:`_json_float`."""
+    if value == "inf":
+        return float("inf")
+    if value == "-inf":
+        return float("-inf")
+    return float(value)
+
+
+def _action_to_json(action: object) -> dict[str, Any]:
+    """Serialize one spine action to a JSON object."""
+    from dylan.action.computational_action import ComputationalAction
+    from dylan.action.lexical_action import LexicalAction
+    from dylan.induction.em_learner.lexical_hypothesis import LexicalHypothesis
+    from dylan.induction.em_learner.lexicon_export import effect_to_lexical_lines
+
+    if isinstance(action, ComputationalAction):
+        return {"kind": "computational", "name": action.get_name()}
+    if isinstance(action, LexicalHypothesis):
+        effect = action.get_effect()
+        lines = effect_to_lexical_lines(effect) if effect is not None else []
+        return {
+            "kind": "lexical_hypothesis",
+            "name": action.get_name(),
+            "has_semantic_content": bool(action.has_semantic_content),
+            "backtrack": bool(action.backtracks_on_success()),
+            "lines": lines,
+        }
+    if isinstance(action, LexicalAction):
+        return {
+            "kind": "lexical_action",
+            "word": action.word,
+            "lines": list(action._source_lines),
+            "action_type": action.action_type,
+            "no_left_adjustment": bool(action.no_left_adjustment),
+        }
+    raise TypeError(f"cannot serialize action type {type(action).__name__}")
+
+
+def _action_from_json(data: dict[str, Any], grammar: Any | None) -> object:
+    """Rebuild one spine action. Computational names must exist on *grammar*."""
+    from dylan.action.atomic.if_then_else import IfThenElse
+    from dylan.action.lexical_action import LexicalAction
+    from dylan.induction.em_learner.lexical_hypothesis import LexicalHypothesis
+
+    kind = data.get("kind")
+    if kind == "computational":
+        name = str(data.get("name", ""))
+        if grammar is None or name not in grammar:
+            raise ValueError(f"computational action {name!r} is not in the loaded grammar")
+        return grammar[name]
+    if kind == "lexical_hypothesis":
+        lines = [str(line) for line in data.get("lines") or []]
+        effect = IfThenElse.from_lines(lines) if lines else None
+        return LexicalHypothesis(
+            str(data.get("name", "")),
+            effect,
+            bool(data.get("has_semantic_content", False)),
+            bool(data.get("backtrack", False)),
+        )
+    if kind == "lexical_action":
+        return LexicalAction(
+            str(data.get("word", "")),
+            [str(line) for line in data.get("lines") or []],
+            data.get("action_type"),
+            bool(data.get("no_left_adjustment", False)),
+        )
+    raise ValueError(f"unknown action kind {kind!r}")
+
+
+def _word_to_json(word: Word, dist: WordLogProbDistribution) -> dict[str, Any]:
+    """Serialize one word's prior distribution."""
+    hypotheses: list[dict[str, Any]] = []
+    for hyp in dist.get_all_hyps():
+        try:
+            maximal = hyp.extract_maximal_action_sequences()
+        except IllegalStateError:
+            maximal = set()
+        sequences = [[_action_to_json(action) for action in sequence] for sequence in maximal]
+        hypotheses.append(
+            {
+                "hyp_id": hyp.hyp_id,
+                "log_prob": _json_float(hyp.get_log_prob()),
+                "howmany": hyp.get_count(),
+                "sequences": sequences,
+            },
+        )
+    return {
+        "word": word.word(),
+        "weight": dist.get_weight(),
+        "max_id": dist.max_id,
+        "hypotheses": hypotheses,
+    }
+
+
+def _word_from_json(
+    entry: dict[str, Any],
+    grammar: Any | None,
+) -> tuple[Word, WordLogProbDistribution]:
+    """Rebuild one word's prior by replaying stored action sequences."""
+    from dylan.dag.parser_tuple import ParserTuple
+    from dylan.induction.em_learner.candidate_sequence import CandidateSequence
+
+    surface = str(entry["word"])
+    word = as_word(surface)
+    dist = WordLogProbDistribution(
+        word, weight=float(entry.get("weight", 0.0)), max_id=int(entry.get("max_id", 0))
+    )
+    for hyp_entry in entry.get("hypotheses", []):
+        hyp_id = int(hyp_entry["hyp_id"])
+        hyp = WordHypothesis(hyp_id)
+        sequences = hyp_entry.get("sequences") or []
+        if sequences:
+            for sequence in sequences:
+                actions = [_action_from_json(action, grammar) for action in sequence]
+                candidate = CandidateSequence(ParserTuple(), actions, [word])
+                if not hyp.intersect_into(candidate):
+                    raise ValueError(f"failed to restore hypothesis {hyp_id} for {surface!r}")
+        else:
+            hyp.word = word
+        hyp.howmany = int(hyp_entry.get("howmany", hyp.howmany))
+        log_prob = _parse_json_float(hyp_entry.get("log_prob", 1.0))
+        hyp.set_log_prob(log_prob)
+        dist[hyp] = log_prob
+    return word, dist
 
 
 WordHypothesisBase.forgetCurrentDist = WordHypothesisBase.forget_current_dist  # type: ignore[attr-defined]

@@ -183,8 +183,16 @@ class CandidateSequence(list[Action]):
             raise RuntimeError(f"Result of action application was null: {action}")
         return ParserTuple(t)
 
-    def split(self) -> "set[tuple[CandidateSequence, ...]]":
-        """Java ``split``: enumerate all per-word splits with the formula-decoration constraint."""
+    def split(
+        self,
+        retain_lexical_words: set[str] | None = None,
+    ) -> "set[tuple[CandidateSequence, ...]]":
+        """Java ``split``: enumerate all per-word splits with the formula-decoration constraint.
+
+        Chunks that end in a seed :class:`LexicalAction` are dropped, unless the word is in
+        *retain_lexical_words*. Those chunks are kept with the lexical action wrapped as a
+        :class:`LexicalHypothesis` so a word being revised still carries its current action.
+        """
         num_formulae = self.num_formula_decorations()
         if len(self.words) != num_formulae:
             raise RuntimeError(
@@ -195,6 +203,9 @@ class CandidateSequence(list[Action]):
         if len(self.words) == 1:
             comp_removed = self.remove_computational_from_right()
             if comp_removed and isinstance(comp_removed[-1], LexicalAction):
+                retained = self._retain_lexical_chunk(comp_removed, retain_lexical_words)
+                if retained is not None:
+                    result.add((retained,))
                 return result
             result.add((comp_removed,))
             return result
@@ -217,15 +228,23 @@ class CandidateSequence(list[Action]):
                 continue
             chop_left = CandidateSequence(self.start, list(self[:j]), self.words[:1])
             rest = CandidateSequence(start, list(self[j:]), self.words[1:])
-            rest_splits = rest.split()
+            rest_splits = rest.split(retain_lexical_words)
             if not chop_left or not isinstance(chop_left[-1], LexicalAction):
                 if not rest_splits:
                     result.add((chop_left,))
                 for sub in rest_splits:
                     result.add((chop_left, *sub))
             else:
-                result.update(rest_splits)
-                break
+                retained = self._retain_lexical_chunk(chop_left, retain_lexical_words)
+                if retained is not None:
+                    if not rest_splits:
+                        result.add((retained,))
+                    for sub in rest_splits:
+                        result.add((retained, *sub))
+                    break
+                else:
+                    result.update(rest_splits)
+                    break
             while j < len(self) and (
                 isinstance(self[j], ComputationalAction)
                 or (self[j].get_name() if hasattr(self[j], "get_name") else "").startswith("hyp-adj")
@@ -242,6 +261,21 @@ class CandidateSequence(list[Action]):
                 break
             j += 1
         return result
+
+    def _retain_lexical_chunk(
+        self,
+        chunk: "CandidateSequence",
+        retain_lexical_words: set[str] | None,
+    ) -> "CandidateSequence | None":
+        """Wrap a trailing seed lexical action when its word is being revised."""
+        if not retain_lexical_words or not chunk or not isinstance(chunk[-1], LexicalAction):
+            return None
+        surface = chunk.words[0].word() if chunk.words else ""
+        if surface not in retain_lexical_words:
+            return None
+        actions = list(chunk)
+        actions[-1] = lexical_action_to_hypothesis(actions[-1])
+        return CandidateSequence(chunk.start, actions, chunk.words)
 
     # ---------------- equality / hashing ----------------
 
@@ -270,6 +304,16 @@ class CandidateSequence(list[Action]):
         if hasattr(action, "get_name"):
             return action.get_name()
         return str(action)
+
+
+def lexical_action_to_hypothesis(action: LexicalAction) -> LexicalHypothesis:
+    """Wrap *action* as a lexical hypothesis so a revising word can store its current action."""
+    from dylan.action.atomic.if_then_else import IfThenElse
+
+    lines = list(getattr(action, "_source_lines", []) or [])
+    if not lines:
+        return LexicalHypothesis(action.word, None, True)
+    return LexicalHypothesis(action.word, IfThenElse.from_lines(lines), True)
 
 
 CandidateSequence.getStart = CandidateSequence.get_start  # type: ignore[attr-defined]

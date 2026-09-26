@@ -84,6 +84,7 @@ class Hypothesiser:
         self.cur_unknown_substring: str = ""
         self.hypotheses: list[CandidateSequence] = []
         self.load_learnt_lexicon = load_learnt_lexicon
+        self.explore_gate: Any | None = None
         if sentence is not None:
             self.load_training_example(sentence, target)  # type: ignore[arg-type]
         self.words: list[Word] = []
@@ -308,17 +309,21 @@ class Hypothesiser:
 
     # ---------------- action application ----------------
 
-    def apply_known_lexical(self) -> None:
-        """Apply seed-lexicon entries for ``top(wordStack)`` (Java ``applyKnownLexical``)."""
+    def apply_known_lexical(self) -> bool:
+        """Apply seed-lexicon entries for ``top(wordStack)`` (Java ``applyKnownLexical``).
+
+        Returns whether at least one entry applied and satisfied the target check.
+        """
         stack = self.state.word_stack
         if not stack:
-            return
+            return False
         top_word = stack[-1].word
         entries = (
             self.seed_lexicon.get(top_word)
             if hasattr(self.seed_lexicon, "get")
             else self.seed_lexicon[top_word]
         )
+        added = False
         for action in entries or []:
             cur = self.state.get_current_tuple()
             t = cur.get_tree()
@@ -332,6 +337,8 @@ class Hypothesiser:
             if not result.subsumes_tree(self.target):  # type: ignore[union-attr]
                 continue
             self.state.add_child(result, action.instantiate(), stack[-1])
+            added = True
+        return added
 
     def apply_non_optional_grammar(self, target: "Tree | TTRRecordType | None") -> None:
         """Apply every non-optional action repeatedly while progress is made (Java ``applyNonOptionalGrammar``)."""

@@ -132,13 +132,15 @@ class WordLearner(Generic[T]):
         self.write_corpus_to_file(self.skipped, "Skipped-Error-Corpus.txt")
 
     def save_model(self, save_path: "str | Path", top_n: int, save_top_n_start: int = 1) -> None:
-        """Save learned lexicon files for ranks ``save_top_n_start..top_n`` (Java ``saveModel``)."""
+        """Save learned lexicon files for ranks ``save_top_n_start..top_n`` and ``hypothesis-base.json``."""
         seed_lex = self.hypothesiser.get_seed_lexicon() if hasattr(self.hypothesiser, "get_seed_lexicon") else None
         for n in range(save_top_n_start, top_n + 1):
             try:
                 self.hb.save_learned_lexicon(Path(save_path), n, seed_lex)
             except TypeError:
                 self.hb.save_learned_lexicon(Path(save_path), n)
+        grammar = getattr(self.hypothesiser, "grammar", None)
+        self.hb.save_json(Path(save_path).parent / "hypothesis-base.json", grammar=grammar)
 
     def evaluate(self, *args: object, **kwargs: object) -> object:
         """Evaluate the learner; subclasses may return richer metrics."""

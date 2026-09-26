@@ -9,7 +9,12 @@ from typing import Iterable
 
 from dylan.formula.ttr_record_type import TTRRecordType
 from dylan.induction.em_learner.candidate_sequence import CandidateSequence
-from dylan.induction.em_learner.common import Word, words_to_string
+from dylan.induction.em_learner.common import Word, as_word, words_to_string
+from dylan.induction.em_learner.explore_gate import (
+    ExploreGate,
+    overlay_positive_core_actions,
+    restore_lexicon_entries,
+)
 from dylan.induction.em_learner.record_type_corpus import RecordTypeCorpus
 from dylan.induction.em_learner.ttr_hypothesiser import TTRHypothesiser
 from dylan.induction.em_learner.word_hypothesis_base import WordHypothesisBase
@@ -34,6 +39,8 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
         hypothesis_base: "WordHypothesisBase | None" = None,
         top_n: int = 3,
         load_learnt_lexicon: bool = False,
+        max_normalized_entropy: float = 0.5,
+        min_word_count: int = 5,
     ) -> None:
         """Construct a TTR word learner.
 
@@ -46,6 +53,10 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
         ``seed_resource_dir=None`` means no seed lexicon directory: an empty
         :class:`~dylan.action.lexicon.Lexicon` is used. To load the packaged
         default bundle instead, pass :attr:`DEFAULT_SEED_RESOURCE_DIR` explicitly.
+
+        A word is parsed instead of hypothesised only when its normalized hypothesis
+        entropy is at most *max_normalized_entropy*, its example count is at least
+        *min_word_count*, and a current lexical action applies on that example.
         """
         super().__init__(
             seed_resource_dir=seed_resource_dir,
@@ -60,6 +71,9 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
             load_learnt_lexicon=load_learnt_lexicon,
             learner_comp_actions_path=learner_comp_actions_path,
         )
+        self.top_n = top_n
+        self.max_normalized_entropy = max_normalized_entropy
+        self.min_word_count = min_word_count
 
     # ---------------- main loop ----------------
 
@@ -75,9 +89,26 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
             return False
         self._begin_example(words_to_string(words))
         start = time.time()
+        gate = ExploreGate(
+            self.hb,
+            max_normalized_entropy=self.max_normalized_entropy,
+            min_word_count=self.min_word_count,
+        )
+        self.hypothesiser.explore_gate = gate
+        saved_entries: dict[str, list | None] = {}
         try:
-            self.hypothesiser.load_training_example(words, target)
-            hyps: list[CandidateSequence] = self.hypothesiser.hypothesise()
+            try:
+                self.hypothesiser.load_training_example(words, target)
+                saved_entries = overlay_positive_core_actions(
+                    self.hypothesiser.seed_lexicon,
+                    self.hb,
+                    words,
+                    self.top_n,
+                )
+                hyps: list[CandidateSequence] = self.hypothesiser.hypothesise()
+            finally:
+                restore_lexicon_entries(self.hypothesiser.seed_lexicon, saved_entries)
+                self.hypothesiser.explore_gate = None
             if not hyps:
                 logger.warning("NO SEQUENCES RECEIVED from hypothesiser; skipping %s", words)
                 self.skipped.append((words, target))
@@ -89,13 +120,23 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
         logger.info("Got %d sequences for %s", len(hyps), target)
         for cs in hyps:
             logger.debug(cs.to_short_string())
-        unknown_words = self.get_unknown_words(words)
+        update_words = gate.words_to_update(words)
+        retain = {word.word() for word in update_words}
+        update_set = set(update_words)
         self.hb.forget_current_dist()
         try:
             for cs in hyps:
-                splits = cs.split()
-                self.hb.add_sequence_tuples(splits)
-            self.hb.update_dists_end_of_example(unknown_words)
+                for split in cs.split(retain):
+                    kept = [
+                        part
+                        for part in split
+                        if part.get_words() and as_word(part.get_words()[0]) in update_set
+                    ]
+                    if kept:
+                        self.hb.add_sequence_tuples([kept])
+            present = [word for word in update_words if word in self.hb.cur_dist]
+            if present:
+                self.hb.update_dists_end_of_example(present)
         except Exception as exc:  # noqa: BLE001
             logger.exception("fatal: problem updating distributions on %s: %s", words, exc)
             raise
@@ -110,9 +151,7 @@ class TTRWordLearner(WordLearner[TTRRecordType]):
         result: set[Word] = set()
         for w in words:
             key = w.word()
-            present = (
-                seed.contains_key(key) if hasattr(seed, "contains_key") else key in seed
-            )
+            present = seed.contains_key(key) if hasattr(seed, "contains_key") else key in seed
             if not present:
                 result.add(w)
         return result

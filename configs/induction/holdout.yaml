@@ -19,6 +19,10 @@ model:
   previous_model: null
   # Number of top lexicon ranks to save / evaluate up to
   top_n: 3
+  # Parse a word only when normalized entropy is at most this value (0 = one hypothesis, 1 = uniform)
+  max_normalized_entropy: 0.5
+  # And the word has been updated on at least this many training examples
+  min_word_count: 5
 
 train:
   # Show EM learning progress bar

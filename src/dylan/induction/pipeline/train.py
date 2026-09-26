@@ -8,8 +8,10 @@ from pathlib import Path
 
 from loguru import logger
 
+from dylan.action.grammar import Grammar
 from dylan.induction.em_learner.record_type_corpus import RecordTypeCorpus
 from dylan.induction.em_learner.ttr_word_learner import TTRWordLearner
+from dylan.induction.em_learner.word_hypothesis_base import WordHypothesisBase
 
 
 def _find_lexicon_file(model_dir: Path, top_n: int) -> Path | None:
@@ -66,6 +68,8 @@ def train_model(
     show_progress: bool = True,
     force_train: bool = False,
     reuse_existing_model: bool = False,
+    max_normalized_entropy: float = 0.5,
+    min_word_count: int = 5,
 ) -> tuple[Path, float]:
     """Train (or reuse) and save ``lexicon-top-N.txt`` under *model_dir*.
 
@@ -76,6 +80,10 @@ def train_model(
 
     Precedence: ``force_train`` always trains/overwrites. ``reuse_existing_model``
     skips EM only when ``force_train`` is false and current-dir lexicons exist.
+
+    When *previous_model* contains ``hypothesis-base.json``, that full distribution
+    is loaded so learning can continue. A lexicon without that file is still used
+    for parsing, and those words are hypothesised because their counts are missing.
     """
     model_dir.mkdir(parents=True, exist_ok=True)
     comp_src = seed_grammar / "computational-actions.txt"
@@ -97,20 +105,34 @@ def train_model(
         )
 
     seed_resource: Path | None = None
+    hypothesis_base: WordHypothesisBase | None = None
     if previous_model is not None:
         seed_resource = prepare_previous_model_seed(
             Path(previous_model),
             top_n=top_n,
             staging_dir=model_dir / "_previous_seed",
         )
+        base_path = Path(previous_model) / "hypothesis-base.json"
+        if base_path.is_file():
+            hypothesis_base = WordHypothesisBase()
+            hypothesis_base.load_json(base_path, grammar=Grammar(seed_grammar))
+            logger.info("Loaded hypothesis base from {}", base_path)
+        elif _find_lexicon_file(Path(previous_model), top_n) is not None:
+            logger.warning(
+                "No hypothesis-base.json in {}; lexicon words have no counts and will be hypothesised",
+                previous_model,
+            )
 
     t0 = time.perf_counter()
     learner = TTRWordLearner(
         seed_resource_dir=seed_resource,
         corpus=train_corpus,
+        hypothesis_base=hypothesis_base,
         learner_comp_actions_path=seed_grammar,
         top_n=top_n,
         load_learnt_lexicon=seed_resource is not None,
+        max_normalized_entropy=max_normalized_entropy,
+        min_word_count=min_word_count,
     )
     learner.learn(show_progress=show_progress)
     learner.save_model(lexicon_prefix, top_n=top_n)

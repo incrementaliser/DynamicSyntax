@@ -31,12 +31,14 @@ class DataConfig:
 
 @dataclass
 class ModelConfig:
-    """Seed grammar and optional previously learned model for continue learning."""
+    """Seed grammar, continue-learning path, and the parse-versus-hypothesise gate."""
 
     seed_grammar: str = "resources/2025-seed-grammar"
     use_previous_model: bool = False
     previous_model: str | None = None
     top_n: int = 3
+    max_normalized_entropy: float = 0.5
+    min_word_count: int = 5
 
 
 @dataclass
