@@ -75,6 +75,7 @@ def _pair_pipe_fields(s: str) -> list[str]:
     """Split *s* on `` | `` and keep two fields on each line.
 
     A pipe inside a field (``es|p2``) is not a separator. Fields are never broken.
+    When a line continues, the break ``|`` stays at the end of that line.
     """
     text = s.strip()
     if not text or text == "—":
@@ -82,7 +83,13 @@ def _pair_pipe_fields(s: str) -> list[str]:
     parts = [part.strip() for part in text.split(_FIELD_SEP) if part.strip()]
     if not parts:
         return ["—"]
-    return [_FIELD_SEP.join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+    lines: list[str] = []
+    for index in range(0, len(parts), 2):
+        chunk = _FIELD_SEP.join(parts[index : index + 2])
+        if index + 2 < len(parts):
+            chunk = f"{chunk} |"
+        lines.append(chunk)
+    return lines
 
 
 def _record_span(formula: str) -> tuple[int, int] | None:
@@ -128,8 +135,17 @@ def _split_record_fields(body: str) -> list[str]:
 
 
 def _pair_record_fields(fields: list[str]) -> list[str]:
-    """Join record fields two per line with a spaced `` | ``."""
-    return [_FIELD_SEP.join(fields[index : index + 2]) for index in range(0, len(fields), 2)]
+    """Join record fields two per line with a spaced `` | ``.
+
+    The ``|`` that continues onto the next line stays at the end of the previous line.
+    """
+    lines: list[str] = []
+    for index in range(0, len(fields), 2):
+        chunk = _FIELD_SEP.join(fields[index : index + 2])
+        if index + 2 < len(fields):
+            chunk = f"{chunk} |"
+        lines.append(chunk)
+    return lines
 
 
 def _wrap_one_formula(formula: str) -> list[str]:

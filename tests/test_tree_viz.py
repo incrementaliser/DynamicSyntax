@@ -127,10 +127,10 @@ def test_rt_edges_run_between_parent_and_child_levels() -> None:
 def test_pair_pipe_fields_keeps_two_per_line() -> None:
     """Full canvas labels pack two `` | `` fields per line and do not split a field."""
     assert _pair_pipe_fields("+BE | ?Ex.Fo(META) | Ty(e>t) | ?+eval") == [
-        "+BE | ?Ex.Fo(META)",
+        "+BE | ?Ex.Fo(META) |",
         "Ty(e>t) | ?+eval",
     ]
-    assert _pair_pipe_fields("a | b | c") == ["a | b", "c"]
+    assert _pair_pipe_fields("a | b | c") == ["a | b |", "c"]
     assert _pair_pipe_fields("es|p2==continuous(head)") == ["es|p2==continuous(head)"]
     t = Tree()
     t[t.root_addr] = Node(
@@ -138,8 +138,8 @@ def test_pair_pipe_fields_keeps_two_per_line() -> None:
         [FormulaLabel(OpaqueFormula(name)) for name in ("aa", "bb", "cc", "dd")],
     )
     label = _multiline_node_label(t.root_addr, t, label_density="full")
-    for line in label.split("\n"):
-        assert line.count(" | ") <= 1
+    assert "Fo(aa) | Fo(bb) |" in label.split("\n")
+    assert "Fo(cc) | Fo(dd)" in label.split("\n")
 
 
 _KNOWS_FORMULA = (
@@ -152,7 +152,7 @@ def test_multi_r_formula_keeps_binders_on_one_line() -> None:
     """A formula with two R binders puts those binders above two fields per line."""
     assert _wrap_one_formula(_KNOWS_FORMULA) == [
         "Fo(R1^R2^(R1 ++ (R2 ++ [",
-        "e1==know : es | p3==obj(e1, R1.head) : t",
+        "e1==know : es | p3==obj(e1, R1.head) : t |",
         "p2==subj(e1, R2.head) : t | head==e1 : es",
         "])))",
     ]
@@ -165,7 +165,7 @@ def test_two_field_record_stays_one_line() -> None:
 
 def test_three_field_record_wraps_without_binder_line() -> None:
     """Three record fields wrap two per line, with the short prefix on the first line."""
-    assert _wrap_one_formula("Fo([a|b|c])") == ["Fo([a | b", "c])"]
+    assert _wrap_one_formula("Fo([a|b|c])") == ["Fo([a | b |", "c])"]
 
 
 def test_knows_node_is_taller_and_narrower() -> None:
@@ -177,7 +177,7 @@ def test_knows_node_is_taller_and_narrower() -> None:
     t[addr] = Node(addr, [FormulaLabel(OpaqueFormula(_KNOWS_FORMULA[3:-1]))])
     label = _multiline_node_label(addr, t, label_density="full")
     assert "Fo(R1^R2^(R1 ++ (R2 ++ [" in label.split("\n")
-    assert "e1==know : es | p3==obj(e1, R1.head) : t" in label.split("\n")
+    assert "e1==know : es | p3==obj(e1, R1.head) : t |" in label.split("\n")
     wrapped_w, wrapped_h = _measure_label_box(label, font_size=12.0, max_text_width_px=20000.0)
     raw = f"{addr.address}\n—\n{_KNOWS_FORMULA}"
     raw_w, raw_h = _measure_label_box(raw, font_size=12.0, max_text_width_px=20000.0)
