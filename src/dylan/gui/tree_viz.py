@@ -7,6 +7,7 @@ back to an orthogonal polyline that stays in the empty gap between rows.
 
 from __future__ import annotations
 
+import re
 import textwrap
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -84,6 +85,115 @@ def _pair_pipe_fields(s: str) -> list[str]:
     return [_FIELD_SEP.join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
 
 
+def _record_span(formula: str) -> tuple[int, int] | None:
+    """Return the span of the first ``[...]`` record in *formula*, or ``None``."""
+    open_at = formula.find("[")
+    if open_at < 0:
+        return None
+    depth = 0
+    for index, char in enumerate(formula[open_at:], start=open_at):
+        if char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                return open_at, index
+    return None
+
+
+def _split_record_fields(body: str) -> list[str]:
+    """Split a record body on top-level ``|`` separators, keeping each field whole."""
+    fields: list[str] = []
+    paren = 0
+    bracket = 0
+    start = 0
+    for index, char in enumerate(body):
+        if char == "(":
+            paren += 1
+        elif char == ")":
+            paren = max(0, paren - 1)
+        elif char == "[":
+            bracket += 1
+        elif char == "]":
+            bracket = max(0, bracket - 1)
+        elif char == "|" and paren == 0 and bracket == 0:
+            piece = body[start:index].strip()
+            if piece:
+                fields.append(piece)
+            start = index + 1
+    tail = body[start:].strip()
+    if tail:
+        fields.append(tail)
+    return fields
+
+
+def _pair_record_fields(fields: list[str]) -> list[str]:
+    """Join record fields two per line with a spaced `` | ``."""
+    return [_FIELD_SEP.join(fields[index : index + 2]) for index in range(0, len(fields), 2)]
+
+
+def _wrap_one_formula(formula: str) -> list[str]:
+    """Wrap one formula's record onto canvas lines.
+
+    Two or more ``R^`` / ``R1^`` / ``R2^`` binders keep the prefix through ``[``
+    on its own line, then two fields per line, then the closing brackets.
+    A single binder or a bare record stays on one line when it has only two
+    fields; three or more fields wrap, with the short prefix on the first line.
+    """
+    span = _record_span(formula)
+    if span is None:
+        return [formula]
+    open_at, close_at = span
+    fields = _split_record_fields(formula[open_at + 1 : close_at])
+    if len(fields) < 2:
+        return [formula]
+    prefix = formula[: open_at + 1]
+    suffix = formula[close_at:]
+    pairs = _pair_record_fields(fields)
+    binders = len(re.findall(r"R\d*\^", formula[:open_at]))
+    if binders >= 2:
+        return [prefix, *pairs, suffix]
+    if len(fields) == 2:
+        return [formula]
+    lines = [prefix + pairs[0]]
+    lines.extend(pairs[1:-1])
+    lines.append(pairs[-1] + suffix)
+    return lines
+
+
+def _formula_canvas_lines(formula: str) -> list[str]:
+    """Canvas lines for formula labels, wrapping each record that needs it.
+
+    Labels joined by `` | `` stay paired two per line unless a label itself
+    wraps onto several lines.
+    """
+    text = formula.strip()
+    if not text or text == "—":
+        return ["—"]
+    parts = [part.strip() for part in text.split(_FIELD_SEP) if part.strip()]
+    if not parts:
+        return ["—"]
+    lines: list[str] = []
+    pending: list[str] = []
+
+    def flush() -> None:
+        """Emit paired single-line formula labels gathered so far."""
+        if not pending:
+            return
+        lines.extend(_pair_pipe_fields(_FIELD_SEP.join(pending)))
+        pending.clear()
+
+    for part in parts:
+        wrapped = _wrap_one_formula(part)
+        if wrapped == [part]:
+            pending.append(part)
+            continue
+        flush()
+        lines.extend(wrapped)
+    flush()
+    return lines or ["—"]
+
+
 def _wrapped_pipe_fields(
     s: str,
     pack_width: int,
@@ -139,8 +249,9 @@ def _multiline_node_label(
     """Multi-line label: address, then type and formula at two fields per line.
 
     Compact density truncates each of those three lines. Full density keeps every
-    field, pairing them on `` | `` without breaking inside a field. The address
-    stays on one line.
+    field, pairing type labels on `` | `` without breaking inside a field. A
+    formula record's ``|`` fields are also two per line; two or more ``R^``
+    binders stay on their own line above those fields. The address stays on one line.
     """
     a, t, f = node_address_type_formula_strings(addr, tree[addr])
     addr_line = a.strip() if str(a).strip() else "—"
@@ -154,7 +265,7 @@ def _multiline_node_label(
             ),
         )
     _ = wrap_oversized_fields
-    lines = [addr_line, *_pair_pipe_fields(t), *_pair_pipe_fields(f)]
+    lines = [addr_line, *_pair_pipe_fields(t), *_formula_canvas_lines(f)]
     return "\n".join(lines)
 
 
