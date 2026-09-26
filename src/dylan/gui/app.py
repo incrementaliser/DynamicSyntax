@@ -26,6 +26,7 @@ from dylan.gui.parse_session import (
     ParseSession,
     SessionStatus,
     StatusField,
+    adjacent_interpretation_index,
     format_event_log,
     format_interpretation_readout,
     is_action_log_line,
@@ -512,17 +513,15 @@ def main() -> None:
             _apply_status_field("dag_tuple", status.dag_tuple)
 
         def _sync_interpretation_controls() -> None:
-            """Show ``#interpretations: index / N`` and disable arrows at the ends."""
+            """Show ``#interpretations: index / N`` and enable arrows when they can wrap."""
             interp_readout.value = format_interpretation_readout(
                 session.interpretation_index,
                 session.interpretation_count,
                 capped=session.interpretation_capped,
             )
-            prev_interp_btn.disabled = session.interpretation_index <= 1
-            next_interp_btn.disabled = (
-                session.interpretation_count <= 0
-                or session.interpretation_index >= session.interpretation_count
-            )
+            can_cycle = session.interpretation_count >= 2
+            prev_interp_btn.disabled = not can_cycle
+            next_interp_btn.disabled = not can_cycle
 
         def _log_block_control(block: str) -> ft.Text:
             """Build a selectable log line.
@@ -843,12 +842,26 @@ def main() -> None:
             _refresh_views(None)
 
         def do_prev_interpretation(_: ft.ControlEvent | None = None) -> None:
-            """Move to the previous interpretation."""
-            do_select_interpretation(session.interpretation_index - 1)
+            """Move to the previous interpretation, wrapping from the first to the last."""
+            nxt = adjacent_interpretation_index(
+                session.interpretation_index,
+                session.interpretation_count,
+                -1,
+            )
+            if nxt is None:
+                return
+            do_select_interpretation(nxt)
 
         def do_next_interpretation(_: ft.ControlEvent | None = None) -> None:
-            """Move to the next interpretation."""
-            do_select_interpretation(session.interpretation_index + 1)
+            """Move to the next interpretation, wrapping from the last to the first."""
+            nxt = adjacent_interpretation_index(
+                session.interpretation_index,
+                session.interpretation_count,
+                1,
+            )
+            if nxt is None:
+                return
+            do_select_interpretation(nxt)
 
         async def do_fit(_: ft.ControlEvent | None = None) -> None:
             """Scroll so the middle of the tree at the current Zoom is in the pane."""

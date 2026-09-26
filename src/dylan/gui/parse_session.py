@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 GUI_INFO_HELP_TEXT = (
     "Load grammar by selecting the grammar folder (it must contain lexicon and action files). "
     "Type a sentence, then Parse. "
-    "The arrows beside #interpretations move between readings of that sentence. "
+    "The arrows beside #interpretations move between readings of that sentence, "
+    "wrapping from the last back to the first. "
     "Ctrl+Plus and Ctrl+Minus zoom the tree; Ctrl+0 returns to 100%. "
     "Fit scrolls so the middle is in the pane."
 )
@@ -32,7 +33,7 @@ GUI_INFO_HELP_TEXT = (
 FLET_INFO_HELP_LINES: tuple[str, ...] = (
     "Load grammar by selecting the grammar folder (it must contain lexicon and action files).",
     "Type a sentence, then Parse.",
-    "The arrows beside #interpretations move between readings of that sentence.",
+    "The arrows beside #interpretations move between readings of that sentence, wrapping from the last back to the first.",
     "Ctrl+Plus and Ctrl+Minus zoom the tree; Ctrl+0 returns to 100%.",
     "Fit scrolls so the middle is in the pane.",
     "Reset clears the derivation back to the empty axiom. The grammar stays loaded.",
@@ -114,6 +115,17 @@ def format_event_log(message: str) -> str:
 def format_parse_state_log(msg: str) -> str:
     """Backward-compatible alias for :func:`format_event_log`."""
     return format_event_log(msg)
+
+
+def adjacent_interpretation_index(index: int, count: int, step: int) -> int | None:
+    """Return the 1-based interpretation *step* places from *index*, wrapping around.
+
+    *step* is ``+1`` for next and ``-1`` for previous. Returns ``None`` when
+    fewer than two interpretations exist, so the arrows have nowhere to move.
+    """
+    if count < 2:
+        return None
+    return ((int(index) - 1 + int(step)) % int(count)) + 1
 
 
 def format_interpretation_readout(index: int, count: int, *, capped: bool) -> str:

@@ -39,7 +39,7 @@ Scrolling the DS Tree at the current Zoom so its middle sits in the Viewport. It
 _Avoid_: zoom, shrink-to-fit
 
 **Interpretation**:
-One DAG tuple in the sequence reached by stepping the parser after a sentence, shown as an index in 1 / N.
+One DAG tuple in the sequence reached by stepping the parser after a sentence, shown as an index in 1 / N. The left and right arrows wrap: next on the last returns to the first, and previous on the first returns to the last. They stay disabled when fewer than two interpretations exist.
 _Avoid_: step, hypothesis, reading
 
 **Info**:

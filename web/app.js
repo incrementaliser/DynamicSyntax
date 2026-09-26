@@ -14,7 +14,7 @@
   ];
 
   /** @type {{ pyodide: object | null, apiJson: ((a: string, p: string) => string) | null, interpretationIndex: number }} */
-  const state = { pyodide: null, apiJson: null, interpretationIndex: 0 };
+  const state = { pyodide: null, apiJson: null, interpretationIndex: 0, interpretationCount: 0 };
 
   function metaBasePath() {
     const m = document.querySelector('meta[name="dylan-base-path"]');
@@ -86,11 +86,13 @@
     const count = Number(payload.interpretation_count) || 0;
     const capped = !!payload.interpretation_capped;
     state.interpretationIndex = index;
+    state.interpretationCount = count;
     const el = document.getElementById("interp-readout");
     if (count <= 0) el.textContent = "#interpretations: 0";
     else el.textContent = "#interpretations: " + index + " / " + (capped ? count + "+" : String(count));
-    document.getElementById("btn-interp-prev").disabled = index <= 1;
-    document.getElementById("btn-interp-next").disabled = count <= 0 || index >= count;
+    const canCycle = count >= 2;
+    document.getElementById("btn-interp-prev").disabled = !canCycle;
+    document.getElementById("btn-interp-next").disabled = !canCycle;
   }
 
   function applySessionInfo(info) {
@@ -381,11 +383,19 @@ await micropip.install(${JSON.stringify(wheelUrl)})
         appendLog(String(err));
       }
     }
+    function wrappedInterpretation(step) {
+      const count = state.interpretationCount;
+      const index = state.interpretationIndex;
+      if (count < 2) return null;
+      return ((index - 1 + step) % count + count) % count + 1;
+    }
     document.getElementById("btn-interp-prev").addEventListener("click", () => {
-      if (state.interpretationIndex > 1) selectInterpretation(state.interpretationIndex - 1);
+      const nxt = wrappedInterpretation(-1);
+      if (nxt != null) selectInterpretation(nxt);
     });
     document.getElementById("btn-interp-next").addEventListener("click", () => {
-      selectInterpretation(state.interpretationIndex + 1);
+      const nxt = wrappedInterpretation(1);
+      if (nxt != null) selectInterpretation(nxt);
     });
   }
 

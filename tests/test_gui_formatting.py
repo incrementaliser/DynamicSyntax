@@ -16,6 +16,7 @@ from dylan.gui.parse_session import (
     INTERPRETATION_CAP,
     NO_NEW_WORDS_LOG,
     ParseSession,
+    adjacent_interpretation_index,
     format_action_log_lines,
     format_event_log,
     format_grammar_load_report,
@@ -183,6 +184,19 @@ def test_interpretation_count_caps_at_thirty() -> None:
     assert session.parser.pos == 2  # type: ignore[attr-defined]
     assert session.select_interpretation(3) == (None, None)
     assert session.select_interpretation(9) == (None, None)
+    assert adjacent_interpretation_index(1, 5, -1) == 5
+    assert adjacent_interpretation_index(5, 5, 1) == 1
+    assert adjacent_interpretation_index(1, 1, -1) is None
+    assert adjacent_interpretation_index(1, 0, 1) is None
+    err, log = session.select_interpretation(session.interpretation_count)
+    assert err is None
+    assert session.interpretation_index == 5
+    wrapped = adjacent_interpretation_index(session.interpretation_index, session.interpretation_count, 1)
+    assert wrapped == 1
+    err, log = session.select_interpretation(wrapped)
+    assert err is None
+    assert log == "Interpretation 1 / 5"
+    assert session.interpretation_index == 1
 
 
 def test_format_word_event_parsed_and_failed() -> None:
